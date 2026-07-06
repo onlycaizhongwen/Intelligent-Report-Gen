@@ -1,0 +1,13 @@
+.git
+.omx
+.codex
+**/target
+**/node_modules
+**/dist
+**/__pycache__
+**/.pytest_cache
+**/.npm-cache
+**/*.pyc
+.env
+logs
+uploads

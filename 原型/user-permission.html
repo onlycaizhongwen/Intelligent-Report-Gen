@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>用户权限与协作 - 原型</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f0f2f5; height: 100vh; overflow: hidden; }
+
+    .app { display: flex; height: 100vh; overflow: hidden; }
+    .page-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* 全局左侧菜单 */
+    .global-sidebar { width: 220px; min-width: 220px; background: #fff; border-right: 1px solid #e8e8e8; display: flex; flex-direction: column; flex-shrink: 0; }
+    .global-sidebar .sidebar-logo { padding: 0 16px; height: 52px; display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; color: #1677ff; border-bottom: 1px solid #f0f0f0; }
+    .global-sidebar .sidebar-logo .dot { width: 8px; height: 8px; border-radius: 50%; background: #1677ff; }
+    .global-sidebar .nav-menu { flex: 1; overflow-y: auto; padding: 8px 0; }
+    .nav-group { margin-bottom: 4px; }
+    .nav-group-title { padding: 10px 16px; font-size: 13px; font-weight: 600; color: #333; cursor: pointer; display: flex; align-items: center; justify-content: space-between; user-select: none; }
+    .nav-group-title:hover { background: #f5f5f5; }
+    .nav-group-title .arrow { font-size: 11px; color: #999; transition: transform .2s; }
+    .nav-group.collapsed .arrow { transform: rotate(-90deg); }
+    .nav-group.collapsed .nav-children { display: none; }
+    .nav-item { padding: 9px 16px 9px 32px; font-size: 13px; color: #666; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all .2s; }
+    .nav-item:hover { background: #f5f5f5; color: #1677ff; }
+    .nav-item.active { background: #e6f4ff; color: #1677ff; font-weight: 500; }
+    .sidebar-footer { padding: 12px 16px; border-top: 1px solid #f0f0f0; display: flex; align-items: center; gap: 8px; font-size: 13px; color: #666; }
+
+    /* 顶栏 */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      background: #fff; border-bottom: 1px solid #e8e8e8;
+      padding: 0 20px; height: 52px; flex-shrink: 0;
+    }
+    .topbar .logo { font-size: 16px; font-weight: 700; color: #1677ff; display: flex; align-items: center; gap: 8px; }
+    .topbar .logo .dot { width: 8px; height: 8px; border-radius: 50%; background: #1677ff; }
+    .topbar .tabs { display: flex; gap: 0; }
+    .topbar .tab {
+      padding: 14px 20px; cursor: pointer; font-size: 14px; color: #666;
+      border-bottom: 2px solid transparent; transition: all .2s;
+    }
+    .topbar .tab:hover { color: #1677ff; }
+    .topbar .tab.active { color: #1677ff; border-bottom-color: #1677ff; font-weight: 600; }
+    .topbar .actions { display: flex; gap: 12px; align-items: center; }
+    .btn {
+      padding: 6px 16px; border-radius: 6px; border: 1px solid #d9d9d9;
+      background: #fff; cursor: pointer; font-size: 13px; color: #333; transition: all .2s;
+    }
+    .btn:hover { border-color: #1677ff; color: #1677ff; }
+    .btn-primary { background: #1677ff; color: #fff; border-color: #1677ff; }
+    .btn-primary:hover { background: #4096ff; }
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+    .btn-link { border: none; background: none; color: #1677ff; padding: 0; cursor: pointer; font-size: 12px; }
+    .btn-danger { color: #ff4d4f; border-color: #ff4d4f; }
+    .btn-danger:hover { background: #fff1f0; }
+
+    /* 主体 */
+    .main { display: flex; flex: 1; overflow: hidden; }
+
+    /* 左侧子导航 */
+    .sub-sidebar {
+      width: 200px; min-width: 200px; background: #fff; border-right: 1px solid #e8e8e8;
+      display: flex; flex-direction: column;
+    }
+    .sub-sidebar-header {
+      padding: 16px; font-size: 13px; font-weight: 600; color: #999;
+    }
+    .sub-nav { flex: 1; padding: 0 8px; }
+    .sub-nav-item {
+      display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+      border-radius: 8px; cursor: pointer; font-size: 13px; color: #555;
+      transition: all .15s; margin-bottom: 2px;
+    }
+    .sub-nav-item:hover { background: #f5f5f5; }
+    .sub-nav-item.active { background: #e6f4ff; color: #1677ff; font-weight: 600; }
+
+    /* 右侧内容 */
+    .content { flex: 1; overflow-y: auto; padding: 20px 24px; }
+
+    /* 用户管理 */
+    .section-title { font-size: 16px; font-weight: 700; color: #1a1a1a; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .toolbar {
+      display: flex; align-items: center; gap: 12px; background: #fff;
+      border-radius: 10px; padding: 12px 16px; margin-bottom: 16px;
+      border: 1px solid #f0f0f0; flex-wrap: wrap;
+    }
+    .toolbar .search-box {
+      flex: 1; min-width: 180px; position: relative;
+    }
+    .toolbar .search-box input {
+      width: 100%; border: 1px solid #e8e8e8; border-radius: 6px; padding: 7px 12px 7px 32px;
+      font-size: 13px; outline: none; font-family: inherit;
+    }
+    .toolbar .search-box::before { content: '🔍'; position: absolute; left: 10px; top: 7px; font-size: 13px; }
+    .data-table {
+      background: #fff; border-radius: 10px; border: 1px solid #f0f0f0; overflow: hidden;
+    }
+    .data-table table { width: 100%; border-collapse: collapse; }
+    .data-table th {
+      text-align: left; padding: 10px 14px; font-size: 12px; font-weight: 600;
+      color: #999; background: #fafafa; border-bottom: 1px solid #f0f0f0;
+    }
+    .data-table td {
+      padding: 10px 14px; font-size: 13px; color: #333; border-bottom: 1px solid #fafafa;
+    }
+    .data-table tr:hover td { background: #fafafa; }
+    .role-tag {
+      display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;
+    }
+    .role-admin { background: #fff7e6; color: #d48806; }
+    .role-senior { background: #e6f4ff; color: #1677ff; }
+    .role-analyst { background: #f6ffed; color: #389e0d; }
+    .role-viewer { background: #f5f5f5; color: #999; }
+    .status-active { color: #52c41a; font-size: 11px; }
+    .status-inactive { color: #d9d9d9; font-size: 11px; }
+
+    /* 权限矩阵 */
+    .perm-matrix {
+      background: #fff; border-radius: 10px; border: 1px solid #f0f0f0; overflow: hidden;
+      margin-bottom: 20px;
+    }
+    .perm-matrix table { width: 100%; border-collapse: collapse; }
+    .perm-matrix th, .perm-matrix td {
+      padding: 10px 14px; font-size: 13px; text-align: center; border-bottom: 1px solid #f0f0f0;
+    }
+    .perm-matrix th { background: #fafafa; font-weight: 600; color: #555; font-size: 12px; }
+    .perm-matrix td:first-child { text-align: left; color: #333; font-weight: 500; }
+    .perm-matrix .perm-ok { color: #52c41a; font-weight: 700; }
+    .perm-matrix .perm-no { color: #d9d9d9; }
+
+    /* 报告协作区 */
+    .collab-layout { display: flex; gap: 16px; }
+    .collab-main { flex: 1; background: #fff; border-radius: 10px; border: 1px solid #f0f0f0; padding: 20px; min-height: 440px; }
+    .collab-main h3 { font-size: 16px; color: #1a1a1a; margin-bottom: 12px; }
+    .report-content { font-size: 13px; color: #555; line-height: 1.8; }
+    .report-content .highlight {
+      background: #fff7e6; cursor: pointer; padding: 1px 4px; border-radius: 3px;
+      position: relative; transition: background .2s;
+    }
+    .report-content .highlight:hover { background: #ffd591; }
+    .report-content .highlight .annot-tooltip {
+      display: none; position: absolute; bottom: calc(100% + 8px); left: 50%;
+      transform: translateX(-50%); background: #333; color: #fff; padding: 6px 10px;
+      border-radius: 6px; font-size: 11px; white-space: nowrap; z-index: 10;
+    }
+    .report-content .highlight:hover .annot-tooltip { display: block; }
+
+    .collab-sidebar {
+      width: 320px; min-width: 320px; background: #fff; border-radius: 10px;
+      border: 1px solid #f0f0f0; display: flex; flex-direction: column; overflow: hidden;
+    }
+    .collab-tabs {
+      display: flex; border-bottom: 1px solid #f0f0f0; flex-shrink: 0;
+    }
+    .collab-tab {
+      flex: 1; text-align: center; padding: 10px 0; font-size: 12px; color: #666;
+      cursor: pointer; border-bottom: 2px solid transparent; transition: all .2s;
+    }
+    .collab-tab:hover { color: #1677ff; }
+    .collab-tab.active { color: #1677ff; border-bottom-color: #1677ff; font-weight: 600; }
+    .collab-panel { flex: 1; overflow-y: auto; padding: 12px; display: none; }
+    .collab-panel.active { display: block; }
+
+    /* 分享面板 */
+    .share-option { padding: 10px; border: 1px solid #f0f0f0; border-radius: 8px; margin-bottom: 10px; }
+    .share-option .share-title { font-size: 13px; font-weight: 600; color: #333; margin-bottom: 6px; }
+    .share-option .share-field { display: flex; gap: 8px; margin-top: 8px; }
+    .share-option input {
+      flex: 1; border: 1px solid #e8e8e8; border-radius: 6px; padding: 6px 10px;
+      font-size: 12px; outline: none;
+    }
+    .share-link { background: #f5f5f5; padding: 8px 10px; border-radius: 6px; font-size: 12px; color: #1677ff; word-break: break-all; }
+
+    /* 批注/留言 */
+    .comment-item {
+      padding: 10px; border-radius: 8px; background: #fafafa; margin-bottom: 8px;
+    }
+    .comment-item .comment-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .comment-item .comment-avatar {
+      width: 24px; height: 24px; border-radius: 50%; background: #1677ff;
+      color: #fff; font-size: 11px; display: flex; align-items: center; justify-content: center;
+    }
+    .comment-item .comment-user { font-size: 12px; font-weight: 600; color: #333; }
+    .comment-item .comment-time { font-size: 11px; color: #999; }
+    .comment-item .comment-text { font-size: 12px; color: #555; line-height: 1.5; }
+    .comment-item .comment-meta { font-size: 11px; color: #1677ff; margin-top: 4px; }
+    .comment-resolved { color: #52c41a !important; }
+
+    /* 弹窗 */
+    .overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 100;
+      display: none; align-items: center; justify-content: center;
+    }
+    .overlay.show { display: flex; }
+    .modal {
+      background: #fff; border-radius: 12px; padding: 24px; width: 480px; max-width: 90vw;
+      z-index: 102;
+    }
+    .modal h3 { font-size: 16px; margin-bottom: 16px; color: #1a1a1a; }
+    .modal .form-group { margin-bottom: 14px; }
+    .modal .form-group label { display: block; font-size: 13px; color: #555; margin-bottom: 4px; font-weight: 500; }
+    .modal .form-group input,
+    .modal .form-group select,
+    .modal .form-group textarea {
+      width: 100%; border: 1px solid #e8e8e8; border-radius: 6px; padding: 8px 12px;
+      font-size: 13px; outline: none; font-family: inherit;
+    }
+    .modal .form-group input:focus,
+    .modal .form-group select:focus,
+    .modal .form-group textarea:focus { border-color: #1677ff; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+    .hidden { display: none !important; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #d9d9d9; border-radius: 3px; }
+
+    /* 操作日志 */
+    .log-list { font-size: 13px; }
+    .log-item { padding: 10px 0; border-bottom: 1px solid #f5f5f5; display: flex; align-items: center; gap: 10px; }
+    .log-item .log-icon { font-size: 16px; }
+    .log-item .log-info { flex: 1; }
+    .log-item .log-user { font-weight: 600; color: #333; }
+    .log-item .log-action { color: #555; }
+    .log-item .log-time { color: #999; font-size: 12px; }
+
+    /* 分页 */
+    .pagination { display: flex; justify-content: flex-end; align-items: center; gap: 6px; margin-top: 16px; }
+    .pagination .page-info { font-size: 13px; color: #666; margin-right: 8px; }
+    .pagination .page-btn {
+      min-width: 30px; height: 30px; border: 1px solid #d9d9d9; background: #fff;
+      border-radius: 4px; cursor: pointer; font-size: 13px; color: #333; display: flex;
+      align-items: center; justify-content: center; padding: 0 6px; transition: all .2s;
+    }
+    .pagination .page-btn:hover { border-color: #1677ff; color: #1677ff; }
+    .pagination .page-btn.active { background: #1677ff; border-color: #1677ff; color: #fff; }
+    .pagination .page-btn.disabled { color: #bbb; cursor: not-allowed; border-color: #e8e8e8; }
+    .pagination .page-btn.disabled:hover { border-color: #e8e8e8; color: #bbb; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- 全局左侧菜单 -->
+    <div class="global-sidebar">
+      <div class="sidebar-logo"><span class="dot"></span>智能报告生成溯源系统</div>
+      <div class="nav-menu">
+        <div class="nav-group">
+          <div class="nav-group-title" onclick="toggleGroup(this)">
+            <span>📁 报告中心</span><span class="arrow">▼</span>
+          </div>
+          <div class="nav-children">
+            <div class="nav-item" data-page="report" onclick="navTo(this,'index.html?tab=chat')">💬 智能生成</div>
+            <div class="nav-item" data-page="template" onclick="navTo(this,'index.html?tab=template')">📋 模板填报</div>
+            <div class="nav-item" data-page="myreports" onclick="navTo(this,'my-reports.html')">📄 我的报告</div>
+            <div class="nav-item" data-page="history" onclick="navTo(this,'history.html')">🕐 历史记录</div>
+          </div>
+        </div>
+        <div class="nav-group">
+          <div class="nav-group-title" onclick="toggleGroup(this)">
+            <span>⚙️ 管理中心</span><span class="arrow">▼</span>
+          </div>
+          <div class="nav-children">
+            <div class="nav-item" data-page="knowledge" onclick="navTo(this,'knowledge-base.html')">💡 知识库管理</div>
+            <div class="nav-item" data-page="dashboard" onclick="navTo(this,'dashboard.html')">📊 工作台</div>
+            <div class="nav-item" data-page="engine" onclick="navTo(this,'rule-engine.html')">🔧 规则引擎</div>
+            <div class="nav-item active" data-page="permission" onclick="navTo(this,'user-permission.html')">👥 权限协作</div>
+          </div>
+        </div>
+      </div>
+      <div class="sidebar-footer" style="cursor:pointer;position:relative;" id="roleFooter">
+        <div style="width:28px;height:28px;border-radius:50%;background:#1677ff;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;" id="roleAvatar">管</div>
+        <span id="roleName">管理员</span>
+        <span style="font-size:10px;color:#999;margin-left:auto;">▼</span>
+        <div id="roleDropdown" style="display:none;position:absolute;bottom:50px;left:0;right:0;background:#fff;border:1px solid #e8e8e8;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:50;overflow:hidden;">
+          <div class="role-option" data-role="admin" onclick="event.stopPropagation();switchRole('admin')" style="padding:10px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;background:#e6f4ff;"><span>👑</span> 管理员</div>
+          <div class="role-option" data-role="senior" onclick="event.stopPropagation();switchRole('senior')" style="padding:10px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;"><span>⭐</span> 高级分析师</div>
+          <div class="role-option" data-role="analyst" onclick="event.stopPropagation();switchRole('analyst')" style="padding:10px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;"><span>📊</span> 分析师</div>
+          <div class="role-option" data-role="viewer" onclick="event.stopPropagation();switchRole('viewer')" style="padding:10px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;"><span>👁️</span> 查看者</div>
+        </div>
+      </div>
+    </div>
+    <div class="page-content">
+    <!-- ======== 顶栏 ======== -->
+    <div class="topbar" style="justify-content: flex-end;">
+      <div class="actions">
+        <button class="btn" onclick="alert('通知')">🔔</button>
+        <button class="btn" onclick="alert('设置')">⚙️</button>
+      </div>
+    </div>
+
+    <!-- ======== 主体 ======== -->
+    <div class="main">
+      <!-- 左侧子导航 -->
+      <div class="sub-sidebar">
+        <div class="sub-sidebar-header">管理中心</div>
+        <div class="sub-nav">
+          <div class="sub-nav-item active" onclick="switchPanel('users', this)">👤 用户管理</div>
+          <div class="sub-nav-item" onclick="switchPanel('perms', this)">🔒 权限矩阵</div>
+          <div class="sub-nav-item" onclick="switchPanel('collab', this)">💬 报告协作</div>
+          <div class="sub-nav-item" onclick="switchPanel('log', this)">📋 操作日志</div>
+        </div>
+      </div>
+
+      <!-- 右侧内容 -->
+      <div class="content">
+        <!-- ===== 用户管理 ===== -->
+        <div id="panel-users" class="panel-content">
+          <div class="section-title">👤 用户管理</div>
+          <div class="toolbar">
+            <button class="btn btn-primary" onclick="showUserModal()">+ 添加用户</button>
+            <button class="btn" onclick="alert('批量导入')">📥 批量导入</button>
+            <div class="search-box"><input type="text" placeholder="搜索用户..."></div>
+            <select class="btn btn-sm" style="padding:6px 10px;">
+              <option>全部角色</option><option>管理员</option><option>高级分析师</option><option>分析师</option><option>查看者</option>
+            </select>
+            <span style="font-size:12px;color:#999;">共 <span id="userTotal">0</span> 个用户</span>
+          </div>
+          <div class="data-table">
+            <table>
+              <thead>
+                <tr><th>用户名</th><th>姓名</th><th>角色</th><th>部门</th><th>状态</th><th>最近活跃</th><th>操作</th></tr>
+              </thead>
+              <tbody id="userTableBody"></tbody>
+            </table>
+          </div>
+          <div class="pagination" id="userPagination"></div>
+        </div>
+
+        <!-- ===== 权限矩阵 ===== -->
+        <div id="panel-perms" class="panel-content hidden">
+          <div class="section-title">🔒 角色权限矩阵</div>
+          <div class="perm-matrix">
+            <table>
+              <thead>
+                <tr><th style="text-align:left;">权限项</th><th>管理员</th><th>高级分析师</th><th>分析师</th><th>查看者</th></tr>
+              </thead>
+              <tbody id="permTable">
+              </tbody>
+            </table>
+          </div>
+          <div style="font-size:12px;color:#999;margin-top:8px;">✅ = 允许 · ✕ = 禁止 · 点击角色表头可查看该角色详情</div>
+        </div>
+
+        <!-- ===== 报告协作 ===== -->
+        <div id="panel-collab" class="panel-content hidden">
+          <div class="section-title">💬 报告协作 — 「Q3华东区销售分析报告」</div>
+          <div class="collab-layout">
+            <!-- 报告正文 -->
+            <div class="collab-main">
+              <h3>📄 Q3华东区销售分析报告</h3>
+              <div class="report-content" id="reportText">
+                <p><strong>一、概述</strong></p>
+                <p>2026年Q3华东区整体销售表现强劲，实现营收<span class="highlight" onclick="addAnnotation(this)">1.2亿元<span class="annot-tooltip">点击添加批注</span></span>，同比增长15.3%。</p>
+                <p><strong>二、区域分析</strong></p>
+                <p>上海区域贡献最大，达到<span class="highlight" onclick="addAnnotation(this)">6800万元<span class="annot-tooltip">点击添加批注</span></span>。杭州区域贡献3800万元，同比增长22.1%。南京区域贡献1400万元，略有下降3.2%。</p>
+                <p><strong>三、客户结构</strong></p>
+                <p>大客户贡献占比<span class="highlight" onclick="addAnnotation(this)">62.3%<span class="annot-tooltip">点击添加批注</span></span>，新客户贡献占比17.8%。</p>
+                <p><strong>四、展望与建议</strong></p>
+                <p>建议加大杭州区域投入，预计Q4可实现30%以上增长。同时关注南京区域的客户维护策略。</p>
+              </div>
+            </div>
+            <!-- 协作面板 -->
+            <div class="collab-sidebar">
+              <div class="collab-tabs">
+                <div class="collab-tab active" onclick="switchCollabTab('share',this)">🔗 分享</div>
+                <div class="collab-tab" onclick="switchCollabTab('comment',this)">💬 批注(3)</div>
+                <div class="collab-tab" onclick="switchCollabTab('history',this)">📜 版本</div>
+                <div class="collab-tab" onclick="switchCollabTab('task',this)">📋 任务</div>
+              </div>
+              <!-- 分享 -->
+              <div class="collab-panel active" id="collab-share">
+                <div class="share-option">
+                  <div class="share-title">🔗 链接分享</div>
+                  <div class="share-link">https://report.example.com/s/abc123def456</div>
+                  <div class="share-field">
+                    <input type="password" placeholder="可选：设置访问密码">
+                    <button class="btn btn-sm">生成</button>
+                  </div>
+                  <div class="share-field" style="margin-top:6px;">
+                    <input type="date" value="2026-07-11" style="flex:1;">
+                    <span style="font-size:12px;color:#999;line-height:32px;">有效期至</span>
+                  </div>
+                </div>
+                <div class="share-option">
+                  <div class="share-title">👥 用户分享</div>
+                  <div style="font-size:12px;color:#999;">已分享给：</div>
+                  <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;">
+                    <span style="background:#e6f4ff;color:#1677ff;padding:2px 8px;border-radius:10px;font-size:11px;">李四</span>
+                    <span style="background:#e6f4ff;color:#1677ff;padding:2px 8px;border-radius:10px;font-size:11px;">王五</span>
+                    <span style="background:#f5f5f5;color:#999;padding:2px 8px;border-radius:10px;font-size:11px;cursor:pointer;" onclick="alert('选择用户分享')">+ 添加</span>
+                  </div>
+                </div>
+              </div>
+              <!-- 批注 -->
+              <div class="collab-panel" id="collab-comment">
+                <div class="comment-item">
+                  <div class="comment-header">
+                    <div class="comment-avatar">张</div>
+                    <span class="comment-user">张三</span>
+                    <span class="comment-time">10:30</span>
+                  </div>
+                  <div class="comment-text">"建议补充分区域对比数据"</div>
+                  <div class="comment-meta comment-resolved">↳ @李四 已更新 ✓</div>
+                </div>
+                <div class="comment-item">
+                  <div class="comment-header">
+                    <div class="comment-avatar" style="background:#9254de;">王</div>
+                    <span class="comment-user">王五</span>
+                    <span class="comment-time">09:50</span>
+                  </div>
+                  <div class="comment-text">"营收数据与财报库不一致，请核实"</div>
+                  <div class="comment-meta">↳ 状态: 待处理 — @张三</div>
+                </div>
+                <div class="comment-item">
+                  <div class="comment-header">
+                    <div class="comment-avatar" style="background:#52c41a;">赵</div>
+                    <span class="comment-user">赵六</span>
+                    <span class="comment-time">09:15</span>
+                  </div>
+                  <div class="comment-text">"南京区域下降原因需要补充说明"</div>
+                  <div class="comment-meta">↳ 状态: 待处理</div>
+                </div>
+              </div>
+              <!-- 版本 -->
+              <div class="collab-panel" id="collab-history">
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                  <div style="padding:8px 10px;border-radius:6px;background:#e6f4ff;cursor:pointer;" onclick="alert('回滚到 V3')">
+                    <strong>V3</strong> <span style="font-size:11px;color:#999;">2026-06-11 10:30</span><br>
+                    <span style="font-size:12px;color:#555;">补充分区域对比数据</span>
+                  </div>
+                  <div style="padding:8px 10px;border-radius:6px;border:1px solid #f0f0f0;cursor:pointer;">
+                    <strong>V2</strong> <span style="font-size:11px;color:#999;">2026-06-10 16:00</span><br>
+                    <span style="font-size:12px;color:#555;">修正营收数据，对齐财报库</span>
+                  </div>
+                  <div style="padding:8px 10px;border-radius:6px;border:1px solid #f0f0f0;cursor:pointer;">
+                    <strong>V1</strong> <span style="font-size:11px;color:#999;">2026-06-10 14:20</span><br>
+                    <span style="font-size:12px;color:#555;">初始生成</span>
+                  </div>
+                </div>
+                <div style="margin-top:12px;text-align:center;">
+                  <button class="btn-link" onclick="alert('查看所有版本')">查看全部 3 个版本 →</button>
+                </div>
+              </div>
+              <!-- 任务 -->
+              <div class="collab-panel" id="collab-task">
+                <div class="comment-item">
+                  <div class="comment-header"><span class="comment-user">📋 核实营收数据</span></div>
+                  <div class="comment-text">指派给：@张三 · 截止：06-12<br>来源：王五的批注</div>
+                  <div class="comment-meta">状态: 进行中</div>
+                </div>
+                <div class="comment-item">
+                  <div class="comment-header"><span class="comment-user">📋 补充南京区域分析</span></div>
+                  <div class="comment-text">指派给：@李四 · 截止：06-13<br>来源：赵六的批注</div>
+                  <div class="comment-meta">状态: 待开始</div>
+                </div>
+                <button class="btn btn-sm" style="width:100%;margin-top:8px;" onclick="alert('+ 新建任务')">+ 新建任务</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== 操作日志 ===== -->
+        <div id="panel-log" class="panel-content hidden">
+          <div class="section-title">📋 操作日志</div>
+          <div class="toolbar">
+            <div class="search-box"><input type="text" placeholder="搜索操作记录..."></div>
+            <select class="btn btn-sm" style="padding:6px 10px;"><option>全部操作</option><option>创建</option><option>编辑</option><option>删除</option><option>分享</option><option>导出</option></select>
+            <span style="font-size:12px;color:#999;">近30天 · 共 <span id="logTotal">0</span> 条</span>
+          </div>
+          <div class="data-table">
+            <div class="log-list" style="padding:0 14px;" id="logList"></div>
+          </div>
+          <div class="pagination" id="logPagination"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 用户添加/编辑弹窗 -->
+  <div class="overlay" id="userModal">
+    <div class="modal" id="userModalContent" onclick="event.stopPropagation()">
+      <h3>👤 添加用户</h3>
+      <div class="form-group"><label>用户名 <span style="color:#ff4d4f;">*</span></label><input type="text" placeholder="登录用户名"></div>
+      <div class="form-group"><label>姓名 <span style="color:#ff4d4f;">*</span></label><input type="text" placeholder="真实姓名"></div>
+      <div class="form-group"><label>角色</label><select><option>管理员</option><option>高级分析师</option><option>分析师</option><option>查看者</option></select></div>
+      <div class="form-group"><label>部门</label><input type="text" placeholder="所属部门"></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeUserModal()">取消</button>
+        <button class="btn btn-primary" onclick="closeUserModal();alert('✅ 用户已添加！')">✅ 确认</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 批注输入弹窗 -->
+  <div class="overlay" id="annotModal">
+    <div class="modal" id="annotModalContent" onclick="event.stopPropagation()" style="width:520px;">
+      <h3>💬 添加批注</h3>
+      <div class="form-group">
+        <label>选中文本</label>
+        <div style="background:#fff7e6;padding:8px 12px;border-radius:6px;font-size:13px;color:#d48806;" id="annotSelectedText"></div>
+      </div>
+      <div class="form-group">
+        <label>批注内容 <span style="color:#ff4d4f;">*</span></label>
+        <textarea rows="4" id="annotInput" placeholder="请输入批注内容..." style="width:100%;border:1px solid #e8e8e8;border-radius:6px;padding:8px 12px;font-size:13px;outline:none;font-family:inherit;resize:vertical;"></textarea>
+      </div>
+      <div class="form-group">
+        <label>指派给</label>
+        <select id="annotAssignee" style="width:100%;border:1px solid #e8e8e8;border-radius:6px;padding:8px 12px;font-size:13px;outline:none;">
+          <option value="">不指派</option>
+          <option>张三</option><option>李四</option><option>王五</option><option>赵六</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeAnnotModal()">取消</button>
+        <button class="btn btn-primary" onclick="submitAnnotation()">💬 提交批注</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 子导航切换
+    function switchPanel(panel, el) {
+      document.querySelectorAll('.sub-nav-item').forEach(n => n.classList.remove('active'));
+      el.classList.add('active');
+      document.querySelectorAll('.panel-content').forEach(p => p.classList.add('hidden'));
+      document.getElementById('panel-' + panel).classList.remove('hidden');
+    }
+
+    // 协作面板 Tab 切换
+    function switchCollabTab(tab, el) {
+      document.querySelectorAll('.collab-tab').forEach(t => t.classList.remove('active'));
+      el.classList.add('active');
+      document.querySelectorAll('.collab-panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('collab-' + tab).classList.add('active');
+    }
+
+    // 批注
+    let currentAnnotTarget = null;
+
+    function addAnnotation(el) {
+      currentAnnotTarget = el;
+      const text = el.childNodes[0].textContent.trim();
+      document.getElementById('annotSelectedText').textContent = '「' + text + '」';
+      document.getElementById('annotInput').value = '';
+      document.getElementById('annotAssignee').value = '';
+      document.getElementById('annotModal').classList.add('show');
+    }
+
+    function closeAnnotModal() {
+      document.getElementById('annotModal').classList.remove('show');
+      currentAnnotTarget = null;
+    }
+
+    function submitAnnotation() {
+      const content = document.getElementById('annotInput').value.trim();
+      if (!content) { alert('请输入批注内容'); return; }
+      const assignee = document.getElementById('annotAssignee').value;
+      const now = new Date();
+      const timeStr = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+
+      // 更新高亮文本的tooltip
+      if (currentAnnotTarget) {
+        const tooltip = currentAnnotTarget.querySelector('.annot-tooltip');
+        if (tooltip) {
+          tooltip.textContent = '批注: ' + content;
+        }
+        // 添加批注标记样式
+        currentAnnotTarget.style.background = '#ffd591';
+        currentAnnotTarget.title = '批注: ' + content + (assignee ? ' | @' + assignee : '');
+      }
+
+      // 添加批注到批注列表
+      const commentPanel = document.getElementById('collab-comment');
+      const newComment = document.createElement('div');
+      newComment.className = 'comment-item';
+      newComment.innerHTML = `
+        <div class="comment-header">
+          <div class="comment-avatar" style="background:#1677ff;">我</div>
+          <span class="comment-user">当前用户</span>
+          <span class="comment-time">${timeStr}</span>
+        </div>
+        <div class="comment-text">${content}</div>
+        <div class="comment-meta">↳ 状态: 待处理${assignee ? ' — @' + assignee : ''}</div>
+      `;
+      commentPanel.insertBefore(newComment, commentPanel.firstChild);
+
+      // 更新批注标签计数
+      const badge = document.querySelector('.collab-tab[onclick*="comment"]');
+      const countMatch = badge.textContent.match(/\d+/);
+      if (countMatch) {
+        const newCount = parseInt(countMatch[0]) + 1;
+        badge.textContent = badge.textContent.replace(/\d+/, newCount);
+      }
+
+      closeAnnotModal();
+    }
+
+    // 点击覆盖层关闭批注弹窗
+    document.getElementById('annotModal').addEventListener('click', function(e) {
+      if (e.target === this) closeAnnotModal();
+    });
+
+    // 用户弹窗
+    function showUserModal() {
+      document.getElementById('userModal').classList.add('show');
+    }
+    function closeUserModal() {
+      document.getElementById('userModal').classList.remove('show');
+    }
+
+    // 权限矩阵数据
+    function renderPermMatrix() {
+      const perms = [
+        ['创建报告', true, true, true, false],
+        ['编辑他人报告', true, true, false, false],
+        ['删除报告', true, true, false, false],
+        ['分享报告', true, true, true, false],
+        ['管理知识库', true, true, false, false],
+        ['配置数据源', true, true, false, false],
+        ['配置规则引擎', true, false, false, false],
+        ['管理用户', true, false, false, false],
+        ['查看报告', true, true, true, true],
+        ['评论/批注', true, true, true, true],
+        ['导出报告', true, true, true, true],
+      ];
+      const el = document.getElementById('permTable');
+      el.innerHTML = perms.map(p => `
+        <tr>
+          <td>${p[0]}</td>
+          <td><span class="perm-ok">${p[1] ? '✅' : '✕'}</span></td>
+          <td><span class="perm-ok">${p[2] ? '✅' : '✕'}</span></td>
+          <td><span class="perm-ok">${p[3] ? '✅' : '✕'}</span></td>
+          <td><span class="${p[4] ? 'perm-ok' : 'perm-no'}">${p[4] ? '✅' : '✕'}</span></td>
+        </tr>
+      `).join('');
+    }
+
+    // 操作日志
+    const logData = [
+      { icon: '📄', user: '张三', action: '创建报告「Q3华东区销售分析报告」', time: '2026-06-11 10:30' },
+      { icon: '✏️', user: '张三', action: '编辑报告「Q3华东区销售分析报告」→ V3', time: '2026-06-11 10:30' },
+      { icon: '📤', user: '李四', action: '上传文件「客户满意度.xlsx」到调研库', time: '2026-06-11 10:15' },
+      { icon: '🔗', user: '王五', action: '分享报告「竞品分析报告」给市场部', time: '2026-06-11 09:50' },
+      { icon: '💾', user: '系统', action: '数据源「ERP销售」自动同步完成', time: '2026-06-11 09:45' },
+      { icon: '🆕', user: '王五', action: '创建知识库「竞品分析库」', time: '2026-06-11 09:20' },
+      { icon: '💬', user: '赵六', action: '批注报告「华东区对比分析」', time: '2026-06-10 17:00' },
+      { icon: '📥', user: '张三', action: '导出报告为 PDF「华南区趋势分析」', time: '2026-06-10 16:30' },
+      { icon: '⚙️', user: '张三', action: '修改规则引擎「销售考核规则」', time: '2026-06-10 15:00' },
+      { icon: '🗑', user: '李四', action: '删除知识条目「过期数据汇总」', time: '2026-06-10 14:20' },
+      { icon: '🔒', user: '张三', action: '修改用户权限「赵六」→ 查看者', time: '2026-06-09 11:30' },
+      { icon: '📊', user: '系统', action: '自动生成「月度经营分析报表」', time: '2026-06-09 09:00' },
+      { icon: '📋', user: '李四', action: '创建模板「项目复盘报告模板」', time: '2026-06-08 16:00' },
+      { icon: '💡', user: '王五', action: '添加知识条目「行业增长率基准」', time: '2026-06-08 14:20' },
+      { icon: '✉️', user: '张三', action: '发送报告邮件给华东区管理层', time: '2026-06-08 10:00' },
+    ];
+
+    let logPageSize = 5;
+    let logCurrentPage = 1;
+
+    function renderLogList() {
+      const el = document.getElementById('logList');
+      const totalPages = Math.ceil(logData.length / logPageSize);
+      if (logCurrentPage > totalPages) logCurrentPage = totalPages;
+      const start = (logCurrentPage - 1) * logPageSize;
+      const pageData = logData.slice(start, start + logPageSize);
+      document.getElementById('logTotal').textContent = logData.length;
+
+      el.innerHTML = pageData.map(l => `
+        <div class="log-item">
+          <span class="log-icon">${l.icon}</span>
+          <div class="log-info"><span class="log-user">${l.user}</span> <span class="log-action">${l.action}</span></div>
+          <div class="log-time">${l.time}</div>
+        </div>
+      `).join('');
+      renderLogPagination();
+    }
+
+    function renderLogPagination() {
+      const totalPages = Math.ceil(logData.length / logPageSize);
+      const pager = document.getElementById('logPagination');
+      let html = `<span class="page-info">第 ${logCurrentPage} / ${totalPages} 页</span>`;
+      html += `<button class="page-btn ${logCurrentPage === 1 ? 'disabled' : ''}" onclick="goLogPage(${logCurrentPage - 1})">上一页</button>`;
+      for (let i = 1; i <= totalPages; i++) {
+        html += `<button class="page-btn ${i === logCurrentPage ? 'active' : ''}" onclick="goLogPage(${i})">${i}</button>`;
+      }
+      html += `<button class="page-btn ${logCurrentPage === totalPages ? 'disabled' : ''}" onclick="goLogPage(${logCurrentPage + 1})">下一页</button>`;
+      pager.innerHTML = html;
+    }
+
+    function goLogPage(page) {
+      const totalPages = Math.ceil(logData.length / logPageSize);
+      if (page < 1 || page > totalPages) return;
+      logCurrentPage = page;
+      renderLogList();
+    }
+
+    // ===== 用户管理分页 =====
+    const userData = [
+      { id: 'zhangsan', name: '张三', role: 'admin', roleText: '管理员', dept: '技术部', active: true, lastActive: '2026-06-11 10:30' },
+      { id: 'lisi', name: '李四', role: 'senior', roleText: '高级分析师', dept: '业务分析部', active: true, lastActive: '2026-06-11 10:15' },
+      { id: 'wangwu', name: '王五', role: 'analyst', roleText: '分析师', dept: '市场部', active: true, lastActive: '2026-06-11 09:45' },
+      { id: 'zhaoliu', name: '赵六', role: 'viewer', roleText: '查看者', dept: '财务部', active: true, lastActive: '2026-06-10 17:00' },
+      { id: 'sunqi', name: '孙七', role: 'analyst', roleText: '分析师', dept: '战略规划部', active: false, lastActive: '2026-05-20 14:00' },
+      { id: 'zhouba', name: '周八', role: 'senior', roleText: '高级分析师', dept: '产品部', active: true, lastActive: '2026-06-10 16:30' },
+      { id: 'wujiu', name: '吴九', role: 'analyst', roleText: '分析师', dept: '运营部', active: true, lastActive: '2026-06-10 11:00' },
+      { id: 'zhengshi', name: '郑十', role: 'viewer', roleText: '查看者', dept: '人力资源部', active: true, lastActive: '2026-06-09 15:00' },
+      { id: 'liu11', name: '刘十一', role: 'analyst', roleText: '分析师', dept: '市场部', active: true, lastActive: '2026-06-09 10:30' },
+      { id: 'chen12', name: '陈十二', role: 'viewer', roleText: '查看者', dept: '法务部', active: false, lastActive: '2026-05-15 09:00' },
+    ];
+
+    let userPageSize = 5;
+    let userCurrentPage = 1;
+    const roleClassMap = { admin: 'role-admin', senior: 'role-senior', analyst: 'role-analyst', viewer: 'role-viewer' };
+
+    function renderUserTable() {
+      const tbody = document.getElementById('userTableBody');
+      const totalPages = Math.ceil(userData.length / userPageSize);
+      if (userCurrentPage > totalPages) userCurrentPage = totalPages;
+      const start = (userCurrentPage - 1) * userPageSize;
+      const pageData = userData.slice(start, start + userPageSize);
+      document.getElementById('userTotal').textContent = userData.length;
+
+      tbody.innerHTML = pageData.map(u => `
+        <tr>
+          <td>${u.id}</td><td><strong>${u.name}</strong></td>
+          <td><span class="role-tag ${roleClassMap[u.role]}">${u.roleText}</span></td>
+          <td>${u.dept}</td>
+          <td><span class="${u.active ? 'status-active' : 'status-inactive'}">● ${u.active ? '正常' : '已禁用'}</span></td>
+          <td>${u.lastActive}</td>
+          <td>
+            <button class="btn-link" onclick="showUserModal()">编辑</button>
+            <button class="btn-link" style="${u.active ? 'color:#ff4d4f;' : 'color:#52c41a;'}margin-left:8px;">${u.active ? '禁用' : '启用'}</button>
+          </td>
+        </tr>
+      `).join('');
+      renderUserPagination();
+    }
+
+    function renderUserPagination() {
+      const totalPages = Math.ceil(userData.length / userPageSize);
+      const pager = document.getElementById('userPagination');
+      let html = `<span class="page-info">第 ${userCurrentPage} / ${totalPages} 页</span>`;
+      html += `<button class="page-btn ${userCurrentPage === 1 ? 'disabled' : ''}" onclick="goUserPage(${userCurrentPage - 1})">上一页</button>`;
+      const maxShow = 5;
+      let sp = Math.max(1, userCurrentPage - Math.floor(maxShow / 2));
+      let ep = Math.min(totalPages, sp + maxShow - 1);
+      if (ep - sp < maxShow - 1) sp = Math.max(1, ep - maxShow + 1);
+      for (let i = sp; i <= ep; i++) {
+        html += `<button class="page-btn ${i === userCurrentPage ? 'active' : ''}" onclick="goUserPage(${i})">${i}</button>`;
+      }
+      html += `<button class="page-btn ${userCurrentPage === totalPages ? 'disabled' : ''}" onclick="goUserPage(${userCurrentPage + 1})">下一页</button>`;
+      pager.innerHTML = html;
+    }
+
+    function goUserPage(page) {
+      const totalPages = Math.ceil(userData.length / userPageSize);
+      if (page < 1 || page > totalPages) return;
+      userCurrentPage = page;
+      renderUserTable();
+    }
+
+    // 顶栏切换
+    function switchTo(module) {
+      if (module === 'report') window.location.href = 'index.html';
+      else if (module === 'knowledge') window.location.href = 'knowledge-base.html';
+      else if (module === 'dashboard') window.location.href = 'dashboard.html';
+      else if (module === 'engine') window.location.href = 'rule-engine.html';
+    }
+
+    // ==================== 跨页面角色管理 ====================
+    const roleConfig = {
+      admin:   { name: '管理员', avatar: '管', color: '#1677ff', bg: '#e6f4ff' },
+      senior:  { name: '高级分析师', avatar: '高', color: '#1677ff', bg: '#e6f4ff' },
+      analyst: { name: '分析师', avatar: '分', color: '#52c41a', bg: '#f6ffed' },
+      viewer:  { name: '查看者', avatar: '查', color: '#999', bg: '#f5f5f5' }
+    };
+
+    // 初始化角色
+    function initRole() {
+      let role = localStorage.getItem('currentRole') || 'admin';
+      applyRole(role);
+    }
+
+    function applyRole(role) {
+      const cfg = roleConfig[role];
+      if (!cfg) return;
+      localStorage.setItem('currentRole', role);
+      document.getElementById('roleName').textContent = cfg.name;
+      document.getElementById('roleAvatar').textContent = cfg.avatar;
+      document.getElementById('roleAvatar').style.background = cfg.color;
+      // 高亮下拉选中项
+      document.querySelectorAll('.role-option').forEach(o => {
+        o.style.background = o.dataset.role === role ? cfg.bg : '';
+      });
+    }
+
+    function switchRole(role) {
+      applyRole(role);
+      document.getElementById('roleDropdown').style.display = 'none';
+      // 刷新当前页面数据以反映新角色权限
+      // 实际项目中会重新获取数据，原型中更新显示即可
+    }
+
+    // 角色下拉开关
+    document.getElementById('roleFooter').addEventListener('click', function(e) {
+      const dd = document.getElementById('roleDropdown');
+      dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+      e.stopPropagation();
+    });
+    document.addEventListener('click', function() {
+      document.getElementById('roleDropdown').style.display = 'none';
+    });
+
+    // 初始化
+    initRole();
+    renderPermMatrix();
+    renderLogList();
+    renderUserTable();
+    // ==================== 侧边栏交互 ====================
+    function toggleGroup(el) { el.parentElement.classList.toggle('collapsed'); }
+    function navTo(el, url) { window.location.href = url; }
+    (function() {
+      const params = new URLSearchParams(location.search);
+      const tab = params.get('tab');
+      document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+      const path = location.pathname;
+      let current = 'report';
+      if (path.includes('index.html') && tab === 'template') current = 'template';
+      else if (path.includes('knowledge-base.html')) current = 'knowledge';
+      else if (path.includes('dashboard.html')) current = 'dashboard';
+      else if (path.includes('rule-engine.html')) current = 'engine';
+      else if (path.includes('user-permission.html')) current = 'permission';
+      const activeItem = document.querySelector('.nav-item[data-page="' + current + '"]');
+      if (activeItem) activeItem.classList.add('active');
+    })();
+  </script>
+</div>
+</body>
+</html>

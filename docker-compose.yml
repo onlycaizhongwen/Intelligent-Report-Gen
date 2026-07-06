@@ -1,0 +1,428 @@
+name: intelligent-report-system
+
+services:
+  java-report-core:
+    build:
+      context: .
+      dockerfile: Dockerfile.java
+      args:
+        MAVEN_IMAGE: ${MAVEN_IMAGE:-docker.m.daocloud.io/library/maven:3.9.9-eclipse-temurin-17}
+        JAVA_RUNTIME_IMAGE: ${JAVA_RUNTIME_IMAGE:-docker.m.daocloud.io/library/eclipse-temurin:17-jre-alpine}
+        MAVEN_REPO_URL: ${MAVEN_REPO_URL:-https://maven.aliyun.com/repository/public}
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: 8080
+      DB_JDBC_URL: jdbc:postgresql://postgres:5432/intelligent_report
+      DB_USERNAME: report
+      DB_PASSWORD: ${DB_PASSWORD:-report123}
+      ROCKETMQ_ENDPOINT: rocketmq-namesrv:9876
+      MINIO_ENDPOINT: http://minio:9000
+      AI_SERVICE_URL: http://python-ai-service:8000
+      JWT_SECRET: ${JWT_SECRET:-local-dev-secret-change-me-32-bytes-minimum}
+      RULE_WEBHOOK_REPLAY_WORKER_ENABLED: ${RULE_WEBHOOK_REPLAY_WORKER_ENABLED:-false}
+      RULE_WEBHOOK_REPLAY_WORKER_DELAY_MS: ${RULE_WEBHOOK_REPLAY_WORKER_DELAY_MS:-2000}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rocketmq-broker:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      python-ai-service:
+        condition: service_healthy
+    ports:
+      - "${JAVA_HTTP_PORT:-18080}:8080"
+    mem_limit: 1536m
+    networks: [report-net]
+
+  python-ai-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+      args:
+        PYTHON_IMAGE: ${PYTHON_IMAGE:-docker.m.daocloud.io/library/python:3.12-slim}
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}
+        PIP_TRUSTED_HOST: ${PIP_TRUSTED_HOST:-pypi.tuna.tsinghua.edu.cn}
+    environment:
+      JWT_SECRET: ${JWT_SECRET:-local-dev-secret-change-me-32-bytes-minimum}
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai-compatible}
+      LLM_MODEL: ${LLM_MODEL:-gpt}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-30}
+      DATABASE_URL: postgresql://report:${DB_PASSWORD:-report123}@postgres:5432/intelligent_report
+      MILVUS_HOST: milvus
+      MILVUS_PORT: 19530
+      OPENSEARCH_URL: http://opensearch:9200
+      ROCKETMQ_ENDPOINT: rocketmq-namesrv:9876
+      MINIO_ENDPOINT: http://minio:9000
+      JAVA_SERVICE_URL: http://java-report-core:8080
+      JAVA_SERVICE_TOKEN: ${JAVA_SERVICE_TOKEN:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      milvus:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+      rocketmq-broker:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    ports:
+      - "${PYTHON_HTTP_PORT:-18081}:8000"
+    mem_limit: 768m
+    networks: [report-net]
+
+  document-parse-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+      args:
+        PYTHON_IMAGE: ${PYTHON_IMAGE:-docker.m.daocloud.io/library/python:3.12-slim}
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}
+        PIP_TRUSTED_HOST: ${PIP_TRUSTED_HOST:-pypi.tuna.tsinghua.edu.cn}
+    entrypoint: ["python", "-m", "app.document_processing.worker_main"]
+    environment:
+      DOCUMENT_PARSE_WORKER_PROVIDER: rocketmq
+      ROCKETMQ_ENDPOINT: rocketmq-namesrv:9876
+      ROCKETMQ_DOCUMENT_TOPIC: ${ROCKETMQ_DOCUMENT_TOPIC:-document_parse_requested}
+      ROCKETMQ_DOCUMENT_CONSUMER_GROUP: python-ai-document-parse-consumer
+      DATABASE_URL: postgresql://report:${DB_PASSWORD:-report123}@postgres:5432/intelligent_report
+      MILVUS_HOST: milvus
+      MILVUS_PORT: 19530
+      OPENSEARCH_URL: http://opensearch:9200
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_BUCKET: ${MINIO_BUCKET:-report-artifacts}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+      rocketmq-broker:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    mem_limit: 512m
+    networks: [report-net]
+
+  report-generation-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+      args:
+        PYTHON_IMAGE: ${PYTHON_IMAGE:-docker.m.daocloud.io/library/python:3.12-slim}
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}
+        PIP_TRUSTED_HOST: ${PIP_TRUSTED_HOST:-pypi.tuna.tsinghua.edu.cn}
+    entrypoint: ["python", "-m", "app.report_generation.worker_main"]
+    environment:
+      REPORT_GENERATION_WORKER_PROVIDER: rocketmq
+      ROCKETMQ_ENDPOINT: rocketmq-namesrv:9876
+      ROCKETMQ_REPORT_GENERATION_TOPIC: ${ROCKETMQ_REPORT_GENERATION_TOPIC:-report_generation_outline_confirmed}
+      ROCKETMQ_REPORT_GENERATION_CONSUMER_GROUP: python-ai-report-generation-consumer
+      JWT_SECRET: ${JWT_SECRET:-local-dev-secret-change-me-32-bytes-minimum}
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai-compatible}
+      LLM_MODEL: ${LLM_MODEL:-gpt}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-30}
+      DATABASE_URL: postgresql://report:${DB_PASSWORD:-report123}@postgres:5432/intelligent_report
+      MILVUS_HOST: milvus
+      MILVUS_PORT: 19530
+      OPENSEARCH_URL: http://opensearch:9200
+      JAVA_SERVICE_URL: http://java-report-core:8080
+      JAVA_SERVICE_TOKEN: ${JAVA_SERVICE_TOKEN:-}
+    depends_on:
+      java-report-core:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      milvus:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+      rocketmq-broker:
+        condition: service_healthy
+    mem_limit: 512m
+    networks: [report-net]
+
+  knowledge-index-cleanup-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+      args:
+        PYTHON_IMAGE: ${PYTHON_IMAGE:-docker.m.daocloud.io/library/python:3.12-slim}
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}
+        PIP_TRUSTED_HOST: ${PIP_TRUSTED_HOST:-pypi.tuna.tsinghua.edu.cn}
+    entrypoint: ["python", "-m", "app.document_processing.cleanup_worker_main"]
+    environment:
+      KNOWLEDGE_CLEANUP_WORKER_PROVIDER: rocketmq
+      ROCKETMQ_ENDPOINT: rocketmq-namesrv:9876
+      ROCKETMQ_KNOWLEDGE_ITEM_DELETED_TOPIC: ${ROCKETMQ_KNOWLEDGE_ITEM_DELETED_TOPIC:-knowledge_item_deleted}
+      ROCKETMQ_KNOWLEDGE_CLEANUP_CONSUMER_GROUP: python-ai-knowledge-cleanup-consumer
+      DATABASE_URL: postgresql://report:${DB_PASSWORD:-report123}@postgres:5432/intelligent_report
+      MILVUS_HOST: milvus
+      MILVUS_PORT: 19530
+      OPENSEARCH_URL: http://opensearch:9200
+    depends_on:
+      postgres:
+        condition: service_healthy
+      milvus:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+      rocketmq-broker:
+        condition: service_healthy
+    mem_limit: 512m
+    networks: [report-net]
+
+  knowledge-item-index-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+      args:
+        PYTHON_IMAGE: ${PYTHON_IMAGE:-docker.m.daocloud.io/library/python:3.12-slim}
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}
+        PIP_TRUSTED_HOST: ${PIP_TRUSTED_HOST:-pypi.tuna.tsinghua.edu.cn}
+    entrypoint: ["python", "-m", "app.document_processing.item_index_worker_main"]
+    environment:
+      KNOWLEDGE_INDEX_WORKER_PROVIDER: rocketmq
+      ROCKETMQ_ENDPOINT: rocketmq-namesrv:9876
+      ROCKETMQ_KNOWLEDGE_ITEM_INDEX_REQUESTED_TOPIC: ${ROCKETMQ_KNOWLEDGE_ITEM_INDEX_REQUESTED_TOPIC:-knowledge_item_index_requested}
+      ROCKETMQ_KNOWLEDGE_INDEX_CONSUMER_GROUP: python-ai-knowledge-index-consumer
+      DATABASE_URL: postgresql://report:${DB_PASSWORD:-report123}@postgres:5432/intelligent_report
+      MILVUS_HOST: milvus
+      MILVUS_PORT: 19530
+      OPENSEARCH_URL: http://opensearch:9200
+    depends_on:
+      postgres:
+        condition: service_healthy
+      milvus:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+      rocketmq-broker:
+        condition: service_healthy
+    mem_limit: 512m
+    networks: [report-net]
+
+  web-console:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-docker.m.daocloud.io/library/node:20.19.5-alpine}
+        NGINX_IMAGE: ${NGINX_IMAGE:-docker.m.daocloud.io/library/nginx:1.27.3-alpine}
+    environment:
+      VITE_API_BASE_URL: /api/v1
+    depends_on:
+      higress:
+        condition: service_started
+    ports:
+      - "${WEB_HTTP_PORT:-13000}:80"
+    mem_limit: 256m
+    networks: [report-net]
+
+  higress:
+    image: higress-registry.cn-hangzhou.cr.aliyuncs.com/higress/gateway:v2.0.6
+    environment:
+      JAVA_SERVICE_URL: http://java-report-core:8080
+      AI_SERVICE_URL: http://python-ai-service:8000
+      ENABLE_AI_GATEWAY: "true"
+      ENABLE_PROMPT_SECURITY: "true"
+      ENABLE_TOKEN_RATE_LIMIT: "true"
+    depends_on:
+      java-report-core:
+        condition: service_healthy
+      python-ai-service:
+        condition: service_healthy
+    ports:
+      - "${GATEWAY_HTTP_PORT:-18000}:80"
+      - "${GATEWAY_HTTPS_PORT:-18443}:443"
+      - "${GATEWAY_METRICS_PORT:-15020}:15020"
+    mem_limit: 768m
+    networks: [report-net]
+
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:16-alpine}
+    environment:
+      POSTGRES_DB: intelligent_report
+      POSTGRES_USER: report
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-report123}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U report -d intelligent_report"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "${POSTGRES_PORT:-15432}:5432"
+    mem_limit: 512m
+    networks: [report-net]
+
+  redis:
+    image: ${REDIS_IMAGE:-redis:7.2-alpine}
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "${REDIS_PORT:-16379}:6379"
+    mem_limit: 256m
+    networks: [report-net]
+
+  mysql:
+    image: ${MYSQL_IMAGE:-docker.m.daocloud.io/library/mysql:8.4}
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-erp_source}
+      MYSQL_USER: ${MYSQL_USER:-erp}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-erp123}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u$${MYSQL_USER} -p$${MYSQL_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "${MYSQL_PORT:-13306}:3306"
+    mem_limit: 512m
+    networks: [report-net]
+
+  rocketmq-namesrv:
+    image: ${ROCKETMQ_IMAGE:-docker.m.daocloud.io/apache/rocketmq:4.9.7}
+    command: sh mqnamesrv
+    environment:
+      JAVA_OPT_EXT: -server -Xms192m -Xmx192m -Xmn96m
+    healthcheck:
+      test: ["CMD-SHELL", "ps -ef | grep -v grep | grep NamesrvStartup >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    ports:
+      - "${ROCKETMQ_NAMESRV_PORT:-19876}:9876"
+    mem_limit: 512m
+    networks: [report-net]
+
+  rocketmq-broker:
+    image: ${ROCKETMQ_IMAGE:-docker.m.daocloud.io/apache/rocketmq:4.9.7}
+    environment:
+      JAVA_OPT_EXT: -server -Xms256m -Xmx256m -Xmn128m
+    command:
+      - sh
+      - -c
+      - |
+        cat > /tmp/broker.conf <<'EOF'
+        brokerClusterName=DefaultCluster
+        brokerName=broker-a
+        brokerId=0
+        brokerIP1=rocketmq-broker
+        namesrvAddr=rocketmq-namesrv:9876
+        autoCreateTopicEnable=true
+        autoCreateSubscriptionGroup=true
+        listenPort=10911
+        EOF
+        sh mqbroker -c /tmp/broker.conf
+    depends_on:
+      rocketmq-namesrv:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "ps -ef | grep -v grep | grep BrokerStartup >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    ports:
+      - "${ROCKETMQ_BROKER_PORT:-10911}:10911"
+      - "${ROCKETMQ_BROKER_FAST_PORT:-10909}:10909"
+    mem_limit: 1024m
+    networks: [report-net]
+
+  minio:
+    image: ${MINIO_IMAGE:-docker.m.daocloud.io/minio/minio:RELEASE.2025-04-22T22-12-26Z}
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "${MINIO_API_PORT:-19000}:9000"
+      - "${MINIO_CONSOLE_PORT:-19001}:9001"
+    mem_limit: 512m
+    networks: [report-net]
+
+  opensearch:
+    image: ${OPENSEARCH_IMAGE:-docker.m.daocloud.io/opensearchproject/opensearch:2.18.0}
+    environment:
+      discovery.type: single-node
+      plugins.security.disabled: "true"
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${OPENSEARCH_INITIAL_ADMIN_PASSWORD:-localDevAdmin123!}
+      OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200 >/dev/null"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+    ports:
+      - "${OPENSEARCH_PORT:-19200}:9200"
+    mem_limit: 1024m
+    networks: [report-net]
+
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.17
+    command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls http://0.0.0.0:2379
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    mem_limit: 256m
+    networks: [report-net]
+
+  milvus:
+    image: ${MILVUS_IMAGE:-docker.m.daocloud.io/milvusdb/milvus:v2.5.4}
+    command: ["milvus", "run", "standalone"]
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
+    depends_on:
+      etcd:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9091/healthz"]
+      interval: 20s
+      timeout: 10s
+      retries: 12
+    ports:
+      - "${MILVUS_PORT:-19530}:19530"
+      - "${MILVUS_HEALTH_PORT:-19091}:9091"
+    mem_limit: 2048m
+    networks: [report-net]
+
+volumes:
+  postgres_data:
+  redis_data:
+  mysql_data:
+  minio_data:
+  opensearch_data:
+
+networks:
+  report-net:
+    driver: bridge

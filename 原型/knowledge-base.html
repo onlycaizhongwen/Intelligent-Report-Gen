@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>知识库管理 - 原型</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f0f2f5; height: 100vh; overflow: hidden; }
+
+    .app { display: flex; height: 100vh; overflow: hidden; }
+    .page-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* 全局左侧菜单 */
+    .global-sidebar { width: 220px; min-width: 220px; background: #fff; border-right: 1px solid #e8e8e8; display: flex; flex-direction: column; flex-shrink: 0; }
+    .global-sidebar .sidebar-logo { padding: 0 16px; height: 52px; display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; color: #1677ff; border-bottom: 1px solid #f0f0f0; }
+    .global-sidebar .sidebar-logo .dot { width: 8px; height: 8px; border-radius: 50%; background: #1677ff; }
+    .global-sidebar .nav-menu { flex: 1; overflow-y: auto; padding: 8px 0; }
+    .nav-group { margin-bottom: 4px; }
+    .nav-group-title { padding: 10px 16px; font-size: 13px; font-weight: 600; color: #333; cursor: pointer; display: flex; align-items: center; justify-content: space-between; user-select: none; }
+    .nav-group-title:hover { background: #f5f5f5; }
+    .nav-group-title .arrow { font-size: 11px; color: #999; transition: transform .2s; }
+    .nav-group.collapsed .arrow { transform: rotate(-90deg); }
+    .nav-group.collapsed .nav-children { display: none; }
+    .nav-item { padding: 9px 16px 9px 32px; font-size: 13px; color: #666; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all .2s; }
+    .nav-item:hover { background: #f5f5f5; color: #1677ff; }
+    .nav-item.active { background: #e6f4ff; color: #1677ff; font-weight: 500; }
+    .sidebar-footer { padding: 12px 16px; border-top: 1px solid #f0f0f0; display: flex; align-items: center; gap: 8px; font-size: 13px; color: #666; }
+
+    /* ===== 顶栏 ===== */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      background: #fff; border-bottom: 1px solid #e8e8e8;
+      padding: 0 20px; height: 52px; flex-shrink: 0;
+    }
+    .topbar .logo { font-size: 16px; font-weight: 700; color: #1677ff; display: flex; align-items: center; gap: 8px; }
+    .topbar .logo .dot { width: 8px; height: 8px; border-radius: 50%; background: #1677ff; }
+    .topbar .tabs { display: flex; gap: 0; }
+    .topbar .tab {
+      padding: 14px 20px; cursor: pointer; font-size: 14px; color: #666;
+      border-bottom: 2px solid transparent; transition: all .2s;
+    }
+    .topbar .tab:hover { color: #1677ff; }
+    .topbar .tab.active { color: #1677ff; border-bottom-color: #1677ff; font-weight: 600; }
+    .topbar .actions { display: flex; gap: 12px; align-items: center; }
+    .btn {
+      padding: 6px 16px; border-radius: 6px; border: 1px solid #d9d9d9;
+      background: #fff; cursor: pointer; font-size: 13px; color: #333; transition: all .2s;
+    }
+    .btn:hover { border-color: #1677ff; color: #1677ff; }
+    .btn-primary { background: #1677ff; color: #fff; border-color: #1677ff; }
+    .btn-primary:hover { background: #4096ff; }
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+    .btn-link { border: none; background: none; color: #1677ff; padding: 0; cursor: pointer; font-size: 12px; }
+    .btn-link:hover { color: #4096ff; }
+    .btn-danger { color: #ff4d4f; border-color: #ff4d4f; }
+    .btn-danger:hover { background: #fff1f0; color: #ff4d4f; border-color: #ff4d4f; }
+    .role-badge {
+      padding: 2px 10px; border-radius: 10px; font-size: 11px; cursor: pointer; font-weight: 500;
+    }
+    .role-admin { background: #fff7e6; color: #d48806; }
+    .role-user { background: #e6f4ff; color: #1677ff; }
+
+    /* ===== 主体 ===== */
+    .main { display: flex; flex: 1; overflow: hidden; }
+
+    /* ---- 左侧知识库导航 ---- */
+    .sidebar {
+      width: 220px; min-width: 220px; background: #fff; border-right: 1px solid #e8e8e8;
+      display: flex; flex-direction: column;
+    }
+    .sidebar-header {
+      padding: 16px 16px 12px; font-size: 13px; font-weight: 600; color: #999;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .kb-list { flex: 1; overflow-y: auto; padding: 0 8px 8px; }
+    .kb-item {
+      display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+      border-radius: 8px; cursor: pointer; font-size: 13px; color: #555; transition: all .15s;
+      margin-bottom: 2px;
+    }
+    .kb-item:hover { background: #f5f5f5; }
+    .kb-item.active { background: #e6f4ff; color: #1677ff; font-weight: 600; }
+    .kb-item .kb-icon { font-size: 16px; }
+    .kb-item .kb-count { margin-left: auto; font-size: 11px; color: #999; background: #f0f0f0; padding: 1px 6px; border-radius: 8px; }
+    .kb-item.active .kb-count { background: #bae0ff; color: #1677ff; }
+    .sidebar-footer { padding: 8px; border-top: 1px solid #f0f0f0; }
+    .kb-item.new-kb { color: #999; border: 1px dashed #d9d9d9; margin: 8px; }
+    .kb-item.new-kb:hover { border-color: #1677ff; color: #1677ff; background: #fafafa; }
+
+    /* ---- 右侧内容区 ---- */
+    .content { flex: 1; overflow-y: auto; padding: 20px 24px; }
+
+    /* 概览卡片 */
+    .stats-row { display: flex; gap: 16px; margin-bottom: 20px; }
+    .stat-card {
+      flex: 1; background: #fff; border-radius: 10px; padding: 18px 20px;
+      border: 1px solid #f0f0f0; display: flex; flex-direction: column; gap: 6px;
+    }
+    .stat-card .stat-label { font-size: 12px; color: #999; }
+    .stat-card .stat-value { font-size: 24px; font-weight: 700; color: #1a1a1a; }
+    .stat-card .stat-sub { font-size: 11px; color: #52c41a; }
+    .stat-card .stat-sub.warn { color: #faad14; }
+
+    /* 操作栏 */
+    .toolbar {
+      display: flex; align-items: center; gap: 12px; background: #fff;
+      border-radius: 10px; padding: 12px 16px; margin-bottom: 16px;
+      border: 1px solid #f0f0f0; flex-wrap: wrap;
+    }
+    .toolbar .search-box {
+      flex: 1; min-width: 200px; position: relative;
+    }
+    .toolbar .search-box input {
+      width: 100%; border: 1px solid #e8e8e8; border-radius: 6px; padding: 7px 12px 7px 32px;
+      font-size: 13px; outline: none; font-family: inherit;
+    }
+    .toolbar .search-box input:focus { border-color: #1677ff; }
+    .toolbar .search-box::before { content: '🔍'; position: absolute; left: 10px; top: 7px; font-size: 13px; }
+    .toolbar .btn { padding: 7px 14px; white-space: nowrap; }
+    .toolbar .divider-v { width: 1px; height: 20px; background: #e8e8e8; }
+
+    /* 数据表格 */
+    .data-table {
+      background: #fff; border-radius: 10px; border: 1px solid #f0f0f0; overflow: hidden;
+    }
+    .data-table table { width: 100%; border-collapse: collapse; }
+    .data-table th {
+      text-align: left; padding: 12px 16px; font-size: 12px; font-weight: 600;
+      color: #999; background: #fafafa; border-bottom: 1px solid #f0f0f0;
+    }
+    .data-table td {
+      padding: 11px 16px; font-size: 13px; color: #333; border-bottom: 1px solid #fafafa;
+    }
+    .data-table tr:hover td { background: #fafafa; }
+    .data-table .tag {
+      display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px;
+    }
+    .tag-doc { background: #e6f4ff; color: #1677ff; }
+    .tag-rule { background: #fff7e6; color: #d48806; }
+    .tag-data { background: #f6ffed; color: #389e0d; }
+    .status-ok { color: #52c41a; }
+    .status-warn { color: #faad14; }
+    .status-err { color: #ff4d4f; }
+
+    /* ===== 遮罩 + 抽屉面板 ===== */
+    .overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 100;
+      display: none; align-items: center; justify-content: center;
+    }
+    .overlay.show { display: flex; }
+
+    /* 抽屉（右侧滑入） */
+    .drawer {
+      position: fixed; top: 0; right: 0; bottom: 0; width: 540px; max-width: 90vw;
+      background: #fff; z-index: 101; box-shadow: -4px 0 20px rgba(0,0,0,.12);
+      transform: translateX(100%); transition: transform .3s ease;
+      display: flex; flex-direction: column;
+    }
+    .drawer.open { transform: translateX(0); }
+    .drawer-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 24px; border-bottom: 1px solid #f0f0f0; flex-shrink: 0;
+    }
+    .drawer-header h3 { font-size: 16px; color: #1a1a1a; }
+    .drawer-close {
+      width: 32px; height: 32px; border-radius: 50%; border: none; background: #f5f5f5;
+      cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;
+    }
+    .drawer-close:hover { background: #e8e8e8; }
+    .drawer-body { flex: 1; overflow-y: auto; padding: 24px; }
+    .drawer-footer {
+      display: flex; gap: 12px; justify-content: flex-end;
+      padding: 16px 24px; border-top: 1px solid #f0f0f0; flex-shrink: 0;
+    }
+    .drawer .form-group { margin-bottom: 18px; }
+    .drawer .form-group label { display: block; font-size: 13px; color: #555; margin-bottom: 6px; font-weight: 500; }
+    .drawer .form-group input,
+    .drawer .form-group select,
+    .drawer .form-group textarea {
+      width: 100%; border: 1px solid #e8e8e8; border-radius: 6px; padding: 8px 12px;
+      font-size: 13px; outline: none; font-family: inherit;
+    }
+    .drawer .form-group input:focus,
+    .drawer .form-group select:focus,
+    .drawer .form-group textarea:focus { border-color: #1677ff; }
+
+    /* 弹窗（确认框/新建库） */
+    .modal {
+      background: #fff; border-radius: 12px; padding: 24px; width: 440px; max-width: 90vw;
+      z-index: 102; display: none;
+    }
+    .modal.show { display: block; }
+    .modal h3 { font-size: 16px; margin-bottom: 16px; color: #1a1a1a; }
+    .modal .form-group { margin-bottom: 16px; }
+    .modal .form-group label { display: block; font-size: 13px; color: #555; margin-bottom: 6px; font-weight: 500; }
+    .modal .form-group input,
+    .modal .form-group select,
+    .modal .form-group textarea {
+      width: 100%; border: 1px solid #e8e8e8; border-radius: 6px; padding: 8px 12px;
+      font-size: 13px; outline: none; font-family: inherit;
+    }
+    .modal .form-group input:focus,
+    .modal .form-group select:focus,
+    .modal .form-group textarea:focus { border-color: #1677ff; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+    /* 上传区域 */
+    .upload-zone {
+      border: 2px dashed #d9d9d9; border-radius: 10px;
+      padding: 40px 20px; text-align: center; cursor: pointer; transition: all .2s;
+    }
+    .upload-zone:hover { border-color: #1677ff; background: #fafafa; }
+    .upload-zone .upload-icon { font-size: 36px; margin-bottom: 8px; }
+    .upload-zone .upload-text { font-size: 14px; color: #555; }
+    .upload-zone .upload-hint { font-size: 12px; color: #999; margin-top: 4px; }
+
+    /* 通用 */
+    .hidden { display: none !important; }
+    .flex-center { display: flex; align-items: center; justify-content: center; }
+    .text-muted { color: #999; font-size: 12px; }
+    .mt-8 { margin-top: 8px; }
+    .mt-16 { margin-top: 16px; }
+    .gap-8 { gap: 8px; }
+
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #d9d9d9; border-radius: 3px; }
+
+    /* 数据源配置面板 */
+    .config-section {
+      background: #fafafa; border-radius: 8px; padding: 16px; margin-bottom: 16px;
+    }
+    .config-section h4 { font-size: 13px; color: #555; margin-bottom: 12px; }
+
+    /* 分页 */
+    .pagination {
+      display: flex; align-items: center; justify-content: flex-end;
+      gap: 4px; padding: 12px 16px; background: #fff; border-top: 1px solid #f0f0f0;
+    }
+    .pagination .page-info { font-size: 13px; color: #666; margin-right: 8px; }
+    .pagination .page-btn {
+      min-width: 28px; height: 28px; padding: 0 6px; border: 1px solid #d9d9d9;
+      background: #fff; border-radius: 4px; cursor: pointer; font-size: 12px;
+      color: #333; display: flex; align-items: center; justify-content: center;
+      transition: all .2s;
+    }
+    .pagination .page-btn:hover:not(:disabled) { border-color: #1677ff; color: #1677ff; }
+    .pagination .page-btn:disabled { cursor: not-allowed; color: #bfbfbf; border-color: #e8e8e8; background: #fafafa; }
+    .pagination .page-btn.active { background: #1677ff; color: #fff; border-color: #1677ff; }
+    .pagination .page-size {
+      margin-left: 12px; font-size: 13px; color: #666; display: flex; align-items: center; gap: 6px;
+    }
+    .pagination .page-size select {
+      border: 1px solid #d9d9d9; border-radius: 4px; padding: 3px 6px;
+      font-size: 12px; outline: none; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- 全局左侧菜单 -->
+    <div class="global-sidebar">
+      <div class="sidebar-logo"><span class="dot"></span>智能报告生成溯源系统</div>
+      <div class="nav-menu">
+        <div class="nav-group">
+          <div class="nav-group-title" onclick="toggleGroup(this)">
+            <span>📁 报告中心</span><span class="arrow">▼</span>
+          </div>
+          <div class="nav-children">
+            <div class="nav-item" data-page="report" onclick="navTo(this,'index.html?tab=chat')">💬 智能生成</div>
+            <div class="nav-item" data-page="template" onclick="navTo(this,'index.html?tab=template')">📋 模板填报</div>
+            <div class="nav-item" data-page="myreports" onclick="navTo(this,'my-reports.html')">📄 我的报告</div>
+            <div class="nav-item" data-page="history" onclick="navTo(this,'history.html')">🕐 历史记录</div>
+          </div>
+        </div>
+        <div class="nav-group">
+          <div class="nav-group-title" onclick="toggleGroup(this)">
+            <span>⚙️ 管理中心</span><span class="arrow">▼</span>
+          </div>
+          <div class="nav-children">
+            <div class="nav-item active" data-page="knowledge" onclick="navTo(this,'knowledge-base.html')">💡 知识库管理</div>
+            <div class="nav-item" data-page="dashboard" onclick="navTo(this,'dashboard.html')">📊 工作台</div>
+            <div class="nav-item" data-page="engine" onclick="navTo(this,'rule-engine.html')">🔧 规则引擎</div>
+            <div class="nav-item" data-page="permission" onclick="navTo(this,'user-permission.html')">👥 权限协作</div>
+          </div>
+        </div>
+      </div>
+      <div class="sidebar-footer" style="cursor:pointer;position:relative;" id="roleFooter">
+        <div style="width:28px;height:28px;border-radius:50%;background:#1677ff;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;" id="roleAvatar">管</div>
+        <span id="roleName">管理员</span>
+        <span style="font-size:10px;color:#999;margin-left:auto;">▼</span>
+        <div id="roleDropdown" style="display:none;position:absolute;bottom:50px;left:0;right:0;background:#fff;border:1px solid #e8e8e8;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:50;overflow:hidden;">
+          <div class="role-option" data-role="admin" onclick="event.stopPropagation();switchRole('admin')" style="padding:10px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;background:#e6f4ff;"><span>👑</span> 管理员</div>
+          <div class="role-option" data-role="senior" onclick="event.stopPropagation();switchRole('senior')" style="padding:10px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;"><span>⭐</span> 高级分析师</div>
+          <div class="role-option" data-role="analyst" onclick="event.stopPropagation();switchRole('analyst')" style="padding:10px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;"><span>📊</span> 分析师</div>
+          <div class="role-option" data-role="viewer" onclick="event.stopPropagation();switchRole('viewer')" style="padding:10px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;"><span>👁️</span> 查看者</div>
+        </div>
+      </div>
+    </div>
+    <div class="page-content">
+    <!-- ======== 顶栏 ======== -->
+    <div class="topbar" style="justify-content: flex-end;">
+      <div class="actions">
+        <span class="role-badge role-admin" id="roleBadge" onclick="toggleRole()">👤 管理员</span>
+        <button class="btn" onclick="alert('通知')">🔔</button>
+        <button class="btn" onclick="alert('设置')">⚙️</button>
+      </div>
+    </div>
+
+    <!-- ======== 主体 ======== -->
+    <div class="main">
+      <!-- 左侧知识库导航 -->
+      <div class="sidebar">
+        <div class="sidebar-header">知识库</div>
+        <div class="kb-list" id="kbList">
+          <div class="kb-item active" data-kb="rule" onclick="selectKB('rule', this)">
+            <span class="kb-icon">📊</span> 规则库
+            <span class="kb-count">1,280</span>
+          </div>
+          <div class="kb-item" data-kb="finance" onclick="selectKB('finance', this)">
+            <span class="kb-icon">📈</span> 财报库
+            <span class="kb-count">3,420</span>
+          </div>
+          <div class="kb-item" data-kb="law" onclick="selectKB('law', this)">
+            <span class="kb-icon">📋</span> 法规库
+            <span class="kb-count">892</span>
+          </div>
+          <div class="kb-item" data-kb="survey" onclick="selectKB('survey', this)">
+            <span class="kb-icon">📝</span> 调研库
+            <span class="kb-count">567</span>
+          </div>
+          <div class="kb-item custom-kb hidden" data-kb="custom" onclick="selectKB('custom', this)">
+            <span class="kb-icon">📦</span> <span id="customKbName">自定义库</span>
+            <span class="kb-count" id="customKbCount">0</span>
+          </div>
+        </div>
+        <div class="sidebar-footer" id="sidebarFooter">
+          <div class="kb-item new-kb" onclick="showNewKBModal()">+ 新建知识库</div>
+        </div>
+      </div>
+
+      <!-- 右侧内容区 -->
+      <div class="content" id="contentArea">
+        <!-- 概览卡片 -->
+        <div class="stats-row" id="statsRow">
+          <div class="stat-card">
+            <span class="stat-label">知识条目总数</span>
+            <span class="stat-value" id="statTotal">1,280</span>
+            <span class="stat-sub">▲ +3.2% 本月新增</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">索引状态</span>
+            <span class="stat-value" style="color:#52c41a;">100%</span>
+            <span class="stat-sub">全部已索引</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">数据源同步</span>
+            <span class="stat-value" style="color:#52c41a;">正常</span>
+            <span class="stat-sub">最近同步 10分钟前</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">引用命中率</span>
+            <span class="stat-value">87.3%</span>
+            <span class="stat-sub">近30天</span>
+          </div>
+        </div>
+
+        <!-- 操作栏 -->
+        <div class="toolbar">
+          <button class="btn btn-primary" onclick="openDrawer('manual')">+ 手动录入</button>
+          <button class="btn" onclick="openDrawer('upload')">📤 上传文件</button>
+          <button class="btn" onclick="openDrawer('datasource')">🔗 数据源对接</button>
+          <span class="divider-v"></span>
+          <div class="search-box">
+            <input type="text" placeholder="搜索知识条目..." oninput="filterTable(this.value)">
+          </div>
+          <select class="btn btn-sm" onchange="filterByType(this.value)" style="padding:6px 10px;">
+            <option value="all">全部类型</option>
+            <option value="doc">文档</option>
+            <option value="rule">规则</option>
+            <option value="data">数据</option>
+          </select>
+        </div>
+
+        <!-- 数据表格 -->
+        <div class="data-table" id="dataTable">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:40px;">☐</th>
+                <th>知识条目</th>
+                <th style="width:80px;">类型</th>
+                <th style="width:100px;">所属库</th>
+                <th style="width:120px;">更新时间</th>
+                <th style="width:60px;">状态</th>
+                <th style="width:120px;">操作</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody">
+            </tbody>
+          </table>
+          <div class="pagination" id="pagination"></div>
+        </div>
+        <div class="text-muted flex-center mt-16" id="tableEmpty" style="display:none;">暂无匹配数据</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== 遮罩 ======== -->
+  <div class="overlay" id="overlay" onclick="closeAll()"></div>
+
+  <!-- ======== 右侧抽屉：手动录入 ======== -->
+  <div class="drawer" id="drawerManual">
+    <div class="drawer-header">
+      <h3>✏️ 手动录入知识条目</h3>
+      <button class="drawer-close" onclick="closeAll()">✕</button>
+    </div>
+    <div class="drawer-body">
+      <div class="form-group">
+        <label>标题 <span style="color:#ff4d4f;">*</span></label>
+        <input type="text" id="formTitle" placeholder="知识条目标题">
+      </div>
+      <div class="form-group">
+        <label>所属知识库 <span style="color:#ff4d4f;">*</span></label>
+        <select id="formKB">
+          <option value="rule">规则库</option>
+          <option value="finance">财报库</option>
+          <option value="law">法规库</option>
+          <option value="survey">调研库</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>内容类型</label>
+        <select id="formType">
+          <option value="doc">文档</option>
+          <option value="rule">规则</option>
+          <option value="data">数据</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>标签（逗号分隔）</label>
+        <input type="text" id="formTags" placeholder="如：销售, Q3, 华东区">
+      </div>
+      <div class="form-group">
+        <label>内容 <span style="color:#ff4d4f;">*</span></label>
+        <textarea id="formContent" rows="8" placeholder="支持 Markdown 格式..."></textarea>
+      </div>
+    </div>
+    <div class="drawer-footer">
+      <button class="btn" onclick="closeAll()">取消</button>
+      <button class="btn btn-primary" onclick="saveManualEntry()">✅ 录入知识库</button>
+    </div>
+  </div>
+
+  <!-- ======== 右侧抽屉：文件上传 ======== -->
+  <div class="drawer" id="drawerUpload">
+    <div class="drawer-header">
+      <h3>📤 文件上传</h3>
+      <button class="drawer-close" onclick="closeAll()">✕</button>
+    </div>
+    <div class="drawer-body">
+      <div class="upload-zone" id="uploadZone" onclick="simulateUpload()">
+        <div class="upload-icon">📂</div>
+        <div class="upload-text">点击或拖拽文件到此处上传</div>
+        <div class="upload-hint">支持 PDF · Excel · Word · CSV · TXT（单文件 ≤ 50MB）</div>
+      </div>
+      <div id="uploadProgress" class="hidden mt-16">
+        <div style="font-size:13px;color:#555;margin-bottom:6px;">📄 Q3销售数据汇总.xlsx — 正在解析...</div>
+        <div style="height:6px;background:#f0f0f0;border-radius:3px;overflow:hidden;">
+          <div id="progressBar" style="height:100%;background:#1677ff;border-radius:3px;width:0%;transition:width .3s;"></div>
+        </div>
+        <div class="text-muted mt-8" id="progressText">0%</div>
+      </div>
+      <div class="form-group mt-16">
+        <label>目标知识库</label>
+        <select id="uploadKB">
+          <option value="rule">规则库</option>
+          <option value="finance">财报库</option>
+          <option value="law">法规库</option>
+          <option value="survey">调研库</option>
+        </select>
+      </div>
+      <div class="form-group mt-8">
+        <label>标签（逗号分隔）</label>
+        <input type="text" id="uploadTags" placeholder="如：Q3, 销售, 华东区">
+      </div>
+    </div>
+    <div class="drawer-footer">
+      <button class="btn" onclick="closeAll()">取消</button>
+      <button class="btn btn-primary" onclick="confirmUpload()" id="uploadConfirmBtn">✅ 确认入库</button>
+    </div>
+  </div>
+
+  <!-- ======== 右侧抽屉：数据源对接 ======== -->
+  <div class="drawer" id="drawerDatasource">
+    <div class="drawer-header">
+      <h3>🔗 数据源对接配置</h3>
+      <button class="drawer-close" onclick="closeAll()">✕</button>
+    </div>
+    <div class="drawer-body">
+      <div class="form-group">
+        <label>数据源名称 <span style="color:#ff4d4f;">*</span></label>
+        <input type="text" id="dsName" placeholder="如：ERP销售数据源">
+      </div>
+      <div class="form-group">
+        <label>数据源类型</label>
+        <select id="dsType" onchange="toggleDSConfig(this.value)">
+          <option value="database">数据库（MySQL/PostgreSQL）</option>
+          <option value="api">API 接口</option>
+          <option value="schedule">定时拉取</option>
+        </select>
+      </div>
+      <div class="config-section" id="dsConfigDB">
+        <h4>数据库连接配置</h4>
+        <div class="form-group"><label>主机地址</label><input type="text" placeholder="192.168.1.100:3306"></div>
+        <div class="form-group"><label>数据库名</label><input type="text" placeholder="sales_db"></div>
+        <div class="form-group"><label>用户名</label><input type="text" placeholder="root"></div>
+        <div class="form-group"><label>查询语句</label><textarea rows="3" placeholder="SELECT * FROM sales WHERE quarter='Q3'"></textarea></div>
+      </div>
+      <div class="config-section hidden" id="dsConfigAPI">
+        <h4>API 接口配置</h4>
+        <div class="form-group"><label>接口 URL</label><input type="text" placeholder="https://api.example.com/v1/sales"></div>
+        <div class="form-group"><label>认证方式</label><select><option>API Key</option><option>Bearer Token</option><option>Basic Auth</option></select></div>
+        <div class="form-group"><label>请求方法</label><select><option>GET</option><option>POST</option></select></div>
+      </div>
+      <div class="config-section hidden" id="dsConfigSchedule">
+        <h4>同步策略配置</h4>
+        <div class="form-group"><label>同步频率</label><select><option>每 1 小时</option><option>每 6 小时</option><option>每天</option><option>每周</option></select></div>
+        <div class="form-group"><label>数据源 URL</label><input type="text" placeholder="https://..."></div>
+      </div>
+      <div class="form-group">
+        <label>目标知识库</label>
+        <select id="dsKB"><option value="rule">规则库</option><option value="finance">财报库</option><option value="law">法规库</option><option value="survey">调研库</option></select>
+      </div>
+    </div>
+    <div class="drawer-footer">
+      <button class="btn" onclick="closeAll()">取消</button>
+      <button class="btn" onclick="testDSConnection()">🔌 测试连接</button>
+      <button class="btn btn-primary" onclick="saveDS()">✅ 保存数据源</button>
+    </div>
+  </div>
+
+  <!-- ======== 新建知识库弹窗 ======== -->
+  <div class="modal" id="newKBModal">
+    <h3>🆕 新建知识库</h3>
+    <div class="form-group">
+      <label>知识库名称 <span style="color:#ff4d4f;">*</span></label>
+      <input type="text" id="newKbName" placeholder="如：竞品分析库">
+    </div>
+    <div class="form-group">
+      <label>图标</label>
+      <select id="newKbIcon">
+        <option>📦</option><option>📊</option><option>📈</option><option>📋</option>
+        <option>📝</option><option>🔬</option><option>📚</option><option>💡</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>描述</label>
+      <textarea id="newKbDesc" rows="3" placeholder="此知识库的用途说明..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeAll()">取消</button>
+      <button class="btn btn-primary" onclick="createKB()">✅ 创建</button>
+    </div>
+  </div>
+
+  <script>
+    // ============ 模拟数据 ============
+    const kbData = {
+      rule: {
+        name: '规则库', icon: '📊',
+        stats: { total: 1280, indexed: '100%', sync: { status: '正常', time: '10分钟前' }, hitRate: '87.3%' },
+        items: [
+          { title: '华东区销售考核规则 V3.2', type: 'rule', kb: '规则库', time: '2026-06-10 14:30', status: 'ok' },
+          { title: '费用报销审批规则手册', type: 'rule', kb: '规则库', time: '2026-06-09 09:15', status: 'ok' },
+          { title: '客户分级评定标准', type: 'rule', kb: '规则库', time: '2026-06-08 16:42', status: 'warn' },
+          { title: '业绩提成计算规则 Q3版', type: 'rule', kb: '规则库', time: '2026-06-07 11:20', status: 'ok' },
+          { title: '销售目标分解规则', type: 'rule', kb: '规则库', time: '2026-06-06 08:00', status: 'ok' },
+          { title: '渠道归属判定标准', type: 'doc', kb: '规则库', time: '2026-06-05 15:30', status: 'ok' },
+        ]
+      },
+      finance: {
+        name: '财报库', icon: '📈',
+        stats: { total: 3420, indexed: '99.8%', sync: { status: '正常', time: '5分钟前' }, hitRate: '92.1%' },
+        items: [
+          { title: '2024年Q3华东区损益表', type: 'data', kb: '财报库', time: '2026-06-10 10:05', status: 'ok' },
+          { title: '2024年Q2华东区对比分析', type: 'data', kb: '财报库', time: '2026-06-10 09:30', status: 'ok' },
+          { title: '各区域营收占比趋势图', type: 'data', kb: '财报库', time: '2026-06-09 16:20', status: 'ok' },
+          { title: '客户贡献度TOP100明细', type: 'data', kb: '财报库', time: '2026-06-08 14:55', status: 'ok' },
+          { title: '产品线毛利率分析', type: 'doc', kb: '财报库', time: '2026-06-07 08:30', status: 'warn' },
+          { title: '年度预算执行情况表', type: 'data', kb: '财报库', time: '2026-06-06 11:00', status: 'ok' },
+        ]
+      },
+      law: {
+        name: '法规库', icon: '📋',
+        stats: { total: 892, indexed: '100%', sync: { status: '正常', time: '1小时前' }, hitRate: '78.5%' },
+        items: [
+          { title: '数据安全法合规要求汇总', type: 'doc', kb: '法规库', time: '2026-06-10 08:00', status: 'ok' },
+          { title: '个人信息保护法条文解读', type: 'doc', kb: '法规库', time: '2026-06-09 10:00', status: 'ok' },
+          { title: '行业监管政策变动通知', type: 'rule', kb: '法规库', time: '2026-06-08 13:30', status: 'ok' },
+          { title: '反垄断合规自查清单', type: 'rule', kb: '法规库', time: '2026-06-07 09:00', status: 'err' },
+          { title: '劳动法最新司法解释', type: 'doc', kb: '法规库', time: '2026-06-06 15:00', status: 'ok' },
+        ]
+      },
+      survey: {
+        name: '调研库', icon: '📝',
+        stats: { total: 567, indexed: '96.3%', sync: { status: '正常', time: '30分钟前' }, hitRate: '72.8%' },
+        items: [
+          { title: '华东区客户满意度调研报告', type: 'doc', kb: '调研库', time: '2026-06-10 12:00', status: 'ok' },
+          { title: '竞争对手B公司Q3动态分析', type: 'doc', kb: '调研库', time: '2026-06-09 14:30', status: 'ok' },
+          { title: '新能源汽车行业趋势白皮书', type: 'doc', kb: '调研库', time: '2026-06-08 10:15', status: 'ok' },
+          { title: '消费者购买行为问卷结果', type: 'data', kb: '调研库', time: '2026-06-07 16:00', status: 'warn' },
+          { title: '2024数字化转型成熟度评估', type: 'doc', kb: '调研库', time: '2026-06-06 09:00', status: 'ok' },
+        ]
+      }
+    };
+
+    let currentKB = 'rule';
+    let customKBs = [];
+    let currentPage = 1;
+    let pageSize = 10;
+    let filteredItems = [];
+
+    // ============ 知识库切换 ============
+    function selectKB(kbId, el) {
+      currentKB = kbId;
+      document.querySelectorAll('.kb-item').forEach(it => it.classList.remove('active'));
+      el.classList.add('active');
+      renderContent(kbId);
+    }
+
+    function renderContent(kbId) {
+      let data;
+      if (kbId === 'custom' && customKBs.length > 0) {
+        data = customKBs[customKBs.length - 1];
+      } else {
+        data = kbData[kbId] || kbData['rule'];
+      }
+
+      document.getElementById('statTotal').textContent = data.stats.total.toLocaleString();
+      document.querySelectorAll('.stat-card')[1].querySelector('.stat-value').textContent = data.stats.indexed;
+      document.querySelectorAll('.stat-card')[1].querySelector('.stat-value').style.color = '#52c41a';
+      document.querySelectorAll('.stat-card')[2].querySelector('.stat-value').textContent = data.stats.sync.status;
+      document.querySelectorAll('.stat-card')[2].querySelector('.stat-value').style.color = '#52c41a';
+      document.querySelectorAll('.stat-card')[2].querySelector('.stat-sub').textContent = '最近同步 ' + data.stats.sync.time;
+      document.querySelectorAll('.stat-card')[3].querySelector('.stat-value').textContent = data.stats.hitRate;
+
+      currentPage = 1;
+      renderTable(data.items);
+    }
+
+    function renderTable(items) {
+      filteredItems = items;
+      const tbody = document.getElementById('tableBody');
+      const empty = document.getElementById('tableEmpty');
+      const pagination = document.getElementById('pagination');
+      if (items.length === 0) { tbody.innerHTML = ''; empty.style.display = 'flex'; pagination.innerHTML = ''; return; }
+      empty.style.display = 'none';
+
+      const total = items.length;
+      const totalPages = Math.ceil(total / pageSize) || 1;
+      if (currentPage > totalPages) currentPage = totalPages;
+      const start = (currentPage - 1) * pageSize;
+      const pageItems = items.slice(start, start + pageSize);
+
+      tbody.innerHTML = pageItems.map((item, i) => `
+        <tr data-type="${item.type}" data-title="${item.title.toLowerCase()}">
+          <td><input type="checkbox"></td>
+          <td><strong>${item.title}</strong></td>
+          <td><span class="tag tag-${item.type}">${item.type==='doc'?'文档':item.type==='rule'?'规则':'数据'}</span></td>
+          <td>${item.kb}</td>
+          <td>${item.time}</td>
+          <td><span class="status-${item.status}">${item.status==='ok'?'✓ 正常':item.status==='warn'?'⚠ 待审核':'✕ 异常'}</span></td>
+          <td>
+            <button class="btn-link" onclick="alert('查看详情: ${item.title}')">查看</button>
+            <button class="btn-link" style="margin-left:8px;color:#ff4d4f;" onclick="alert('删除: ${item.title}')">删除</button>
+          </td>
+        </tr>
+      `).join('');
+
+      renderPagination(total, totalPages);
+    }
+
+    function renderPagination(total, totalPages) {
+      const el = document.getElementById('pagination');
+      const start = (currentPage - 1) * pageSize + 1;
+      const end = Math.min(currentPage * pageSize, total);
+
+      let pagesHtml = '';
+      const maxVisible = 5;
+      let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+      let endPage = startPage + maxVisible - 1;
+      if (endPage > totalPages) { endPage = totalPages; startPage = Math.max(1, endPage - maxVisible + 1); }
+
+      for (let i = startPage; i <= endPage; i++) {
+        pagesHtml += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
+      }
+
+      el.innerHTML = `
+        <span class="page-info">共 ${total} 条，第 ${start}-${end} 条</span>
+        <button class="page-btn" onclick="goToPage(1)" ${currentPage === 1 ? 'disabled' : ''}>首页</button>
+        <button class="page-btn" onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>上一页</button>
+        ${pagesHtml}
+        <button class="page-btn" onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>下一页</button>
+        <button class="page-btn" onclick="goToPage(${totalPages})" ${currentPage === totalPages ? 'disabled' : ''}>末页</button>
+        <div class="page-size">
+          <span>每页</span>
+          <select onchange="changePageSize(this.value)">
+            <option value="5" ${pageSize == 5 ? 'selected' : ''}>5</option>
+            <option value="10" ${pageSize == 10 ? 'selected' : ''}>10</option>
+            <option value="20" ${pageSize == 20 ? 'selected' : ''}>20</option>
+            <option value="50" ${pageSize == 50 ? 'selected' : ''}>50</option>
+          </select>
+          <span>条</span>
+        </div>
+      `;
+    }
+
+    function goToPage(page) {
+      const totalPages = Math.ceil(filteredItems.length / pageSize) || 1;
+      if (page < 1 || page > totalPages) return;
+      currentPage = page;
+      renderTable(filteredItems);
+      document.getElementById('dataTable').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function changePageSize(size) {
+      pageSize = parseInt(size, 10);
+      currentPage = 1;
+      renderTable(filteredItems);
+    }
+
+    // ============ 搜索/筛选 ============
+    function getCurrentItems() {
+      let data;
+      if (currentKB === 'custom' && customKBs.length > 0) {
+        data = customKBs[customKBs.length - 1];
+      } else {
+        data = kbData[currentKB] || kbData['rule'];
+      }
+      return data.items;
+    }
+
+    function filterTable(query) {
+      const items = getCurrentItems();
+      const q = query.toLowerCase();
+      const filtered = q ? items.filter(item => item.title.toLowerCase().includes(q)) : items;
+      currentPage = 1;
+      renderTable(filtered);
+    }
+
+    function filterByType(type) {
+      const items = getCurrentItems();
+      const filtered = type === 'all' ? items : items.filter(item => item.type === type);
+      currentPage = 1;
+      renderTable(filtered);
+    }
+
+    // ============ 抽屉/弹窗 ============
+    function openDrawer(type) {
+      closeAll();
+      document.getElementById('overlay').classList.add('show');
+      if (type === 'manual') document.getElementById('drawerManual').classList.add('open');
+      else if (type === 'upload') document.getElementById('drawerUpload').classList.add('open');
+      else if (type === 'datasource') document.getElementById('drawerDatasource').classList.add('open');
+    }
+
+    function showNewKBModal() {
+      closeAll();
+      document.getElementById('overlay').classList.add('show');
+      document.getElementById('newKBModal').classList.add('show');
+    }
+
+    function closeAll() {
+      document.getElementById('overlay').classList.remove('show');
+      document.querySelectorAll('.drawer').forEach(d => d.classList.remove('open'));
+      document.querySelectorAll('.modal').forEach(m => m.classList.remove('show'));
+      resetUpload();
+    }
+
+    // ============ 手动录入 ============
+    function saveManualEntry() {
+      const title = document.getElementById('formTitle').value.trim();
+      const content = document.getElementById('formContent').value.trim();
+      if (!title || !content) { alert('请填写标题和内容'); return; }
+      const kb = document.getElementById('formKB').value;
+      const type = document.getElementById('formType').value;
+      const kbName = document.getElementById('formKB').selectedOptions[0].text;
+
+      if (kbData[kb]) {
+        kbData[kb].items.unshift({
+          title, type, kb: kbName,
+          time: new Date().toLocaleString('zh-CN', { year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit' }).replace(/\//g,'-'),
+          status: 'ok'
+        });
+        kbData[kb].stats.total++;
+      }
+      closeAll();
+      renderContent(currentKB);
+      document.getElementById('formTitle').value = '';
+      document.getElementById('formContent').value = '';
+      document.getElementById('formTags').value = '';
+      alert('✅ 知识条目已成功录入！');
+    }
+
+    // ============ 文件上传模拟 ============
+    let uploadTimer = null;
+    function simulateUpload() {
+      const zone = document.getElementById('uploadZone');
+      const progress = document.getElementById('uploadProgress');
+      zone.classList.add('hidden');
+      progress.classList.remove('hidden');
+      let pct = 0;
+      const bar = document.getElementById('progressBar');
+      const txt = document.getElementById('progressText');
+      uploadTimer = setInterval(() => {
+        pct += Math.random() * 25 + 5;
+        if (pct >= 100) {
+          pct = 100;
+          clearInterval(uploadTimer);
+          txt.textContent = '✅ 解析完成，请确认入库';
+          bar.style.background = '#52c41a';
+          document.getElementById('uploadConfirmBtn').textContent = '✅ 确认入库';
+        }
+        bar.style.width = pct + '%';
+        txt.textContent = Math.floor(pct) + '%';
+      }, 400);
+    }
+
+    function confirmUpload() {
+      if (!document.getElementById('uploadProgress').classList.contains('hidden') && document.getElementById('progressText').textContent.includes('100')) {
+        const kb = document.getElementById('uploadKB').value;
+        if (kbData[kb]) {
+          kbData[kb].items.unshift({
+            title: '📄 Q3销售数据汇总.xlsx',
+            type: 'data', kb: document.getElementById('uploadKB').selectedOptions[0].text,
+            time: new Date().toLocaleString('zh-CN', { year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit' }).replace(/\//g,'-'),
+            status: 'ok'
+          });
+          kbData[kb].stats.total++;
+        }
+        closeAll();
+        renderContent(currentKB);
+        alert('✅ 文件已成功入库！');
+      } else {
+        alert('文件尚未解析完成，请稍候...');
+      }
+    }
+
+    function resetUpload() {
+      document.getElementById('uploadZone').classList.remove('hidden');
+      document.getElementById('uploadProgress').classList.add('hidden');
+      document.getElementById('progressBar').style.width = '0%';
+      document.getElementById('progressBar').style.background = '#1677ff';
+      document.getElementById('progressText').textContent = '0%';
+      document.getElementById('uploadConfirmBtn').textContent = '✅ 确认入库';
+      if (uploadTimer) clearInterval(uploadTimer);
+    }
+
+    // ============ 数据源对接 ============
+    function toggleDSConfig(type) {
+      document.getElementById('dsConfigDB').classList.add('hidden');
+      document.getElementById('dsConfigAPI').classList.add('hidden');
+      document.getElementById('dsConfigSchedule').classList.add('hidden');
+      if (type === 'database') document.getElementById('dsConfigDB').classList.remove('hidden');
+      else if (type === 'api') document.getElementById('dsConfigAPI').classList.remove('hidden');
+      else if (type === 'schedule') document.getElementById('dsConfigSchedule').classList.remove('hidden');
+    }
+
+    function testDSConnection() { alert('🔌 连接测试中...\n✅ 连接成功！延迟 12ms'); }
+    function saveDS() { alert('✅ 数据源配置已保存！将按策略自动同步。'); closeAll(); }
+
+    // ============ 新建知识库 ============
+    function createKB() {
+      const name = document.getElementById('newKbName').value.trim();
+      if (!name) { alert('请输入知识库名称'); return; }
+      const icon = document.getElementById('newKbIcon').value;
+
+      const newKB = {
+        name, icon,
+        stats: { total: 0, indexed: 'N/A', sync: { status: '待配置', time: '-' }, hitRate: 'N/A' },
+        items: []
+      };
+      customKBs.push(newKB);
+
+      const kbItem = document.querySelector('.custom-kb');
+      kbItem.querySelector('#customKbName').textContent = name;
+      kbItem.querySelector('.kb-icon').textContent = icon;
+      document.getElementById('customKbCount').textContent = '0';
+      kbItem.classList.remove('hidden');
+
+      document.getElementById('newKbName').value = '';
+      document.getElementById('newKbDesc').value = '';
+
+      closeAll();
+      selectKB('custom', kbItem);
+      alert('✅ 知识库「' + name + '」已创建！');
+    }
+
+    // ============ 角色切换 ============
+    function toggleRole() {
+      const badge = document.getElementById('roleBadge');
+      const footer = document.getElementById('sidebarFooter');
+      const isAdmin = badge.classList.contains('role-admin');
+      if (isAdmin) {
+        badge.className = 'role-badge role-user';
+        badge.textContent = '👤 业务人员';
+        footer.classList.add('hidden');
+      } else {
+        badge.className = 'role-badge role-admin';
+        badge.textContent = '👤 管理员';
+        footer.classList.remove('hidden');
+      }
+      alert(isAdmin ? '已切换为「业务人员」视角，新建库入口已隐藏' : '已切换为「管理员」视角，拥有全部管理权限');
+    }
+
+    // ============ 顶栏切换 ============
+    function switchTo(module) {
+      if (module === 'report') {
+        window.location.href = 'index.html';
+      } else if (module === 'dashboard') {
+        window.location.href = 'dashboard.html';
+      } else if (module === 'engine') {
+        window.location.href = 'rule-engine.html';
+      } else if (module === 'permission') {
+        window.location.href = 'user-permission.html';
+      }
+    }
+
+    // ============ 初始化 ============
+    renderContent('rule');
+    // ==================== 侧边栏交互 ====================
+    function toggleGroup(el) { el.parentElement.classList.toggle('collapsed'); }
+    function navTo(el, url) { window.location.href = url; }
+    (function() {
+      const params = new URLSearchParams(location.search);
+      const tab = params.get('tab');
+      document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+      const path = location.pathname;
+      let current = 'report';
+      if (path.includes('index.html') && tab === 'template') current = 'template';
+      else if (path.includes('knowledge-base.html')) current = 'knowledge';
+      else if (path.includes('dashboard.html')) current = 'dashboard';
+      else if (path.includes('rule-engine.html')) current = 'engine';
+      else if (path.includes('user-permission.html')) current = 'permission';
+      const activeItem = document.querySelector('.nav-item[data-page="' + current + '"]');
+      if (activeItem) activeItem.classList.add('active');
+    })();
+
+    // ==================== 跨页面角色管理 ====================
+    const roleConfig = { admin: { name: '管理员', avatar: '管', color: '#1677ff', bg: '#e6f4ff' }, senior: { name: '高级分析师', avatar: '高', color: '#1677ff', bg: '#e6f4ff' }, analyst: { name: '分析师', avatar: '分', color: '#52c41a', bg: '#f6ffed' }, viewer: { name: '查看者', avatar: '查', color: '#999', bg: '#f5f5f5' } };
+    function applyRole(role) { var cfg = roleConfig[role]; if (!cfg) return; localStorage.setItem('currentRole', role); var a = document.getElementById('roleAvatar'); var n = document.getElementById('roleName'); if (a) { a.textContent = cfg.avatar; a.style.background = cfg.color; } if (n) n.textContent = cfg.name; document.querySelectorAll('.role-option').forEach(function(o) { o.style.background = o.dataset.role === role ? cfg.bg : ''; }); }
+    window.switchRole = function(role) { applyRole(role); document.getElementById('roleDropdown').style.display = 'none'; };
+    (function() { var role = localStorage.getItem('currentRole') || 'admin'; applyRole(role); var rf = document.getElementById('roleFooter'); if (rf) rf.addEventListener('click', function(e) { var dd = document.getElementById('roleDropdown'); dd.style.display = dd.style.display === 'none' ? 'block' : 'none'; e.stopPropagation(); }); document.addEventListener('click', function() { var dd = document.getElementById('roleDropdown'); if (dd) dd.style.display = 'none'; }); })();
+  </script>
+</div>
+</body>
+</html>

@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>智能报告生成系统 - 原型 v2</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f0f2f5; height: 100vh; overflow: hidden; }
+
+    .app { display: flex; height: 100vh; overflow: hidden; }
+    .page-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* 全局左侧菜单 */
+    .global-sidebar { width: 220px; min-width: 220px; background: #fff; border-right: 1px solid #e8e8e8; display: flex; flex-direction: column; flex-shrink: 0; }
+    .global-sidebar .sidebar-logo { padding: 0 16px; height: 52px; display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; color: #1677ff; border-bottom: 1px solid #f0f0f0; }
+    .global-sidebar .sidebar-logo .dot { width: 8px; height: 8px; border-radius: 50%; background: #1677ff; }
+    .global-sidebar .nav-menu { flex: 1; overflow-y: auto; padding: 8px 0; }
+    .nav-group { margin-bottom: 4px; }
+    .nav-group-title { padding: 10px 16px; font-size: 13px; font-weight: 600; color: #333; cursor: pointer; display: flex; align-items: center; justify-content: space-between; user-select: none; }
+    .nav-group-title:hover { background: #f5f5f5; }
+    .nav-group-title .arrow { font-size: 11px; color: #999; transition: transform .2s; }
+    .nav-group.collapsed .arrow { transform: rotate(-90deg); }
+    .nav-group.collapsed .nav-children { display: none; }
+    .nav-item { padding: 9px 16px 9px 32px; font-size: 13px; color: #666; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all .2s; }
+    .nav-item:hover { background: #f5f5f5; color: #1677ff; }
+    .nav-item.active { background: #e6f4ff; color: #1677ff; font-weight: 500; }
+    .sidebar-footer { padding: 12px 16px; border-top: 1px solid #f0f0f0; display: flex; align-items: center; gap: 8px; font-size: 13px; color: #666; }
+
+    /* 顶栏 */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      background: #fff; border-bottom: 1px solid #e8e8e8;
+      padding: 0 20px; height: 52px; flex-shrink: 0;
+    }
+    .topbar .logo { font-size: 16px; font-weight: 700; color: #1677ff; display: flex; align-items: center; gap: 8px; }
+    .topbar .logo .dot { width: 8px; height: 8px; border-radius: 50%; background: #1677ff; }
+    .topbar .tabs { display: flex; gap: 0; }
+    .topbar .tab {
+      padding: 14px 24px; cursor: pointer; font-size: 14px; color: #666;
+      border-bottom: 2px solid transparent; transition: all .2s;
+    }
+    .topbar .tab.active { color: #1677ff; border-bottom-color: #1677ff; font-weight: 600; }
+    .topbar .tab:hover { color: #1677ff; }
+    .topbar .actions { display: flex; gap: 12px; align-items: center; }
+    .btn {
+      padding: 6px 16px; border-radius: 6px; border: 1px solid #d9d9d9;
+      background: #fff; cursor: pointer; font-size: 13px; color: #333; transition: all .2s;
+    }
+    .btn:hover { border-color: #1677ff; color: #1677ff; }
+    .btn-primary { background: #1677ff; color: #fff; border-color: #1677ff; }
+    .btn-primary:hover { background: #4096ff; border-color: #4096ff; color: #fff; }
+
+    /* 主体三栏 */
+    .main { display: flex; flex: 1; overflow: hidden; }
+
+    /* ========== 左侧输入面板 ========== */
+    .panel-left {
+      width: 30%; min-width: 320px; background: #fff; border-right: 1px solid #e8e8e8;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .panel-left .panel-header {
+      padding: 16px 20px; font-size: 14px; font-weight: 600; color: #333;
+      border-bottom: 1px solid #f0f0f0; flex-shrink: 0;
+    }
+    .chat-area { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+    .chat-msg { max-width: 90%; padding: 10px 14px; border-radius: 10px; font-size: 13px; line-height: 1.6; }
+    .chat-msg.user { background: #e6f4ff; align-self: flex-end; color: #333; }
+    .chat-msg.ai { background: #f5f5f5; align-self: flex-start; color: #555; }
+    .input-area { padding: 12px 16px; border-top: 1px solid #f0f0f0; flex-shrink: 0; }
+    .input-area .input-row { display: flex; gap: 8px; }
+    .input-area textarea {
+      flex: 1; border: 1px solid #e8e8e8; border-radius: 8px; padding: 10px 12px;
+      resize: none; font-size: 13px; outline: none; font-family: inherit; height: 52px;
+    }
+    .input-area textarea:focus { border-color: #1677ff; box-shadow: 0 0 0 2px rgba(22,119,255,.1); }
+    .input-area .send-btn {
+      width: 40px; height: 40px; border-radius: 50%; background: #1677ff; color: #fff;
+      border: none; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: all .2s;
+    }
+    .input-area .send-btn:hover { background: #4096ff; transform: scale(1.05); }
+
+    /* 模板表单 */
+    .template-form { flex: 1; overflow-y: auto; padding: 20px; }
+    .form-group { margin-bottom: 18px; }
+    .form-group label { display: block; font-size: 13px; color: #555; margin-bottom: 6px; font-weight: 500; }
+    .form-group select, .form-group input, .form-group textarea {
+      width: 100%; border: 1px solid #e8e8e8; border-radius: 6px; padding: 8px 12px;
+      font-size: 13px; outline: none; font-family: inherit;
+    }
+    .form-group select:focus, .form-group input:focus, .form-group textarea:focus { border-color: #1677ff; }
+    .template-form .generate-btn { width: 100%; margin-top: 8px; }
+
+    /* ========== 中间生成区 ========== */
+    .panel-center {
+      flex: 1; background: #fff; display: flex; flex-direction: column;
+      overflow: hidden; border-right: 1px solid #e8e8e8;
+    }
+    .panel-center .panel-header {
+      padding: 12px 20px; font-size: 14px; font-weight: 600; color: #333;
+      border-bottom: 1px solid #f0f0f0; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    /* 进度步骤条 */
+    .progress-steps {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 20px; background: #fafafa; border-bottom: 1px solid #f0f0f0;
+      flex-shrink: 0; font-size: 12px; flex-wrap: wrap;
+    }
+    .progress-step {
+      display: flex; align-items: center; gap: 5px; color: #bbb; transition: all .3s;
+    }
+    .progress-step.active { color: #1677ff; font-weight: 600; }
+    .progress-step.done { color: #52c41a; }
+    .progress-step .step-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #d9d9d9; transition: all .3s;
+    }
+    .progress-step.active .step-dot { background: #1677ff; animation: pulse-dot 1s infinite; }
+    .progress-step.done .step-dot { background: #52c41a; animation: none; }
+    @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.4;transform:scale(1.6);} }
+    .progress-arrow { color: #d9d9d9; font-size: 10px; }
+
+    .report-content {
+      flex: 1; overflow-y: auto; padding: 28px 32px;
+      line-height: 1.8; font-size: 14px; color: #333; position: relative;
+    }
+    .report-content h1 { font-size: 22px; margin-bottom: 16px; color: #1a1a1a; }
+    .report-content h2 { font-size: 18px; margin: 24px 0 12px; color: #1a1a1a; padding-bottom: 8px; border-bottom: 1px solid #f0f0f0; }
+    .report-content h3 { font-size: 15px; margin: 18px 0 8px; color: #333; }
+    .report-content p { margin: 8px 0; }
+    /* 引用标签 */
+    .ref-tag {
+      display: inline-block; color: #1677ff; cursor: pointer;
+      border-bottom: 1px dashed #1677ff; position: relative; margin: 0 2px;
+      transition: all .2s;
+    }
+    .ref-tag:hover { background: #e6f4ff; }
+    /* 引用 hover tooltip */
+    .ref-tooltip {
+      display: none; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+      background: #1a1a1a; color: #fff; padding: 6px 10px; border-radius: 6px;
+      font-size: 11px; white-space: nowrap; pointer-events: none; z-index: 10;
+      margin-bottom: 4px;
+    }
+    .ref-tag:hover .ref-tooltip { display: block; }
+    /* 引用高亮闪烁 */
+    .ref-highlight { animation: refFlash .8s ease-out; border-radius: 3px; }
+    @keyframes refFlash {
+      0% { background: #ffe58f; }
+      100% { background: transparent; }
+    }
+    .stream-cursor { display: inline-block; width: 2px; height: 16px; background: #1677ff; animation: blink 1s infinite; vertical-align: text-bottom; margin-left: 2px; }
+    @keyframes blink { 0%,50%{opacity:1;} 51%,100%{opacity:0;} }
+
+    /* 大纲确认卡片 */
+    .outline-card {
+      max-width: 560px; margin: 60px auto 0;
+      background: #fff; border: 1px solid #e8e8e8; border-radius: 12px;
+      padding: 28px 32px; box-shadow: 0 2px 12px rgba(0,0,0,.06);
+    }
+    .outline-card .outline-title {
+      font-size: 16px; font-weight: 700; color: #1a1a1a; margin-bottom: 6px;
+    }
+    .outline-card .outline-subtitle {
+      font-size: 12px; color: #999; margin-bottom: 20px;
+    }
+    .outline-list { list-style: none; }
+    .outline-list li {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 10px 0; border-bottom: 1px solid #f5f5f5; font-size: 14px; color: #555;
+    }
+    .outline-list li:last-child { border-bottom: none; }
+    .outline-list .oli-num {
+      width: 28px; height: 28px; border-radius: 50%; background: #f0f5ff;
+      color: #1677ff; font-weight: 700; font-size: 12px;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .outline-actions { display: flex; gap: 12px; margin-top: 24px; }
+    .outline-actions .btn { flex: 1; text-align: center; padding: 10px; }
+
+    /* ========== 右侧面板 ========== */
+    .panel-right {
+      width: 25%; min-width: 270px; background: #fff; display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .panel-right .section { padding: 16px 20px; border-bottom: 1px solid #f0f0f0; }
+    .panel-right .section-title {
+      font-size: 13px; font-weight: 600; color: #333; margin-bottom: 12px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .ref-list { list-style: none; }
+    .ref-list li {
+      padding: 8px 10px; border-radius: 6px; font-size: 12px; color: #555;
+      cursor: pointer; margin-bottom: 4px; transition: all .2s;
+      border: 1px solid transparent; display: flex; align-items: flex-start; gap: 8px;
+      line-height: 1.5;
+    }
+    .ref-list li:hover { background: #f5f5f5; border-color: #e8e8e8; }
+    .ref-list li.active { background: #e6f4ff; border-color: #91caff; }
+    .ref-list li .ref-icon {
+      font-size: 14px; flex-shrink: 0; margin-top: 1px;
+    }
+    .ref-list li .ref-info { flex: 1; }
+    .ref-list li .ref-source-tag {
+      display: inline-block; font-size: 10px; padding: 1px 5px; border-radius: 3px;
+      margin-top: 2px; font-weight: 500;
+    }
+    .source-rule { background: #fff7e6; color: #d48806; }
+    .source-finance { background: #e6f4ff; color: #1677ff; }
+    .source-law { background: #f6ffed; color: #389e0d; }
+    .source-survey { background: #f9f0ff; color: #722ed1; }
+
+    .export-options { display: flex; flex-direction: column; gap: 8px; }
+    .export-option {
+      display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+      border-radius: 6px; border: 1px solid #e8e8e8; cursor: pointer; font-size: 13px;
+      transition: all .2s;
+    }
+    .export-option:hover { border-color: #1677ff; background: #fafafa; }
+    .export-option .icon { font-size: 18px; }
+    .version-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 0; font-size: 12px; color: #888;
+    }
+    .version-item .ver-tag {
+      background: #f5f5f5; padding: 2px 8px; border-radius: 4px; font-size: 11px; color: #666;
+    }
+
+    /* ========== 通用 ========== */
+    .hidden { display: none !important; }
+    .flex-center { display: flex; align-items: center; justify-content: center; }
+    .text-muted { color: #999; font-size: 12px; }
+    .mt-sm { margin-top: 8px; }
+    .mb-sm { margin-bottom: 8px; }
+
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #d9d9d9; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #bbb; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- 全局左侧菜单 -->
+    <div class="global-sidebar">
+      <div class="sidebar-logo"><span class="dot"></span>智能报告生成溯源系统</div>
+      <div class="nav-menu">
+        <div class="nav-group">
+          <div class="nav-group-title" onclick="toggleGroup(this)">
+            <span>📁 报告中心</span><span class="arrow">▼</span>
+          </div>
+          <div class="nav-children">
+            <div class="nav-item active" data-page="report" onclick="navTo(this,'index.html?tab=chat')">💬 智能生成</div>
+            <div class="nav-item" data-page="template" onclick="navTo(this,'index.html?tab=template')">📋 模板填报</div>
+            <div class="nav-item" data-page="myreports" onclick="navTo(this,'my-reports.html')">📄 我的报告</div>
+            <div class="nav-item" data-page="history" onclick="navTo(this,'history.html')">🕐 历史记录</div>
+          </div>
+        </div>
+        <div class="nav-group">
+          <div class="nav-group-title" onclick="toggleGroup(this)">
+            <span>⚙️ 管理中心</span><span class="arrow">▼</span>
+          </div>
+          <div class="nav-children">
+            <div class="nav-item" data-page="knowledge" onclick="navTo(this,'knowledge-base.html')">💡 知识库管理</div>
+            <div class="nav-item" data-page="dashboard" onclick="navTo(this,'dashboard.html')">📊 工作台</div>
+            <div class="nav-item" data-page="engine" onclick="navTo(this,'rule-engine.html')">🔧 规则引擎</div>
+            <div class="nav-item" data-page="permission" onclick="navTo(this,'user-permission.html')">👥 权限协作</div>
+          </div>
+        </div>
+      </div>
+      <div class="sidebar-footer" style="cursor:pointer;position:relative;" id="roleFooter">
+        <div style="width:28px;height:28px;border-radius:50%;background:#1677ff;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;" id="roleAvatar">管</div>
+        <span id="roleName">管理员</span>
+        <span style="font-size:10px;color:#999;margin-left:auto;">▼</span>
+        <div id="roleDropdown" style="display:none;position:absolute;bottom:50px;left:0;right:0;background:#fff;border:1px solid #e8e8e8;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:50;overflow:hidden;">
+          <div class="role-option" data-role="admin" onclick="event.stopPropagation();switchRole('admin')" style="padding:10px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;background:#e6f4ff;"><span>👑</span> 管理员</div>
+          <div class="role-option" data-role="senior" onclick="event.stopPropagation();switchRole('senior')" style="padding:10px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;"><span>⭐</span> 高级分析师</div>
+          <div class="role-option" data-role="analyst" onclick="event.stopPropagation();switchRole('analyst')" style="padding:10px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;"><span>📊</span> 分析师</div>
+          <div class="role-option" data-role="viewer" onclick="event.stopPropagation();switchRole('viewer')" style="padding:10px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;"><span>👁️</span> 查看者</div>
+        </div>
+      </div>
+    </div>
+    <div class="page-content">
+    <!-- 顶部导航 -->
+    <div class="topbar" style="justify-content: flex-end;">
+      <div class="actions">
+        <button class="btn" onclick="alert('通知')">🔔</button>
+        <button class="btn" onclick="alert('设置')">⚙️</button>
+      </div>
+    </div>
+
+    <div class="main">
+      <!-- 左侧：输入区 -->
+      <div class="panel-left">
+        <div id="chatMode">
+          <div class="panel-header">💬 AI 对话输入</div>
+          <div class="chat-area" id="chatArea">
+            <div class="chat-msg ai">你好！我是智能报告助手。请描述你需要的报告主题，我会为你生成一份专业的分析报告。</div>
+            <div class="chat-msg ai">例如：「帮我生成一份关于2024年Q3华东区销售业绩的分析报告，包含趋势对比和改善建议」</div>
+          </div>
+          <div class="input-area">
+            <div class="input-row">
+              <textarea id="chatInput" placeholder="描述你的报告需求..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage()}"></textarea>
+              <button class="send-btn" onclick="sendMessage()">➤</button>
+            </div>
+            <div class="text-muted mt-sm">💡 支持自然语言描述 · 可指定报告类型、数据范围、分析维度</div>
+          </div>
+        </div>
+
+        <div id="templateMode" class="hidden">
+          <div class="panel-header">📋 快速模板填报</div>
+          <div class="template-form">
+            <div class="form-group">
+              <label>报告模板</label>
+              <select id="tplSelect">
+                <option value="">-- 选择模板 --</option>
+                <option value="sales">销售业绩分析报告</option>
+                <option value="finance">财务分析报告</option>
+                <option value="risk">风险评估报告</option>
+                <option value="market">市场调研报告</option>
+                <option value="project">项目复盘报告</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>报告周期</label>
+              <select id="tplPeriod">
+                <option value="2024Q3">2024年 Q3</option>
+                <option value="2024Q4">2024年 Q4</option>
+                <option value="2025Q1">2025年 Q1</option>
+                <option value="2024H1">2024年 上半年</option>
+                <option value="2024">2024年 全年</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>分析对象</label>
+              <input type="text" id="tplTarget" placeholder="如：华东区 / 全公司 / 产品线A">
+            </div>
+            <div class="form-group">
+              <label>重点关注维度</label>
+              <textarea id="tplFocus" rows="3" placeholder="可选填：营收增长、成本控制、市场份额..."></textarea>
+            </div>
+            <div class="form-group">
+              <label>报告风格</label>
+              <select id="tplStyle">
+                <option value="standard">标准专业</option>
+                <option value="executive">高管摘要</option>
+                <option value="detailed">详细分析</option>
+              </select>
+            </div>
+            <button class="btn btn-primary generate-btn" style="padding:10px;" onclick="generateFromTemplate()">⚡ 一键生成报告</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 中间：生成区 -->
+      <div class="panel-center">
+        <div class="panel-header">
+          <span>📄 报告预览</span>
+          <span id="statusText" style="font-size:12px;color:#999;"></span>
+        </div>
+        <!-- 建议3：进度步骤条 -->
+        <div class="progress-steps hidden" id="progressSteps">
+          <span class="progress-step active" id="step1"><span class="step-dot"></span>🔍 检索知识库</span>
+          <span class="progress-arrow">→</span>
+          <span class="progress-step" id="step2"><span class="step-dot"></span>📊 分析数据</span>
+          <span class="progress-arrow">→</span>
+          <span class="progress-step" id="step3"><span class="step-dot"></span>✍️ 生成报告</span>
+        </div>
+        <div class="report-content" id="reportContent">
+          <div style="flex-center; height:100%; color:#bbb; flex-direction:column; gap:12px;">
+            <div style="font-size:48px;">📝</div>
+            <div style="font-size:14px;">在左侧输入报告需求，开始智能生成</div>
+            <div class="text-muted">支持流式实时预览 · AI 驱动 · 数据可溯源</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右侧：操作面板 -->
+      <div class="panel-right">
+        <div class="section">
+          <div class="section-title">🔗 溯源引用（双向联动）</div>
+          <ul class="ref-list" id="refList">
+            <li onclick="scrollToRef(1)" id="refItem1" data-ref="1">
+              <span class="ref-icon">📊</span>
+              <span class="ref-info">
+                2024年Q3华东区销售数据汇总表
+                <br><span class="ref-source-tag source-rule">规则库</span>
+              </span>
+            </li>
+            <li onclick="scrollToRef(2)" id="refItem2" data-ref="2">
+              <span class="ref-icon">📈</span>
+              <span class="ref-info">
+                2024年Q2华东区对比基准数据
+                <br><span class="ref-source-tag source-finance">财报库</span>
+              </span>
+            </li>
+            <li onclick="scrollToRef(3)" id="refItem3" data-ref="3">
+              <span class="ref-icon">📋</span>
+              <span class="ref-info">
+                行业平均增长率基准报告
+                <br><span class="ref-source-tag source-law">法规库</span>
+              </span>
+            </li>
+            <li onclick="scrollToRef(4)" id="refItem4" data-ref="4">
+              <span class="ref-icon">📝</span>
+              <span class="ref-info">
+                华东区客户满意度调研结果
+                <br><span class="ref-source-tag source-survey">调研库</span>
+              </span>
+            </li>
+          </ul>
+        </div>
+        <div class="section">
+          <div class="section-title">📥 导出报告</div>
+          <div class="export-options">
+            <div class="export-option" onclick="alert('导出 PDF')"><span class="icon">📕</span> PDF 文档</div>
+            <div class="export-option" onclick="alert('导出 Word')"><span class="icon">📘</span> Word 文档</div>
+            <div class="export-option" onclick="alert('导出 PPT')"><span class="icon">📙</span> PPT 演示</div>
+            <div class="export-option" onclick="alert('导出 Markdown')"><span class="icon">📄</span> Markdown 源码</div>
+          </div>
+        </div>
+        <div class="section">
+          <div class="section-title">📋 版本历史</div>
+          <div class="version-item"><span>v3 · 刚刚</span><span class="ver-tag">当前</span></div>
+          <div class="version-item"><span>v2 · 2分钟前</span><span class="ver-tag" style="cursor:pointer" onclick="alert('回滚到 v2')">回滚</span></div>
+          <div class="version-item"><span>v1 · 5分钟前</span><span class="ver-tag" style="cursor:pointer" onclick="alert('回滚到 v1')">回滚</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ==================== 页面跳转 ====================
+    function switchTo(module) {
+      if (module === 'knowledge') window.location.href = 'knowledge-base.html';
+      else if (module === 'dashboard') window.location.href = 'dashboard.html';
+      else if (module === 'engine') window.location.href = 'rule-engine.html';
+      else if (module === 'permission') window.location.href = 'user-permission.html';
+    }
+
+    // ==================== Tab 切换 ====================
+    function switchTab(tab) {
+      document.getElementById('chatMode').classList.add('hidden');
+      document.getElementById('templateMode').classList.add('hidden');
+      if (tab === 'chat') {
+        document.getElementById('chatMode').classList.remove('hidden');
+      } else {
+        document.getElementById('templateMode').classList.remove('hidden');
+      }
+    }
+
+    // ==================== 侧边栏交互 ====================
+    function toggleGroup(el) { el.parentElement.classList.toggle('collapsed'); }
+    function navTo(el, url) { window.location.href = url; }
+    (function() {
+      const params = new URLSearchParams(location.search);
+      const tab = params.get('tab');
+      if (tab === 'template') switchTab('template');
+      document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+      const path = location.pathname;
+      let current = 'report';
+      if (path.includes('index.html') && tab === 'template') current = 'template';
+      else if (path.includes('knowledge-base.html')) current = 'knowledge';
+      else if (path.includes('dashboard.html')) current = 'dashboard';
+      else if (path.includes('rule-engine.html')) current = 'engine';
+      else if (path.includes('user-permission.html')) current = 'permission';
+      const activeItem = document.querySelector('.nav-item[data-page="' + current + '"]');
+      if (activeItem) activeItem.classList.add('active');
+    })();
+
+    // ==================== 触发生成 ====================
+    function sendMessage() {
+      const input = document.getElementById('chatInput');
+      const text = input.value.trim();
+      if (!text) return;
+      const chatArea = document.getElementById('chatArea');
+      const userMsg = document.createElement('div');
+      userMsg.className = 'chat-msg user';
+      userMsg.textContent = text;
+      chatArea.appendChild(userMsg);
+      const aiMsg = document.createElement('div');
+      aiMsg.className = 'chat-msg ai';
+      aiMsg.textContent = '收到！正在解析需求并规划报告大纲...';
+      chatArea.appendChild(aiMsg);
+      chatArea.scrollTop = chatArea.scrollHeight;
+      input.value = '';
+      showOutline();
+    }
+
+    function generateFromTemplate() {
+      const tpl = document.getElementById('tplSelect').value;
+      if (!tpl) { alert('请选择报告模板'); return; }
+      showOutline();
+    }
+
+    // ==================== 建议1：大纲确认 ====================
+    function showOutline() {
+      const reportEl = document.getElementById('reportContent');
+      const progressSteps = document.getElementById('progressSteps');
+      const statusText = document.getElementById('statusText');
+      statusText.textContent = '准备中...';
+      progressSteps.classList.add('hidden');
+
+      reportEl.innerHTML = `
+        <div class="outline-card" id="outlineCard">
+          <div class="outline-title">📋 报告大纲预览</div>
+          <div class="outline-subtitle">AI 根据你的需求规划了以下报告结构，确认后开始生成</div>
+          <ul class="outline-list">
+            <li><span class="oli-num">1</span> 执行摘要 — Q3华东区整体业绩概览与核心结论</li>
+            <li><span class="oli-num">2</span> 核心指标分析 — 收入结构·客户分析·区域细分</li>
+            <li><span class="oli-num">3</span> 趋势对比与竞争分析 — 环比变化·竞争格局·市场份额</li>
+            <li><span class="oli-num">4</span> 风险提示与改善建议 — 主要风险识别·针对性建议</li>
+            <li><span class="oli-num">5</span> 下季度展望 — Q4预测·关键驱动因素·行动建议</li>
+          </ul>
+          <div class="outline-actions">
+            <button class="btn" onclick="resetReport()">✏️ 修改大纲</button>
+            <button class="btn btn-primary" onclick="startStreaming()">✅ 确认，开始生成</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function resetReport() {
+      const reportEl = document.getElementById('reportContent');
+      const statusText = document.getElementById('statusText');
+      statusText.textContent = '';
+      reportEl.innerHTML = `
+        <div style="flex-center; height:100%; color:#bbb; flex-direction:column; gap:12px;">
+          <div style="font-size:48px;">📝</div>
+          <div style="font-size:14px;">在左侧重新描述需求，重新规划大纲</div>
+        </div>
+      `;
+    }
+
+    // ==================== 建议3：三阶段进度条 ====================
+    function setProgressStep(stepNum) {
+      const steps = [null, 'step1', 'step2', 'step3'];
+      for (let s = 1; s <= 3; s++) {
+        const el = document.getElementById(steps[s]);
+        el.className = 'progress-step';
+        if (s < stepNum) el.classList.add('done');
+        if (s === stepNum) el.classList.add('active');
+      }
+    }
+
+    // ==================== 流式生成 ====================
+    function startStreaming() {
+      const reportEl = document.getElementById('reportContent');
+      const progressSteps = document.getElementById('progressSteps');
+      const statusText = document.getElementById('statusText');
+      progressSteps.classList.remove('hidden');
+      reportEl.innerHTML = '';
+
+      // 阶段1：检索知识库
+      setProgressStep(1);
+      statusText.textContent = '正在检索知识库...';
+
+      setTimeout(() => {
+        // 阶段2：分析数据
+        setProgressStep(2);
+        statusText.textContent = '正在分析数据...';
+
+        setTimeout(() => {
+          // 阶段3：生成报告
+          setProgressStep(3);
+          statusText.textContent = '正在生成报告...';
+
+          const sections = [
+            { type: 'h1', text: '2024年Q3 华东区销售业绩分析报告', ref: null },
+            { type: 'h2', text: '一、执行摘要', ref: null },
+            { type: 'p', text: '本报告针对华东区2024年第三季度销售业绩进行全面分析。Q3期间，华东区实现销售收入 <strong>12.8亿元</strong>，较Q2环比增长 <strong style="color:#52c41a">+8.3%</strong>，超额完成季度目标104%。主要增长动力来自新零售渠道拓展及企业级客户续约率提升。', ref: null },
+            { type: 'p', text: '从盈利能力来看，Q3毛利率达到 <strong>37.2%</strong>，同比提升2.1个百分点。运营费用率控制在18.5%，处于行业领先水平。<span class="ref-tag" data-ref="1">[1]<span class="ref-tooltip">📊 规则库 · Q3华东区销售数据汇总表</span></span>', ref: 1 },
+            { type: 'h2', text: '二、核心指标分析', ref: null },
+            { type: 'h3', text: '2.1 收入结构', ref: null },
+            { type: 'p', text: '产品销售收入占比 <strong>62%</strong>（约7.9亿元），服务收入占比 <strong>38%</strong>（约4.9亿元）。服务收入占比较Q2提升5个百分点，表明业务结构持续优化。云服务与解决方案收入同比增长 <strong style="color:#52c41a">+22.6%</strong>，成为增长最快的细分业务。<span class="ref-tag" data-ref="2">[2]<span class="ref-tooltip">📈 财报库 · Q2华东区对比基准</span></span>', ref: 2 },
+            { type: 'h3', text: '2.2 客户分析', ref: null },
+            { type: 'p', text: 'Q3新增客户 <strong>186家</strong>，其中企业级客户32家。客户留存率保持在 <strong>91.5%</strong>，高于行业平均水平（行业均值85.2%）。<span class="ref-tag" data-ref="3">[3]<span class="ref-tooltip">📋 法规库 · 行业增长率基准报告</span></span> 大客户贡献了总收入的54%，前10大客户收入集中度较Q2下降3个百分点，风险进一步分散。', ref: 3 },
+            { type: 'h3', text: '2.3 区域细分', ref: null },
+            { type: 'p', text: '上海区域贡献收入4.6亿元（+6.1%），浙江区域3.8亿元（+9.5%），江苏区域2.9亿元（+11.2%），安徽区域1.5亿元（+7.8%）。江苏区域增速最高，得益于当地制造业数字化转型需求的集中释放。', ref: null },
+            { type: 'h2', text: '三、趋势对比与竞争分析', ref: null },
+            { type: 'p', text: '与2024年Q2相比，华东区在以下维度呈现显著变化：新零售渠道贡献率从18%提升至24%，企业级客户客单价从85万元提升至93万元（+9.4%），销售团队人效从人均462万元提升至501万元（+8.4%）。', ref: null },
+            { type: 'p', text: '竞争格局方面，华东区市场份额维持在 <strong>28.6%</strong>，较Q2基本持平。主要竞争对手B公司份额下降1.2个百分点至22.1%，C公司通过价格策略份额提升至18.3%。<span class="ref-tag" data-ref="4">[4]<span class="ref-tooltip">📝 调研库 · 客户满意度调研结果</span></span>', ref: 4 },
+            { type: 'h2', text: '四、风险提示与改善建议', ref: null },
+            { type: 'h3', text: '4.1 主要风险', ref: null },
+            { type: 'p', text: '• <strong>客户集中度风险</strong>：虽然有所改善，但前5大客户仍贡献32%营收，需持续关注<br>• <strong>价格竞争压力</strong>：C公司价格策略对中低端市场形成挤压<br>• <strong>人才流失风险</strong>：Q3核心销售人才离职率3.2%，高于Q2的2.1%', ref: null },
+            { type: 'h3', text: '4.2 改善建议', ref: null },
+            { type: 'p', text: '• 加大江苏、安徽区域资源投入，巩固增长势头<br>• 推进产品SaaS化转型，提升服务收入占比至45%<br>• 建立销售人才梯队培养机制，降低关键人才依赖<br>• 针对中低端市场推出差异化产品组合，应对价格竞争', ref: null },
+            { type: 'h2', text: '五、下季度展望', ref: null },
+            { type: 'p', text: '基于Q3趋势和Q4传统旺季因素，预计Q4华东区销售收入可达 <strong>14.2-14.8亿元</strong>（环比增长约12%）。全年累计销售收入有望突破50亿元，达成年度目标的103%-107%。', ref: null },
+            { type: 'p', text: '建议重点关注双十一等促销节点的新零售渠道表现，以及年底企业客户续约谈判工作，这两项将成为Q4业绩达标的关键驱动力。', ref: null },
+          ];
+
+          let contentHTML = '';
+          let sectionIndex = 0;
+
+          function renderNext() {
+            if (sectionIndex >= sections.length) {
+              statusText.textContent = '✅ 报告生成完成';
+              return;
+            }
+            const sec = sections[sectionIndex];
+            if (sec.type === 'h1' || sec.type === 'h2' || sec.type === 'h3') {
+              contentHTML += `<${sec.type}>${sec.text}</${sec.type}>`;
+            } else if (sec.type === 'p') {
+              contentHTML += `<p id="refPara${sec.ref||''}">${sec.text}</p>`;
+              if (sec.ref) {
+                contentHTML = contentHTML.replace(`id="refPara"`, `id="refPara${sec.ref}"`);
+              }
+            }
+            reportEl.innerHTML = contentHTML + '<span class="stream-cursor"></span>';
+            reportEl.scrollTop = reportEl.scrollHeight;
+            sectionIndex++;
+            const delay = sec.type === 'h2' ? 350 : sec.type === 'h3' ? 250 : sec.type === 'p' ? 180 : 150;
+            setTimeout(renderNext, delay);
+          }
+
+          setTimeout(renderNext, 200);
+        }, 800);
+      }, 700);
+    }
+
+    // ==================== 建议2：双向联动溯源 ====================
+    function scrollToRef(refId) {
+      // 右侧列表高亮
+      document.querySelectorAll('.ref-list li').forEach(li => li.classList.remove('active'));
+      const refItem = document.getElementById('refItem' + refId);
+      if (refItem) refItem.classList.add('active');
+
+      // 中间报告对应段落高亮闪烁
+      const para = document.getElementById('refPara' + refId);
+      if (para) {
+        para.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        para.classList.remove('ref-highlight');
+        void para.offsetWidth; // trigger reflow
+        para.classList.add('ref-highlight');
+      } else {
+        // 报告还没生成到那一段，滚动到顶部
+        document.getElementById('reportContent').scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+
+    // 中间点击引用标签 → 右侧联动
+    document.addEventListener('click', function(e) {
+      if (e.target.closest('.ref-tag')) {
+        const refTag = e.target.closest('.ref-tag');
+        const refId = refTag.getAttribute('data-ref');
+        if (refId) scrollToRef(refId);
+      }
+    });
+
+    // ==================== 跨页面角色管理 ====================
+    const roleConfig = { admin: { name: '管理员', avatar: '管', color: '#1677ff', bg: '#e6f4ff' }, senior: { name: '高级分析师', avatar: '高', color: '#1677ff', bg: '#e6f4ff' }, analyst: { name: '分析师', avatar: '分', color: '#52c41a', bg: '#f6ffed' }, viewer: { name: '查看者', avatar: '查', color: '#999', bg: '#f5f5f5' } };
+    function applyRole(role) { var cfg = roleConfig[role]; if (!cfg) return; localStorage.setItem('currentRole', role); var a = document.getElementById('roleAvatar'); var n = document.getElementById('roleName'); if (a) { a.textContent = cfg.avatar; a.style.background = cfg.color; } if (n) n.textContent = cfg.name; document.querySelectorAll('.role-option').forEach(function(o) { o.style.background = o.dataset.role === role ? cfg.bg : ''; }); }
+    window.switchRole = function(role) { applyRole(role); document.getElementById('roleDropdown').style.display = 'none'; };
+    (function() { var role = localStorage.getItem('currentRole') || 'admin'; applyRole(role); var rf = document.getElementById('roleFooter'); if (rf) rf.addEventListener('click', function(e) { var dd = document.getElementById('roleDropdown'); dd.style.display = dd.style.display === 'none' ? 'block' : 'none'; e.stopPropagation(); }); document.addEventListener('click', function() { var dd = document.getElementById('roleDropdown'); if (dd) dd.style.display = 'none'; }); })();
+  </script>
+</div>
+</body>
+</html>

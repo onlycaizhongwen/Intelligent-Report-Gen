@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: intelligent-report-routes
+  annotations:
+    higress.io/enable-ai-gateway: "true"
+    higress.io/enable-waf: "true"
+    higress.io/enable-prometheus: "true"
+    higress.io/ai-token-rate-limit: "true"
+    higress.io/prompt-security: "true"
+spec:
+  ingressClassName: higress
+  rules:
+    - host: report.local
+      http:
+        paths:
+          # External API traffic must enter the Java business core so RBAC,
+          # report task state and audit records cannot be bypassed. Python AI
+          # endpoints, including /api/v1/chat, are internal service/RocketMQ
+          # execution surfaces and are not exposed by this public Ingress.
+          - path: /api/v1
+            pathType: Prefix
+            backend:
+              service:
+                name: java-report-core
+                port:
+                  number: 8080

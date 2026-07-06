@@ -1,0 +1,60 @@
+# Dependencies
+node_modules/
+.omx/npm-cache/
+.omx/tools/**/node_modules/
+
+# Build outputs
+target/
+dist/
+build/
+out/
+*.class
+*.jar
+*.war
+*.ear
+
+# Runtime state and caches
+.omx/
+frontend/web-console/.npm-cache/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+__pycache__/
+.cache/
+.vite/
+
+# Logs and local smoke artifacts
+*.log
+*.err
+*.out
+*.pid
+*.jwt
+*.tmp
+*.bak
+java-smoke-upload-*.txt
+java-smoke-upload-*.json
+java-smoke-upload-status.txt
+test-results/
+playwright-report/
+coverage/
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Temporary local scripts
+.tmp_*.js
+.tmp_*.mjs
+
+# IDE and OS files
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Python virtual environments
+.venv/
+venv/
+env/

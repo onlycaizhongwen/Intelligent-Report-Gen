@@ -1,0 +1,80 @@
+groups:
+  - name: service-health
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "服务 {{ $labels.job }} 不可用"
+          description: "OpenSpec {{ $labels.openspec }} 覆盖的服务已离线超过 2 分钟。"
+
+      - alert: ApiHighErrorRate
+        expr: sum(rate(http_server_requests_seconds_count{status=~"5.."}[5m])) by (job) / sum(rate(http_server_requests_seconds_count[5m])) by (job) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API 错误率超过 5%"
+
+      - alert: ApiHighLatency
+        expr: histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket[5m])) by (le, job)) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API P95 延迟超过 2 秒"
+
+  - name: ai-quality
+    rules:
+      - alert: LlmTimeoutRateHigh
+        expr: rate(llm_request_timeout_total[5m]) / rate(llm_requests_total[5m]) > 0.10
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "LLM 超时率超过 10%"
+          description: "覆盖 REQ-AI-001，请检查线上 GPT 网关、Fallback 和模型供应商状态。"
+
+      - alert: PromptInjectionBlockedSpike
+        expr: increase(prompt_injection_blocked_total[5m]) > 5
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Prompt 注入拦截次数异常"
+
+      - alert: TokenUsageSpike
+        expr: increase(llm_tokens_used_total[1h]) > 100000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Token 使用量异常偏高"
+
+      - alert: VectorSearchErrorRateHigh
+        expr: rate(vector_search_errors_total[5m]) > 0.05
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "向量检索失败率偏高"
+
+  - name: gateway
+    rules:
+      - alert: HigressUpstreamErrors
+        expr: rate(higress_upstream_request_total{response_code=~"5.."}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Higress 上游错误率偏高"
+
+      - alert: AiGatewayFallbackSpike
+        expr: increase(ai_gateway_fallback_total[10m]) > 20
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "AI Gateway Fallback 次数异常增加"

@@ -1,0 +1,11 @@
+CREATE TABLE IF NOT EXISTS user_accounts (
+    id BIGSERIAL PRIMARY KEY,
+    username VARCHAR(120) NOT NULL UNIQUE,
+    display_name VARCHAR(200) NOT NULL,
+    status VARCHAR(32) NOT NULL DEFAULT 'enabled',
+    roles TEXT[] NOT NULL DEFAULT ARRAY['viewer']::TEXT[],
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_accounts_status ON user_accounts(status, updated_at DESC);

@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>规则解析引擎 - 原型</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f0f2f5; height: 100vh; overflow: hidden; }
+
+    .app { display: flex; height: 100vh; overflow: hidden; }
+    .page-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* 全局左侧菜单 */
+    .global-sidebar { width: 220px; min-width: 220px; background: #fff; border-right: 1px solid #e8e8e8; display: flex; flex-direction: column; flex-shrink: 0; }
+    .global-sidebar .sidebar-logo { padding: 0 16px; height: 52px; display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; color: #1677ff; border-bottom: 1px solid #f0f0f0; }
+    .global-sidebar .sidebar-logo .dot { width: 8px; height: 8px; border-radius: 50%; background: #1677ff; }
+    .global-sidebar .nav-menu { flex: 1; overflow-y: auto; padding: 8px 0; }
+    .nav-group { margin-bottom: 4px; }
+    .nav-group-title { padding: 10px 16px; font-size: 13px; font-weight: 600; color: #333; cursor: pointer; display: flex; align-items: center; justify-content: space-between; user-select: none; }
+    .nav-group-title:hover { background: #f5f5f5; }
+    .nav-group-title .arrow { font-size: 11px; color: #999; transition: transform .2s; }
+    .nav-group.collapsed .arrow { transform: rotate(-90deg); }
+    .nav-group.collapsed .nav-children { display: none; }
+    .nav-item { padding: 9px 16px 9px 32px; font-size: 13px; color: #666; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all .2s; }
+    .nav-item:hover { background: #f5f5f5; color: #1677ff; }
+    .nav-item.active { background: #e6f4ff; color: #1677ff; font-weight: 500; }
+    .sidebar-footer { padding: 12px 16px; border-top: 1px solid #f0f0f0; display: flex; align-items: center; gap: 8px; font-size: 13px; color: #666; }
+
+    /* 顶栏 */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      background: #fff; border-bottom: 1px solid #e8e8e8;
+      padding: 0 20px; height: 52px; flex-shrink: 0;
+    }
+    .topbar .logo { font-size: 16px; font-weight: 700; color: #1677ff; display: flex; align-items: center; gap: 8px; }
+    .topbar .logo .dot { width: 8px; height: 8px; border-radius: 50%; background: #1677ff; }
+    .topbar .tabs { display: flex; gap: 0; }
+    .topbar .tab {
+      padding: 14px 20px; cursor: pointer; font-size: 14px; color: #666;
+      border-bottom: 2px solid transparent; transition: all .2s;
+    }
+    .topbar .tab:hover { color: #1677ff; }
+    .topbar .tab.active { color: #1677ff; border-bottom-color: #1677ff; font-weight: 600; }
+    .topbar .actions { display: flex; gap: 12px; align-items: center; }
+    .btn {
+      padding: 6px 16px; border-radius: 6px; border: 1px solid #d9d9d9;
+      background: #fff; cursor: pointer; font-size: 13px; color: #333; transition: all .2s;
+    }
+    .btn:hover { border-color: #1677ff; color: #1677ff; }
+    .btn-primary { background: #1677ff; color: #fff; border-color: #1677ff; }
+    .btn-primary:hover { background: #4096ff; }
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+    .btn-link { border: none; background: none; color: #1677ff; padding: 0; cursor: pointer; font-size: 12px; }
+    .btn-danger { color: #ff4d4f; border-color: #ff4d4f; }
+    .btn-danger:hover { background: #fff1f0; }
+
+    /* 主体 */
+    .main { display: flex; flex: 1; overflow: hidden; }
+
+    /* 左侧规则列表 */
+    .rule-sidebar {
+      width: 220px; min-width: 220px; background: #fff; border-right: 1px solid #e8e8e8;
+      display: flex; flex-direction: column;
+    }
+    .rule-sidebar-header {
+      padding: 16px; font-size: 13px; font-weight: 600; color: #999;
+      border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between;
+    }
+    .rule-list { flex: 1; overflow-y: auto; padding: 8px; }
+    .rule-item {
+      padding: 10px 12px; border-radius: 8px; cursor: pointer; font-size: 13px;
+      color: #555; margin-bottom: 2px; display: flex; align-items: center; gap: 8px;
+      transition: all .15s;
+    }
+    .rule-item:hover { background: #f5f5f5; }
+    .rule-item.active { background: #e6f4ff; color: #1677ff; font-weight: 600; }
+    .rule-item .rule-status { width: 6px; height: 6px; border-radius: 50%; }
+    .rule-item .rule-status.on { background: #52c41a; }
+    .rule-item .rule-status.off { background: #d9d9d9; }
+    .rule-bottom { padding: 8px; border-top: 1px solid #f0f0f0; }
+
+    /* 中间画布 + 节点面板 */
+    .canvas-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* 工具栏 */
+    .canvas-toolbar {
+      display: flex; align-items: center; gap: 8px; padding: 8px 16px;
+      background: #fff; border-bottom: 1px solid #f0f0f0; flex-shrink: 0;
+    }
+    .canvas-toolbar .sep { width: 1px; height: 20px; background: #e8e8e8; }
+
+    /* 画布 */
+    .canvas-wrap {
+      flex: 1; background: #fafbfc; position: relative; overflow: hidden;
+      background-image: radial-gradient(circle, #e8e8e8 1px, transparent 1px);
+      background-size: 24px 24px; cursor: grab;
+    }
+    .canvas-wrap:active { cursor: grabbing; }
+    .canvas-wrap.panning { cursor: grabbing; }
+    .canvas-wrap.connecting { cursor: crosshair; }
+    .canvas-inner {
+      position: absolute; inset: 0; transform-origin: 0 0;
+      transition: none;
+    }
+    .canvas-wrap svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    .canvas-wrap svg path { pointer-events: stroke; cursor: pointer; }
+    .canvas-wrap svg path:hover { stroke: #ff4d4f !important; stroke-width: 3 !important; }
+    .canvas-wrap svg line.temp-line { pointer-events: none; stroke: #faad14; stroke-width: 2; stroke-dasharray: 6 3; }
+    /* 缩放指示器 */
+    .zoom-indicator {
+      position: absolute; bottom: 12px; right: 12px; background: rgba(0,0,0,.6);
+      color: #fff; font-size: 11px; padding: 4px 10px; border-radius: 10px;
+      z-index: 10; pointer-events: none;
+    }
+
+    /* 节点样式 */
+    .flow-node {
+      position: absolute; background: #fff; border: 2px solid #d9d9d9; border-radius: 10px;
+      padding: 12px 16px; cursor: grab; box-shadow: 0 2px 8px rgba(0,0,0,.06);
+      transition: box-shadow .2s, border-color .2s; min-width: 120px; text-align: center;
+      user-select: none; z-index: 1;
+    }
+    .flow-node:hover { box-shadow: 0 4px 16px rgba(0,0,0,.1); border-color: #1677ff; }
+    .flow-node.selected { border-color: #1677ff; box-shadow: 0 4px 16px rgba(22,119,255,.15); }
+    .flow-node.debug-active {
+      border-color: #faad14 !important; box-shadow: 0 0 20px rgba(250,173,20,.5) !important;
+      animation: debugPulse .5s ease-in-out;
+    }
+    .flow-node.debug-done { border-color: #52c41a !important; box-shadow: 0 0 12px rgba(82,196,26,.3) !important; }
+    @keyframes debugPulse {
+      0%,100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+    .flow-node .node-icon { font-size: 20px; margin-bottom: 4px; }
+    .flow-node .node-title { font-size: 12px; font-weight: 600; color: #333; }
+    .flow-node .node-port {
+      position: absolute; width: 10px; height: 10px; border-radius: 50%;
+      background: #fff; border: 2px solid #1677ff; z-index: 2;
+    }
+    .flow-node .node-port.in { top: 50%; left: -5px; transform: translateY(-50%); }
+    .flow-node .node-port.out { top: 50%; right: -5px; transform: translateY(-50%); }
+
+    /* 节点类型颜色 */
+    .node-input { border-color: #52c41a; border-left: 3px solid #52c41a; }
+    .node-parse { border-color: #1677ff; border-left: 3px solid #1677ff; }
+    .node-classify { border-color: #faad14; border-left: 3px solid #faad14; }
+    .node-link { border-color: #9254de; border-left: 3px solid #9254de; }
+    .node-output { border-color: #ff4d4f; border-left: 3px solid #ff4d4f; }
+
+    /* 右侧节点面板 */
+    .node-panel {
+      width: 220px; min-width: 220px; background: #fff; border-left: 1px solid #e8e8e8;
+      display: flex; flex-direction: column; overflow-y: auto;
+    }
+    .node-panel-header {
+      padding: 16px; font-size: 13px; font-weight: 600; color: #999;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .node-panel .node-group { padding: 8px 12px; }
+    .node-panel .node-group-title { font-size: 11px; color: #999; margin-bottom: 8px; text-transform: uppercase; letter-spacing: .5px; }
+    .node-panel .draggable-node {
+      padding: 10px 12px; border-radius: 6px; border: 1px solid #f0f0f0;
+      cursor: grab; font-size: 12px; color: #555; margin-bottom: 6px;
+      display: flex; align-items: center; gap: 8px; transition: all .15s;
+    }
+    .node-panel .draggable-node:hover { background: #fafafa; border-color: #d9d9d9; }
+    .node-panel .draggable-node .dn-icon { font-size: 18px; }
+
+    /* 底部调试面板 */
+    .debug-panel {
+      height: 180px; background: #fff; border-top: 1px solid #e8e8e8;
+      flex-shrink: 0; display: flex; flex-direction: column;
+    }
+    .debug-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 16px; border-bottom: 1px solid #f0f0f0; flex-shrink: 0;
+    }
+    .debug-header .debug-title { font-size: 13px; font-weight: 600; color: #333; }
+    .debug-body { flex: 1; display: flex; overflow: hidden; }
+    .debug-input {
+      width: 40%; border-right: 1px solid #f0f0f0; padding: 8px 12px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .debug-input textarea {
+      flex: 1; border: 1px solid #e8e8e8; border-radius: 6px; padding: 8px;
+      font-size: 12px; resize: none; outline: none; font-family: inherit;
+    }
+    .debug-input textarea:focus { border-color: #1677ff; }
+    .debug-log { flex: 1; padding: 8px 12px; overflow-y: auto; font-size: 12px; }
+    .debug-log .log-entry { padding: 4px 0; border-bottom: 1px solid #fafafa; display: flex; gap: 8px; }
+    .debug-log .log-step { color: #1677ff; font-weight: 600; min-width: 80px; }
+    .debug-log .log-msg { color: #555; }
+    .debug-log .log-ok { color: #52c41a; }
+    .debug-log .log-err { color: #ff4d4f; }
+
+    /* 节点配置弹窗 */
+    .overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 100;
+      display: none; align-items: center; justify-content: center;
+    }
+    .overlay.show { display: flex; }
+    .modal {
+      background: #fff; border-radius: 12px; padding: 24px; width: 480px; max-width: 90vw;
+      z-index: 102;
+    }
+    .modal h3 { font-size: 16px; margin-bottom: 16px; color: #1a1a1a; }
+    .modal .form-group { margin-bottom: 14px; }
+    .modal .form-group label { display: block; font-size: 13px; color: #555; margin-bottom: 4px; font-weight: 500; }
+    .modal .form-group input, .modal .form-group select, .modal .form-group textarea {
+      width: 100%; border: 1px solid #e8e8e8; border-radius: 6px; padding: 8px 12px;
+      font-size: 13px; outline: none; font-family: inherit;
+    }
+    .modal .form-group input:focus, .modal .form-group select:focus, .modal .form-group textarea:focus { border-color: #1677ff; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #d9d9d9; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- 全局左侧菜单 -->
+    <div class="global-sidebar">
+      <div class="sidebar-logo"><span class="dot"></span>智能报告生成溯源系统</div>
+      <div class="nav-menu">
+        <div class="nav-group">
+          <div class="nav-group-title" onclick="toggleGroup(this)">
+            <span>📁 报告中心</span><span class="arrow">▼</span>
+          </div>
+          <div class="nav-children">
+            <div class="nav-item" data-page="report" onclick="navTo(this,'index.html?tab=chat')">💬 智能生成</div>
+            <div class="nav-item" data-page="template" onclick="navTo(this,'index.html?tab=template')">📋 模板填报</div>
+            <div class="nav-item" data-page="myreports" onclick="navTo(this,'my-reports.html')">📄 我的报告</div>
+            <div class="nav-item" data-page="history" onclick="navTo(this,'history.html')">🕐 历史记录</div>
+          </div>
+        </div>
+        <div class="nav-group">
+          <div class="nav-group-title" onclick="toggleGroup(this)">
+            <span>⚙️ 管理中心</span><span class="arrow">▼</span>
+          </div>
+          <div class="nav-children">
+            <div class="nav-item" data-page="knowledge" onclick="navTo(this,'knowledge-base.html')">💡 知识库管理</div>
+            <div class="nav-item" data-page="dashboard" onclick="navTo(this,'dashboard.html')">📊 工作台</div>
+            <div class="nav-item active" data-page="engine" onclick="navTo(this,'rule-engine.html')">🔧 规则引擎</div>
+            <div class="nav-item" data-page="permission" onclick="navTo(this,'user-permission.html')">👥 权限协作</div>
+          </div>
+        </div>
+      </div>
+      <div class="sidebar-footer" style="cursor:pointer;position:relative;" id="roleFooter">
+        <div style="width:28px;height:28px;border-radius:50%;background:#1677ff;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;" id="roleAvatar">管</div>
+        <span id="roleName">管理员</span>
+        <span style="font-size:10px;color:#999;margin-left:auto;">▼</span>
+        <div id="roleDropdown" style="display:none;position:absolute;bottom:50px;left:0;right:0;background:#fff;border:1px solid #e8e8e8;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:50;overflow:hidden;">
+          <div class="role-option" data-role="admin" onclick="event.stopPropagation();switchRole('admin')" style="padding:10px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;background:#e6f4ff;"><span>👑</span> 管理员</div>
+          <div class="role-option" data-role="senior" onclick="event.stopPropagation();switchRole('senior')" style="padding:10px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;"><span>⭐</span> 高级分析师</div>
+          <div class="role-option" data-role="analyst" onclick="event.stopPropagation();switchRole('analyst')" style="padding:10px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;"><span>📊</span> 分析师</div>
+          <div class="role-option" data-role="viewer" onclick="event.stopPropagation();switchRole('viewer')" style="padding:10px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;"><span>👁️</span> 查看者</div>
+        </div>
+      </div>
+    </div>
+    <div class="page-content">
+    <!-- ======== 顶栏 ======== -->
+    <div class="topbar" style="justify-content: flex-end;">
+      <div class="actions">
+        <button class="btn" onclick="alert('通知')">🔔</button>
+        <button class="btn" onclick="alert('设置')">⚙️</button>
+      </div>
+    </div>
+
+    <!-- ======== 主体 ======== -->
+    <div class="main">
+      <!-- 左侧规则列表 -->
+      <div class="rule-sidebar">
+        <div class="rule-sidebar-header">
+          📋 规则列表
+          <button class="btn btn-sm btn-primary" onclick="alert('新建规则')">+ 新建</button>
+        </div>
+        <div class="rule-list" id="ruleList">
+          <div class="rule-item active" onclick="selectRule(this)">
+            <span class="rule-status on"></span> 销售考核规则
+          </div>
+          <div class="rule-item" onclick="selectRule(this)">
+            <span class="rule-status on"></span> 财务数据提取规则
+          </div>
+          <div class="rule-item" onclick="selectRule(this)">
+            <span class="rule-status on"></span> 法规文本分类规则
+          </div>
+          <div class="rule-item" onclick="selectRule(this)">
+            <span class="rule-status on"></span> 调研报告结构解析
+          </div>
+          <div class="rule-item" onclick="selectRule(this)">
+            <span class="rule-status on"></span> 客户分级判定规则
+          </div>
+          <div class="rule-item" onclick="selectRule(this)">
+            <span class="rule-status off"></span> 竞品动态提取（停用）
+          </div>
+        </div>
+        <div class="rule-bottom">
+          <button class="btn btn-sm" style="width:100%;" onclick="alert('从模板创建')">📄 从模板创建</button>
+          <div style="margin-top:6px;"><button class="btn btn-sm" style="width:100%;" onclick="alert('导入规则')">📥 导入规则</button></div>
+        </div>
+      </div>
+
+      <!-- 中间画布区域 -->
+      <div class="canvas-area">
+        <div class="canvas-toolbar">
+          <span style="font-size:13px;font-weight:600;">销售考核规则</span>
+          <span class="sep"></span>
+          <button class="btn btn-sm" onclick="alert('保存')">💾 保存</button>
+          <button class="btn btn-sm" onclick="alert('执行')">▶ 运行</button>
+          <span class="sep"></span>
+          <button class="btn btn-sm" onclick="alert('撤销')">↩</button>
+          <button class="btn btn-sm" onclick="alert('重做')">↪</button>
+          <span class="sep"></span>
+          <span style="font-size:12px;color:#999;margin-left:auto;">状态：草稿</span>
+        </div>
+        <div class="canvas-wrap" id="canvas">
+          <div class="canvas-inner" id="canvasInner">
+          <!-- 节点 -->
+          <div class="flow-node node-input" style="left:80px;top:140px;" data-node="file-input" data-type="input" onclick="selectNode(this)">
+            <div class="node-port out" data-port="out" onclick="startConnection(event, this)"></div>
+            <div class="node-icon">📥</div>
+            <div class="node-title">文件输入</div>
+            <div style="font-size:10px;color:#999;">PDF / Excel / TXT</div>
+          </div>
+          <div class="flow-node node-parse" style="left:280px;top:60px;" data-node="text-parse" data-type="parse" onclick="selectNode(this)">
+            <div class="node-port in" data-port="in" onclick="endConnection(event, this)"></div>
+            <div class="node-port out" data-port="out" onclick="startConnection(event, this)"></div>
+            <div class="node-icon">📄</div>
+            <div class="node-title">文本解析</div>
+            <div style="font-size:10px;color:#999;">分段 / 清洗</div>
+          </div>
+          <div class="flow-node node-parse" style="left:280px;top:220px;" data-node="kw-extract" data-type="parse" onclick="selectNode(this)">
+            <div class="node-port in" data-port="in" onclick="endConnection(event, this)"></div>
+            <div class="node-port out" data-port="out" onclick="startConnection(event, this)"></div>
+            <div class="node-icon">🔑</div>
+            <div class="node-title">关键词提取</div>
+            <div style="font-size:10px;color:#999;">TF-IDF / 正则</div>
+          </div>
+          <div class="flow-node node-classify" style="left:480px;top:60px;" data-node="entity-recog" data-type="classify" onclick="selectNode(this)">
+            <div class="node-port in" data-port="in" onclick="endConnection(event, this)"></div>
+            <div class="node-port out" data-port="out" onclick="startConnection(event, this)"></div>
+            <div class="node-icon">🏷️</div>
+            <div class="node-title">实体识别</div>
+            <div style="font-size:10px;color:#999;">人名 / 地名 / 金额</div>
+          </div>
+          <div class="flow-node node-classify" style="left:480px;top:220px;" data-node="tag-gen" data-type="classify" onclick="selectNode(this)">
+            <div class="node-port in" data-port="in" onclick="endConnection(event, this)"></div>
+            <div class="node-port out" data-port="out" onclick="startConnection(event, this)"></div>
+            <div class="node-icon">🏷️</div>
+            <div class="node-title">标签生成</div>
+            <div style="font-size:10px;color:#999;">自动分类打标</div>
+          </div>
+          <div class="flow-node node-classify" style="left:680px;top:140px;" data-node="rule-match" data-type="classify" onclick="selectNode(this)">
+            <div class="node-port in" data-port="in" onclick="endConnection(event, this)"></div>
+            <div class="node-port out" data-port="out" onclick="startConnection(event, this)"></div>
+            <div class="node-icon">🎯</div>
+            <div class="node-title">分类判定</div>
+            <div style="font-size:10px;color:#999;">规则匹配</div>
+          </div>
+          <div class="flow-node node-output" style="left:880px;top:140px;" data-node="kb-save" data-type="output" onclick="selectNode(this)">
+            <div class="node-port in" data-port="in" onclick="endConnection(event, this)"></div>
+            <div class="node-icon">📤</div>
+            <div class="node-title">知识库入库</div>
+            <div style="font-size:10px;color:#999;">规则库</div>
+          </div>
+
+          <!-- SVG 连线 -->
+          <svg id="svgLines"></svg>
+          </div>
+          <div class="zoom-indicator" id="zoomIndicator">100%</div>
+        </div>
+      </div>
+
+      <!-- 右侧节点选择面板 -->
+      <div class="node-panel">
+        <div class="node-panel-header">🧩 节点库</div>
+        <div class="node-group">
+          <div class="node-group-title">📥 输入节点</div>
+          <div class="draggable-node" draggable="true" data-ntype="input" data-nicon="📄" data-ntitle="文件输入" data-ndesc="PDF / Excel / TXT"><span class="dn-icon">📄</span> 文件输入</div>
+          <div class="draggable-node" draggable="true" data-ntype="input" data-nicon="💬" data-ntitle="文本输入" data-ndesc="自由文本"><span class="dn-icon">💬</span> 文本输入</div>
+          <div class="draggable-node" draggable="true" data-ntype="input" data-nicon="🗄️" data-ntitle="数据库读取" data-ndesc="SQL / API"><span class="dn-icon">🗄️</span> 数据库读取</div>
+        </div>
+        <div class="node-group">
+          <div class="node-group-title">📄 解析节点</div>
+          <div class="draggable-node" draggable="true" data-ntype="parse" data-nicon="📝" data-ntitle="文本解析" data-ndesc="分段 / 清洗"><span class="dn-icon">📝</span> 文本解析</div>
+          <div class="draggable-node" draggable="true" data-ntype="parse" data-nicon="📊" data-ntitle="表格解析" data-ndesc="Excel / CSV"><span class="dn-icon">📊</span> 表格解析</div>
+          <div class="draggable-node" draggable="true" data-ntype="parse" data-nicon="🔑" data-ntitle="关键词提取" data-ndesc="TF-IDF / 正则"><span class="dn-icon">🔑</span> 关键词提取</div>
+        </div>
+        <div class="node-group">
+          <div class="node-group-title">🏷️ 分类节点</div>
+          <div class="draggable-node" draggable="true" data-ntype="classify" data-nicon="🎯" data-ntitle="规则匹配" data-ndesc="条件匹配"><span class="dn-icon">🎯</span> 规则匹配</div>
+          <div class="draggable-node" draggable="true" data-ntype="classify" data-nicon="🔍" data-ntitle="正则分类" data-ndesc="模式匹配"><span class="dn-icon">🔍</span> 正则分类</div>
+          <div class="draggable-node" draggable="true" data-ntype="classify" data-nicon="🧠" data-ntitle="语义分类" data-ndesc="NLP分类"><span class="dn-icon">🧠</span> 语义分类</div>
+        </div>
+        <div class="node-group">
+          <div class="node-group-title">🔗 关联节点</div>
+          <div class="draggable-node" draggable="true" data-ntype="link" data-nicon="👤" data-ntitle="实体识别" data-ndesc="NER"><span class="dn-icon">👤</span> 实体识别</div>
+          <div class="draggable-node" draggable="true" data-ntype="link" data-nicon="🔗" data-ntitle="关系抽取" data-ndesc="RE"><span class="dn-icon">🔗</span> 关系抽取</div>
+        </div>
+        <div class="node-group">
+          <div class="node-group-title">📤 输出节点</div>
+          <div class="draggable-node" draggable="true" data-ntype="output" data-nicon="💾" data-ntitle="知识库入库" data-ndesc="规则库"><span class="dn-icon">💾</span> 知识库入库</div>
+          <div class="draggable-node" draggable="true" data-ntype="output" data-nicon="📤" data-ntitle="数据导出" data-ndesc="JSON / CSV"><span class="dn-icon">📤</span> 数据导出</div>
+          <div class="draggable-node" draggable="true" data-ntype="output" data-nicon="🔔" data-ntitle="通知推送" data-ndesc="邮件 / 站内"><span class="dn-icon">🔔</span> 通知推送</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 底部调试面板 -->
+    <div class="debug-panel">
+      <div class="debug-header">
+        <span class="debug-title">🔧 调试面板</span>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-sm btn-primary" onclick="runDebug()">▶ 执行调试</button>
+          <button class="btn btn-sm" onclick="stepDebug()">⏭ 单步执行</button>
+          <button class="btn btn-sm" onclick="clearDebug()">🗑 清空日志</button>
+        </div>
+      </div>
+      <div class="debug-body">
+        <div class="debug-input">
+          <textarea placeholder="输入测试文本...">2026年Q3华东区销售额达到1.2亿元人民币，同比增长15.3%。其中上海区域贡献最大，达到6800万元，杭州区域3800万元。大客户A公司的合同金额为2400万元，新签客户B公司贡献1400万元。</textarea>
+          <button class="btn btn-sm btn-primary" onclick="runDebug()" style="align-self:flex-end;">▶ 执行</button>
+        </div>
+        <div class="debug-log" id="debugLog">
+          <div class="log-entry"><span class="log-step">准备就绪</span><span class="log-msg">输入测试文本后点击执行</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 节点配置弹窗 -->
+  <div class="overlay" id="configOverlay" onclick="closeConfig()">
+    <div class="modal" id="configModal" onclick="event.stopPropagation()">
+      <h3 id="configTitle">⚙️ 节点配置</h3>
+      <div class="form-group"><label>节点名称</label><input type="text" id="cfgName" value="文本解析"></div>
+      <div class="form-group"><label>目标知识库</label><select id="cfgKB"><option>规则库</option><option>财报库</option><option>法规库</option><option>调研库</option></select></div>
+      <div class="form-group"><label>解析规则</label><textarea rows="3" id="cfgRule" placeholder="正则表达式或关键词列表...">\d{4}年Q\d</textarea></div>
+      <div class="form-group"><label>字段映射</label><textarea rows="2" id="cfgMap" placeholder="JSON 格式字段映射...">{"销售额":"amount","区域":"region","增长率":"growth_rate"}</textarea></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeConfig()">取消</button>
+        <button class="btn btn-danger" onclick="alert('节点已删除')">删除节点</button>
+        <button class="btn btn-primary" onclick="closeConfig();alert('配置已保存')">✅ 保存配置</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ==================== 连线数据管理 ====================
+    const connections = [
+      { from: 'file-input', to: 'text-parse' },
+      { from: 'file-input', to: 'kw-extract' },
+      { from: 'text-parse', to: 'entity-recog' },
+      { from: 'kw-extract', to: 'tag-gen' },
+      { from: 'entity-recog', to: 'rule-match' },
+      { from: 'tag-gen', to: 'rule-match' },
+      { from: 'rule-match', to: 'kb-save' },
+    ];
+
+    let nodeIdCounter = 10;
+    let selectedLineIndex = -1;
+    let connectingFrom = null; // { nodeId, portSide }
+
+    // ==================== 画布缩放与平移 ====================
+    let scale = 1;
+    let panX = 0, panY = 0;
+    let isPanning = false;
+    let panStart = { x: 0, y: 0 };
+    const canvas = document.getElementById('canvas');
+    const canvasInner = document.getElementById('canvasInner');
+    const zoomIndicator = document.getElementById('zoomIndicator');
+
+    function applyTransform() {
+      canvasInner.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+      zoomIndicator.textContent = Math.round(scale * 100) + '%';
+      drawLines();
+    }
+
+    // 鼠标滚轮缩放
+    canvas.addEventListener('wheel', function(e) {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+
+      const oldScale = scale;
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      scale = Math.min(2, Math.max(0.3, scale * delta));
+
+      // 以鼠标位置为中心缩放
+      panX = mx - (mx - panX) * (scale / oldScale);
+      panY = my - (my - panY) * (scale / oldScale);
+      applyTransform();
+    });
+
+    // 画布平移（中键或 Ctrl+左键拖拽空白区域）
+    canvas.addEventListener('mousedown', function(e) {
+      if (e.target === canvas || e.target === canvasInner) {
+        if (e.button === 1 || (e.button === 0 && e.ctrlKey)) {
+          e.preventDefault();
+          isPanning = true;
+          canvas.classList.add('panning');
+          panStart = { x: e.clientX - panX, y: e.clientY - panY };
+        }
+      }
+    });
+
+    window.addEventListener('mousemove', function(e) {
+      if (isPanning) {
+        panX = e.clientX - panStart.x;
+        panY = e.clientY - panStart.y;
+        applyTransform();
+      }
+    });
+
+    window.addEventListener('mouseup', function() {
+      if (isPanning) {
+        isPanning = false;
+        canvas.classList.remove('panning');
+      }
+    });
+
+    // ==================== 端口位置计算 ====================
+    function getPortPos(nodeId, side) {
+      const el = document.querySelector(`[data-node="${nodeId}"]`);
+      if (!el) return { x: 0, y: 0 };
+      const cRect = canvas.getBoundingClientRect();
+      const rect = el.getBoundingClientRect();
+      const x = side === 'out' ? rect.right - cRect.left : rect.left - cRect.left;
+      const y = rect.top + rect.height / 2 - cRect.top;
+      return { x, y };
+    }
+
+    // ==================== SVG 连线渲染 ====================
+    function drawLines() {
+      const svg = document.getElementById('svgLines');
+      let html = '';
+      connections.forEach((c, i) => {
+        const from = getPortPos(c.from, 'out');
+        const to = getPortPos(c.to, 'in');
+        const dx = to.x - from.x;
+        const cx1 = from.x + dx * 0.4;
+        const cx2 = to.x - dx * 0.4;
+        const isSel = i === selectedLineIndex;
+        const color = isSel ? '#ff4d4f' : '#1677ff';
+        const width = isSel ? '3' : '1.5';
+        const d = `M${from.x},${from.y} C${cx1},${from.y} ${cx2},${to.y} ${to.x},${to.y}`;
+        html += `<path d="${d}" fill="none" stroke="${color}" stroke-width="${width}" marker-end="url(#arrow${i})" style="pointer-events:stroke;cursor:pointer;" data-line="${i}" onclick="selectLine(${i}, event)"/>`;
+        html += `<defs><marker id="arrow${i}" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="${color}"/></marker></defs>`;
+      });
+      svg.innerHTML = html;
+    }
+
+    // 点击连线选中/删除
+    function selectLine(index, event) {
+      event.stopPropagation();
+      if (selectedLineIndex === index) {
+        // 双击确认删除
+        if (confirm('确定要删除这条连线吗？')) {
+          connections.splice(index, 1);
+          selectedLineIndex = -1;
+          drawLines();
+        }
+      } else {
+        selectedLineIndex = index;
+        drawLines();
+      }
+    }
+
+    // 点击画布空白取消选择
+    canvas.addEventListener('click', function(e) {
+      if (e.target === canvas || e.target === canvasInner) {
+        if (selectedLineIndex >= 0) {
+          selectedLineIndex = -1;
+          drawLines();
+        }
+      }
+    });
+
+    // ==================== 连线创建（端口交互） ====================
+    let tempLine = null;
+
+    function startConnection(event, portEl) {
+      event.stopPropagation();
+      const nodeEl = portEl.closest('.flow-node');
+      const nodeId = nodeEl.getAttribute('data-node');
+      connectingFrom = { nodeId, portSide: 'out' };
+      canvas.classList.add('connecting');
+      // 创建临时跟随线
+      const svg = document.getElementById('svgLines');
+      const cRect = canvas.getBoundingClientRect();
+      const portRect = portEl.getBoundingClientRect();
+      const sx = portRect.left + portRect.width / 2 - cRect.left;
+      const sy = portRect.top + portRect.height / 2 - cRect.top;
+      tempLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      tempLine.setAttribute('x1', sx);
+      tempLine.setAttribute('y1', sy);
+      tempLine.setAttribute('x2', sx);
+      tempLine.setAttribute('y2', sy);
+      tempLine.classList.add('temp-line');
+      svg.appendChild(tempLine);
+    }
+
+    function endConnection(event, portEl) {
+      event.stopPropagation();
+      if (!connectingFrom) return;
+      const nodeEl = portEl.closest('.flow-node');
+      const toNodeId = nodeEl.getAttribute('data-node');
+      // 检查是否重复
+      const exists = connections.some(c => c.from === connectingFrom.nodeId && c.to === toNodeId);
+      if (!exists && connectingFrom.nodeId !== toNodeId) {
+        connections.push({ from: connectingFrom.nodeId, to: toNodeId });
+        drawLines();
+      }
+      cancelConnection();
+    }
+
+    function cancelConnection() {
+      connectingFrom = null;
+      canvas.classList.remove('connecting');
+      if (tempLine) { tempLine.remove(); tempLine = null; }
+    }
+
+    // 鼠标移动时更新临时连线
+    canvas.addEventListener('mousemove', function(e) {
+      if (connectingFrom && tempLine) {
+        const cRect = canvas.getBoundingClientRect();
+        const from = getPortPos(connectingFrom.nodeId, 'out');
+        tempLine.setAttribute('x1', from.x);
+        tempLine.setAttribute('y1', from.y);
+        tempLine.setAttribute('x2', e.clientX - cRect.left);
+        tempLine.setAttribute('y2', e.clientY - cRect.top);
+      }
+    });
+
+    // ESC 取消连线
+    window.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && connectingFrom) {
+        cancelConnection();
+        drawLines();
+      }
+    });
+
+    // ==================== 拖拽节点到画布 ====================
+    // 节点面板拖拽开始
+    document.querySelectorAll('.draggable-node').forEach(dn => {
+      dn.addEventListener('dragstart', function(e) {
+        e.dataTransfer.setData('text/plain', JSON.stringify({
+          ntype: this.dataset.ntype,
+          nicon: this.dataset.nicon,
+          ntitle: this.dataset.ntitle,
+          ndesc: this.dataset.ndesc
+        }));
+        e.dataTransfer.effectAllowed = 'copy';
+        this.style.opacity = '0.5';
+      });
+      dn.addEventListener('dragend', function(e) {
+        this.style.opacity = '1';
+      });
+    });
+
+    // 画布接收拖放
+    canvas.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    });
+
+    canvas.addEventListener('drop', function(e) {
+      e.preventDefault();
+      const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+      if (!data.ntype) return;
+
+      const cRect = canvas.getBoundingClientRect();
+      // 根据缩放和平移计算画布坐标
+      const cx = (e.clientX - cRect.left - panX) / scale;
+      const cy = (e.clientY - cRect.top - panY) / scale;
+
+      createNode(data.ntype, data.nicon, data.ntitle, data.ndesc, cx - 60, cy - 25);
+    });
+
+    // 类型到CSS类的映射
+    const typeClassMap = {
+      input: 'node-input',
+      parse: 'node-parse',
+      classify: 'node-classify',
+      link: 'node-link',
+      output: 'node-output'
+    };
+
+    function createNode(ntype, nicon, ntitle, ndesc, left, top) {
+      const nodeId = 'node-' + (nodeIdCounter++);
+      const cssClass = typeClassMap[ntype] || 'node-parse';
+      const hasIn = ntype !== 'input';
+      const hasOut = ntype !== 'output';
+
+      const nodeHtml = `
+        <div class="flow-node ${cssClass}" style="left:${left}px;top:${top}px;" data-node="${nodeId}" data-type="${ntype}" onclick="selectNode(this)">
+          ${hasIn ? '<div class="node-port in" data-port="in" onclick="endConnection(event, this)"></div>' : ''}
+          ${hasOut ? '<div class="node-port out" data-port="out" onclick="startConnection(event, this)"></div>' : ''}
+          <div class="node-icon">${nicon}</div>
+          <div class="node-title">${ntitle}</div>
+          <div style="font-size:10px;color:#999;">${ndesc}</div>
+        </div>
+      `;
+      canvasInner.insertAdjacentHTML('beforeend', nodeHtml);
+      // 为新节点添加可拖动能力
+      const newNode = canvasInner.querySelector(`[data-node="${nodeId}"]`);
+      makeNodeDraggable(newNode);
+    }
+
+    // ==================== 画布内节点拖动 ====================
+    function makeNodeDraggable(nodeEl) {
+      let dragging = false, startX, startY, origLeft, origTop;
+
+      nodeEl.addEventListener('mousedown', function(e) {
+        if (e.target.classList.contains('node-port')) return; // 端口点击不拖动
+        if (e.button !== 0 || e.ctrlKey) return;
+        e.preventDefault();
+        dragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        origLeft = parseInt(nodeEl.style.left) || 0;
+        origTop = parseInt(nodeEl.style.top) || 0;
+        nodeEl.style.zIndex = 10;
+        nodeEl.style.cursor = 'grabbing';
+      });
+
+      window.addEventListener('mousemove', function(e) {
+        if (!dragging) return;
+        const dx = (e.clientX - startX) / scale;
+        const dy = (e.clientY - startY) / scale;
+        nodeEl.style.left = (origLeft + dx) + 'px';
+        nodeEl.style.top = (origTop + dy) + 'px';
+        drawLines();
+      });
+
+      window.addEventListener('mouseup', function() {
+        if (dragging) {
+          dragging = false;
+          nodeEl.style.zIndex = 1;
+          nodeEl.style.cursor = 'grab';
+          drawLines();
+        }
+      });
+    }
+
+    // 初始化现有节点拖动
+    document.querySelectorAll('.flow-node').forEach(makeNodeDraggable);
+
+    // ==================== 规则选择 ====================
+    function selectRule(el) {
+      document.querySelectorAll('.rule-item').forEach(r => r.classList.remove('active'));
+      el.classList.add('active');
+    }
+
+    // ==================== 画布节点选择 -> 弹出配置面板 ====================
+    function selectNode(el) {
+      document.querySelectorAll('.flow-node').forEach(n => n.classList.remove('selected'));
+      el.classList.add('selected');
+      const name = el.querySelector('.node-title').textContent;
+      document.getElementById('configTitle').textContent = '⚙️ ' + name + ' 配置';
+      document.getElementById('cfgName').value = name;
+      document.getElementById('configOverlay').classList.add('show');
+    }
+
+    function closeConfig() {
+      document.getElementById('configOverlay').classList.remove('show');
+      document.querySelectorAll('.flow-node').forEach(n => n.classList.remove('selected'));
+    }
+
+    // ==================== 调试（含画布节点高亮） ====================
+    const debugNodeOrder = ['file-input', 'text-parse', 'kw-extract', 'entity-recog', 'tag-gen', 'rule-match', 'kb-save'];
+    let debugTimer = null;
+
+    function clearDebugHighlights() {
+      document.querySelectorAll('.flow-node').forEach(n => {
+        n.classList.remove('debug-active', 'debug-done');
+      });
+    }
+
+    function highlightNode(nodeId, className) {
+      const el = document.querySelector(`[data-node="${nodeId}"]`);
+      if (el) {
+        el.classList.add(className);
+        // 滚动到可见区域
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+
+    function runDebug() {
+      clearDebugHighlights();
+      if (debugTimer) clearTimeout(debugTimer);
+
+      const log = document.getElementById('debugLog');
+      const steps = [
+        { node: 'file-input', label: '📥 文件输入' },
+        { node: 'text-parse', label: '📄 文本解析' },
+        { node: 'kw-extract', label: '🔑 关键词提取' },
+        { node: 'entity-recog', label: '🏷️ 实体识别' },
+        { node: 'tag-gen', label: '🏷️ 标签生成' },
+        { node: 'rule-match', label: '🎯 分类判定' },
+        { node: 'kb-save', label: '📤 知识库入库' }
+      ];
+      log.innerHTML = '';
+
+      steps.forEach((s, i) => {
+        debugTimer = setTimeout(() => {
+          // 画布节点高亮
+          clearDebugHighlights();
+          highlightNode(s.node, 'debug-active');
+          // 之前节点标记为完成
+          steps.slice(0, i).forEach(prev => highlightNode(prev.node, 'debug-done'));
+
+          log.innerHTML += `<div class="log-entry"><span class="log-step">步骤${i+1}</span><span class="log-msg">${s.label} — <span class="log-ok">✓ 执行成功</span></span></div>`;
+          log.scrollTop = log.scrollHeight;
+        }, i * 500);
+      });
+
+      debugTimer = setTimeout(() => {
+        clearDebugHighlights();
+        steps.forEach(s => highlightNode(s.node, 'debug-done'));
+        log.innerHTML += `<div class="log-entry"><span class="log-step">完成</span><span class="log-msg"><span class="log-ok">✅ 全部完成！提取实体6个，生成标签4个，已入规则库</span></span></div>`;
+        log.scrollTop = log.scrollHeight;
+      }, steps.length * 500);
+    }
+
+    function stepDebug() {
+      clearDebugHighlights();
+      // 高亮第一步
+      highlightNode('file-input', 'debug-active');
+      const log = document.getElementById('debugLog');
+      log.innerHTML += `<div class="log-entry"><span class="log-step">步骤1</span><span class="log-msg">📥 文件输入解析完成，检测到PDF文档，共15页 — <span class="log-ok">✓</span></span></div>`;
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function clearDebug() {
+      clearDebugHighlights();
+      document.getElementById('debugLog').innerHTML = '<div class="log-entry"><span class="log-step">准备就绪</span><span class="log-msg">输入测试文本后点击执行</span></div>';
+    }
+
+    // ==================== 顶栏切换 ====================
+    function switchTo(module) {
+      if (module === 'report') window.location.href = 'index.html';
+      else if (module === 'knowledge') window.location.href = 'knowledge-base.html';
+      else if (module === 'dashboard') window.location.href = 'dashboard.html';
+    }
+
+    // ==================== 侧边栏交互 ====================
+    function toggleGroup(el) { el.parentElement.classList.toggle('collapsed'); }
+    function navTo(el, url) { window.location.href = url; }
+    (function() {
+      const params = new URLSearchParams(location.search);
+      const tab = params.get('tab');
+      document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+      const path = location.pathname;
+      let current = 'report';
+      if (path.includes('index.html') && tab === 'template') current = 'template';
+      else if (path.includes('knowledge-base.html')) current = 'knowledge';
+      else if (path.includes('dashboard.html')) current = 'dashboard';
+      else if (path.includes('rule-engine.html')) current = 'engine';
+      else if (path.includes('user-permission.html')) current = 'permission';
+      const activeItem = document.querySelector('.nav-item[data-page="' + current + '"]');
+      if (activeItem) activeItem.classList.add('active');
+    })();
+
+    // ==================== 跨页面角色管理 ====================
+    const roleConfig = {
+      admin:   { name: '管理员', avatar: '管', color: '#1677ff', bg: '#e6f4ff' },
+      senior:  { name: '高级分析师', avatar: '高', color: '#1677ff', bg: '#e6f4ff' },
+      analyst: { name: '分析师', avatar: '分', color: '#52c41a', bg: '#f6ffed' },
+      viewer:  { name: '查看者', avatar: '查', color: '#999', bg: '#f5f5f5' }
+    };
+    function applyRole(role) {
+      const cfg = roleConfig[role]; if (!cfg) return;
+      localStorage.setItem('currentRole', role);
+      const avatarEl = document.getElementById('roleAvatar');
+      const nameEl = document.getElementById('roleName');
+      if (avatarEl) { avatarEl.textContent = cfg.avatar; avatarEl.style.background = cfg.color; }
+      if (nameEl) nameEl.textContent = cfg.name;
+      document.querySelectorAll('.role-option').forEach(o => {
+        o.style.background = o.dataset.role === role ? cfg.bg : '';
+      });
+    }
+    window.switchRole = function(role) {
+      applyRole(role);
+      document.getElementById('roleDropdown').style.display = 'none';
+    };
+    (function initRole() {
+      const role = localStorage.getItem('currentRole') || 'admin';
+      applyRole(role);
+      const rf = document.getElementById('roleFooter');
+      if (rf) rf.addEventListener('click', function(e) {
+        const dd = document.getElementById('roleDropdown');
+        dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+        e.stopPropagation();
+      });
+      document.addEventListener('click', function() {
+        const dd = document.getElementById('roleDropdown');
+        if (dd) dd.style.display = 'none';
+      });
+    })();
+
+    // ==================== 初始化 ====================
+    setTimeout(() => { drawLines(); applyTransform(); }, 150);
+    window.addEventListener('resize', drawLines);
+
+    // 点击画布空白取消连线模式
+    canvas.addEventListener('click', function(e) {
+      if ((e.target === canvas || e.target === canvasInner) && connectingFrom) {
+        cancelConnection();
+        drawLines();
+      }
+    });
+  </script>
+</div>
+</body>
+</html>

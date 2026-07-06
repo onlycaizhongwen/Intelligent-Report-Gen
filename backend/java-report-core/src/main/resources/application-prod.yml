@@ -1,0 +1,31 @@
+spring:
+  datasource:
+    url: ${DB_JDBC_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  flyway:
+    enabled: true
+
+storage:
+  minio:
+    endpoint: ${MINIO_ENDPOINT}
+    access-key: ${MINIO_ROOT_USER}
+    secret-key: ${MINIO_ROOT_PASSWORD}
+    bucket: ${MINIO_BUCKET:report-artifacts}
+
+security:
+  data-source-credential-key: ${DATA_SOURCE_CREDENTIAL_KEY}
+
+rocketmq:
+  endpoint: ${ROCKETMQ_ENDPOINT}
+  document-topic: ${ROCKETMQ_DOCUMENT_TOPIC:document_parse_requested}
+  report-generation-topic: ${ROCKETMQ_REPORT_GENERATION_TOPIC:report_generation_outline_confirmed}
+  knowledge-item-deleted-topic: ${ROCKETMQ_KNOWLEDGE_ITEM_DELETED_TOPIC:knowledge_item_deleted}
+  knowledge-item-index-requested-topic: ${ROCKETMQ_KNOWLEDGE_ITEM_INDEX_REQUESTED_TOPIC:knowledge_item_index_requested}
+  producer-group: ${ROCKETMQ_PRODUCER_GROUP:java-report-core-producer}
+
+knowledge:
+  data-source:
+    scheduler:
+      enabled: ${DATA_SOURCE_SYNC_SCHEDULER_ENABLED:false}
+      fixed-delay-ms: ${DATA_SOURCE_SYNC_SCHEDULER_DELAY_MS:60000}

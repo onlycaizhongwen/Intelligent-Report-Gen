@@ -1,0 +1,56 @@
+{
+  "title": "AI 服务与 Higress AI Gateway 监控",
+  "schemaVersion": 39,
+  "panels": [
+    {
+      "title": "LLM 请求延迟 P95",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(llm_request_duration_seconds_bucket[5m]))",
+          "legendFormat": "{{model}}"
+        }
+      ]
+    },
+    {
+      "title": "Token 使用量",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(llm_tokens_used_total[1m])",
+          "legendFormat": "{{model}}-{{type}}"
+        }
+      ]
+    },
+    {
+      "title": "Prompt 注入拦截",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "increase(prompt_injection_blocked_total[5m])",
+          "legendFormat": "{{reason}}"
+        }
+      ]
+    },
+    {
+      "title": "AI Gateway Fallback",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "increase(ai_gateway_fallback_total[10m])",
+          "legendFormat": "{{model}}"
+        }
+      ]
+    },
+    {
+      "title": "语义缓存命中率",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(ai_gateway_semantic_cache_hit_total[5m]) / rate(ai_gateway_semantic_cache_request_total[5m])",
+          "legendFormat": "cache hit"
+        }
+      ]
+    }
+  ]
+}

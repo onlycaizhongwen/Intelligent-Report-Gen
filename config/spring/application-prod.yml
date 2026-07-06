@@ -1,0 +1,28 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: java-report-core
+  datasource:
+    url: ${DB_JDBC_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  flyway:
+    enabled: true
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+
+logging:
+  level:
+    root: INFO
+
+report:
+  ai-service-url: ${AI_SERVICE_URL}
+  security:
+    jwt-secret: ${JWT_SECRET}
+  audit:
+    model-invocation-enabled: ${AUDIT_MODEL_INVOCATION_ENABLED:true}
+    prompt-context-enabled: ${AUDIT_PROMPT_CONTEXT_ENABLED:true}

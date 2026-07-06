@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>工作台仪表板 - 原型</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f0f2f5; height: 100vh; overflow: hidden; }
+
+    .app { display: flex; height: 100vh; overflow: hidden; }
+    .page-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* 全局左侧菜单 */
+    .global-sidebar { width: 220px; min-width: 220px; background: #fff; border-right: 1px solid #e8e8e8; display: flex; flex-direction: column; flex-shrink: 0; }
+    .global-sidebar .sidebar-logo { padding: 0 16px; height: 52px; display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; color: #1677ff; border-bottom: 1px solid #f0f0f0; }
+    .global-sidebar .sidebar-logo .dot { width: 8px; height: 8px; border-radius: 50%; background: #1677ff; }
+    .global-sidebar .nav-menu { flex: 1; overflow-y: auto; padding: 8px 0; }
+    .nav-group { margin-bottom: 4px; }
+    .nav-group-title { padding: 10px 16px; font-size: 13px; font-weight: 600; color: #333; cursor: pointer; display: flex; align-items: center; justify-content: space-between; user-select: none; }
+    .nav-group-title:hover { background: #f5f5f5; }
+    .nav-group-title .arrow { font-size: 11px; color: #999; transition: transform .2s; }
+    .nav-group.collapsed .arrow { transform: rotate(-90deg); }
+    .nav-group.collapsed .nav-children { display: none; }
+    .nav-item { padding: 9px 16px 9px 32px; font-size: 13px; color: #666; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all .2s; }
+    .nav-item:hover { background: #f5f5f5; color: #1677ff; }
+    .nav-item.active { background: #e6f4ff; color: #1677ff; font-weight: 500; }
+    .sidebar-footer { padding: 12px 16px; border-top: 1px solid #f0f0f0; display: flex; align-items: center; gap: 8px; font-size: 13px; color: #666; }
+
+    /* 顶栏 */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      background: #fff; border-bottom: 1px solid #e8e8e8;
+      padding: 0 20px; height: 52px; flex-shrink: 0;
+    }
+    .topbar .logo { font-size: 16px; font-weight: 700; color: #1677ff; display: flex; align-items: center; gap: 8px; }
+    .topbar .logo .dot { width: 8px; height: 8px; border-radius: 50%; background: #1677ff; }
+    .topbar .tabs { display: flex; gap: 0; }
+    .topbar .tab {
+      padding: 14px 20px; cursor: pointer; font-size: 14px; color: #666;
+      border-bottom: 2px solid transparent; transition: all .2s;
+    }
+    .topbar .tab:hover { color: #1677ff; }
+    .topbar .tab.active { color: #1677ff; border-bottom-color: #1677ff; font-weight: 600; }
+    .topbar .actions { display: flex; gap: 12px; align-items: center; }
+    .btn {
+      padding: 6px 16px; border-radius: 6px; border: 1px solid #d9d9d9;
+      background: #fff; cursor: pointer; font-size: 13px; color: #333; transition: all .2s;
+    }
+    .btn:hover { border-color: #1677ff; color: #1677ff; }
+    .btn-primary { background: #1677ff; color: #fff; border-color: #1677ff; }
+    .btn-primary:hover { background: #4096ff; }
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+    .btn-link { border: none; background: none; color: #1677ff; padding: 0; cursor: pointer; font-size: 12px; }
+
+    /* 主体 */
+    .main { flex: 1; overflow-y: auto; padding: 20px 24px; }
+
+    /* 时间筛选 */
+    .filter-row { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
+    .filter-row .btn.active-filter { background: #e6f4ff; color: #1677ff; border-color: #1677ff; }
+
+    /* 指标卡片 */
+    .stats-row { display: flex; gap: 16px; margin-bottom: 20px; }
+    .stat-card {
+      flex: 1; background: #fff; border-radius: 10px; padding: 18px 20px;
+      border: 1px solid #f0f0f0; display: flex; flex-direction: column; gap: 6px;
+      position: relative; overflow: hidden;
+    }
+    .stat-card .stat-icon { font-size: 24px; opacity: .6; position: absolute; right: 16px; top: 16px; }
+    .stat-card .stat-label { font-size: 12px; color: #999; }
+    .stat-card .stat-value { font-size: 28px; font-weight: 700; color: #1a1a1a; }
+    .stat-card .stat-sub { font-size: 11px; color: #52c41a; }
+    .stat-card .stat-sub.warn { color: #faad14; }
+    .stat-card .stat-sub.err { color: #ff4d4f; }
+
+    /* 图表区 */
+    .chart-row { display: flex; gap: 16px; margin-bottom: 20px; }
+    .chart-panel {
+      flex: 1; background: #fff; border-radius: 10px; border: 1px solid #f0f0f0;
+      padding: 16px 20px; min-height: 280px;
+    }
+    .chart-panel .chart-title { font-size: 14px; font-weight: 600; color: #333; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .chart-panel .chart-title .chart-subtitle { font-size: 12px; color: #999; font-weight: 400; }
+
+    /* SVG 折线图 */
+    .line-chart { width: 100%; height: 200px; }
+    .line-chart .axis text { font-size: 10px; fill: #999; }
+    .line-chart .axis line, .line-chart .axis path { stroke: #f0f0f0; }
+    .line-chart .line-path { fill: none; stroke: #1677ff; stroke-width: 2; stroke-linecap: round; }
+    .line-chart .area-path { fill: url(#areaGrad); }
+    .line-chart .dot { fill: #fff; stroke: #1677ff; stroke-width: 2; }
+    .line-chart .tooltip-bg { fill: #333; rx: 4; }
+    .line-chart .tooltip-text { fill: #fff; font-size: 11px; }
+
+    /* 热力排行 */
+    .rank-list { display: flex; flex-direction: column; gap: 10px; }
+    .rank-item { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+    .rank-item .rank-num { width: 20px; color: #999; text-align: center; }
+    .rank-item .rank-name { width: 80px; color: #333; }
+    .rank-item .rank-bar-wrap { flex: 1; height: 20px; background: #f5f5f5; border-radius: 4px; overflow: hidden; }
+    .rank-item .rank-bar { height: 100%; border-radius: 4px; transition: width .6s ease; }
+    .rank-item .rank-val { width: 50px; text-align: right; color: #666; font-weight: 500; }
+
+    /* 活动时间线 */
+    .timeline-panel {
+      background: #fff; border-radius: 10px; border: 1px solid #f0f0f0;
+      padding: 16px 20px; margin-bottom: 20px;
+    }
+    .timeline-panel .chart-title { font-size: 14px; font-weight: 600; color: #333; margin-bottom: 16px; }
+    .timeline { position: relative; padding-left: 24px; }
+    .timeline::before { content: ''; position: absolute; left: 8px; top: 4px; bottom: 4px; width: 1px; background: #e8e8e8; }
+    .tl-item { position: relative; margin-bottom: 16px; font-size: 13px; color: #555; line-height: 1.5; }
+    .tl-item:last-child { margin-bottom: 0; }
+    .tl-item .tl-dot {
+      position: absolute; left: -20px; top: 4px; width: 10px; height: 10px;
+      border-radius: 50%; border: 2px solid #1677ff; background: #fff;
+    }
+    .tl-item .tl-dot.done { border-color: #52c41a; background: #52c41a; }
+    .tl-item .tl-dot.sync { border-color: #1677ff; background: #bae0ff; }
+    .tl-item .tl-dot.create { border-color: #faad14; background: #fffbe6; }
+    .tl-item .tl-time { font-size: 11px; color: #999; }
+    .tl-item .tl-user { font-weight: 600; color: #333; }
+    .tl-item .tl-tag {
+      display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 11px;
+      margin-left: 6px; background: #f6ffed; color: #52c41a;
+    }
+    .tl-item .tl-tag.doing { background: #e6f4ff; color: #1677ff; }
+    .tl-item .tl-tag.new { background: #fff7e6; color: #d48806; }
+
+    /* 通用 */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #d9d9d9; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- 全局左侧菜单 -->
+    <div class="global-sidebar">
+      <div class="sidebar-logo"><span class="dot"></span>智能报告生成溯源系统</div>
+      <div class="nav-menu">
+        <div class="nav-group">
+          <div class="nav-group-title" onclick="toggleGroup(this)">
+            <span>📁 报告中心</span><span class="arrow">▼</span>
+          </div>
+          <div class="nav-children">
+            <div class="nav-item" data-page="report" onclick="navTo(this,'index.html?tab=chat')">💬 智能生成</div>
+            <div class="nav-item" data-page="template" onclick="navTo(this,'index.html?tab=template')">📋 模板填报</div>
+            <div class="nav-item" data-page="myreports" onclick="navTo(this,'my-reports.html')">📄 我的报告</div>
+            <div class="nav-item" data-page="history" onclick="navTo(this,'history.html')">🕐 历史记录</div>
+          </div>
+        </div>
+        <div class="nav-group">
+          <div class="nav-group-title" onclick="toggleGroup(this)">
+            <span>⚙️ 管理中心</span><span class="arrow">▼</span>
+          </div>
+          <div class="nav-children">
+            <div class="nav-item" data-page="knowledge" onclick="navTo(this,'knowledge-base.html')">💡 知识库管理</div>
+            <div class="nav-item active" data-page="dashboard" onclick="navTo(this,'dashboard.html')">📊 工作台</div>
+            <div class="nav-item" data-page="engine" onclick="navTo(this,'rule-engine.html')">🔧 规则引擎</div>
+            <div class="nav-item" data-page="permission" onclick="navTo(this,'user-permission.html')">👥 权限协作</div>
+          </div>
+        </div>
+      </div>
+      <div class="sidebar-footer" style="cursor:pointer;position:relative;" id="roleFooter">
+        <div style="width:28px;height:28px;border-radius:50%;background:#1677ff;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;" id="roleAvatar">管</div>
+        <span id="roleName">管理员</span>
+        <span style="font-size:10px;color:#999;margin-left:auto;">▼</span>
+        <div id="roleDropdown" style="display:none;position:absolute;bottom:50px;left:0;right:0;background:#fff;border:1px solid #e8e8e8;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:50;overflow:hidden;">
+          <div class="role-option" data-role="admin" onclick="event.stopPropagation();switchRole('admin')" style="padding:10px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;background:#e6f4ff;"><span>👑</span> 管理员</div>
+          <div class="role-option" data-role="senior" onclick="event.stopPropagation();switchRole('senior')" style="padding:10px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;"><span>⭐</span> 高级分析师</div>
+          <div class="role-option" data-role="analyst" onclick="event.stopPropagation();switchRole('analyst')" style="padding:10px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;"><span>📊</span> 分析师</div>
+          <div class="role-option" data-role="viewer" onclick="event.stopPropagation();switchRole('viewer')" style="padding:10px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;"><span>👁️</span> 查看者</div>
+        </div>
+      </div>
+    </div>
+    <div class="page-content">
+    <!-- ======== 顶栏 ======== -->
+    <div class="topbar" style="justify-content: flex-end;">
+      <div class="actions">
+        <button class="btn" onclick="alert('通知')">🔔</button>
+        <button class="btn" onclick="alert('设置')">⚙️</button>
+      </div>
+    </div>
+
+    <!-- ======== 主体 ======== -->
+    <div class="main">
+      <!-- 时间筛选 -->
+      <div class="filter-row">
+        <span style="font-size:13px;color:#999;">时间范围：</span>
+        <button class="btn btn-sm active-filter" onclick="setFilter(this,'今天')">今天</button>
+        <button class="btn btn-sm" onclick="setFilter(this,'近7天')">近7天</button>
+        <button class="btn btn-sm" onclick="setFilter(this,'近30天')">近30天</button>
+        <button class="btn btn-sm" onclick="setFilter(this,'自定义')">自定义</button>
+        <span style="margin-left:8px;font-size:12px;color:#999;" id="filterLabel">当前：近30天</span>
+      </div>
+
+      <!-- 指标卡片 -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <span class="stat-icon">📄</span>
+          <span class="stat-label">本月报告产出</span>
+          <span class="stat-value" id="statReports">128</span>
+          <span class="stat-sub">▲ +12.3% 较上月</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon">📚</span>
+          <span class="stat-label">知识条目总数</span>
+          <span class="stat-value" id="statItems">6,159</span>
+          <span class="stat-sub">▲ +3.2% 本月新增</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon">🔗</span>
+          <span class="stat-label">活跃数据源</span>
+          <span class="stat-value" id="statSources">15</span>
+          <span class="stat-sub warn">⚠ 1个同步异常</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon">🎯</span>
+          <span class="stat-label">引用命中率</span>
+          <span class="stat-value" id="statHitRate">87.3%</span>
+          <span class="stat-sub">▲ +1.5% 较上月</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon">👥</span>
+          <span class="stat-label">活跃用户</span>
+          <span class="stat-value" id="statUsers">23</span>
+          <span class="stat-sub">▲ 本周新增 3 人</span>
+        </div>
+      </div>
+
+      <!-- 图表区 -->
+      <div class="chart-row">
+        <!-- 报告生成趋势 -->
+        <div class="chart-panel">
+          <div class="chart-title">📈 报告生成趋势 <span class="chart-subtitle">近30天</span></div>
+          <svg class="line-chart" viewBox="0 0 520 200" id="trendChart"></svg>
+          <div style="font-size:11px;color:#999;text-align:right;">日均产出: 4.3 篇</div>
+        </div>
+        <!-- 知识库使用热力 -->
+        <div class="chart-panel">
+          <div class="chart-title">🔥 知识库引用排行 <span class="chart-subtitle">Top 10</span></div>
+          <div class="rank-list" id="rankList"></div>
+        </div>
+      </div>
+
+      <!-- 时间线 -->
+      <div class="timeline-panel">
+        <div class="chart-title">📋 最近活动</div>
+        <div class="timeline" id="timeline"></div>
+        <div style="text-align:right;margin-top:8px;"><button class="btn-link" onclick="alert('查看全部日志')">查看全部 →</button></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ============ 顶栏切换 ============
+    function switchTo(module) {
+      if (module === 'report') window.location.href = 'index.html';
+      else if (module === 'knowledge') window.location.href = 'knowledge-base.html';
+    }
+
+    // ============ 时间筛选 ============
+    function setFilter(btn, label) {
+      document.querySelectorAll('.filter-row .btn-sm').forEach(b => b.classList.remove('active-filter'));
+      btn.classList.add('active-filter');
+      document.getElementById('filterLabel').textContent = '当前：' + label;
+      if (label === '自定义') alert('选择自定义日期范围');
+    }
+
+    // ============ 折线图绘制 ============
+    function drawTrendChart() {
+      const svg = document.getElementById('trendChart');
+      const days = 30;
+      const data = [];
+      for (let i = 0; i < days; i++) {
+        data.push(Math.floor(Math.random() * 6 + 2)); // 2~7篇
+      }
+      const w = 520, h = 200, pad = { t: 16, r: 16, b: 24, l: 36 };
+      const pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+      const maxVal = Math.max(...data);
+      const points = data.map((v, i) => ({
+        x: pad.l + (i / (days - 1)) * pw,
+        y: pad.t + ph - (v / maxVal) * (ph - 10)
+      }));
+
+      let html = '';
+      // 渐变
+      html += `<defs><linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#1677ff" stop-opacity="0.2"/>
+        <stop offset="100%" stop-color="#1677ff" stop-opacity="0.02"/>
+      </linearGradient></defs>`;
+
+      // Y轴网格线
+      for (let i = 0; i <= 4; i++) {
+        const y = pad.t + (ph * i / 4);
+        const val = Math.round(maxVal * (1 - i / 4));
+        html += `<text x="${pad.l - 8}" y="${y + 4}" text-anchor="end" fill="#999" font-size="10">${val}</text>`;
+        html += `<line x1="${pad.l}" y1="${y}" x2="${w - pad.r}" y2="${y}" stroke="#f0f0f0" stroke-width="1"/>`;
+      }
+
+      // X轴标签
+      for (let i = 0; i < 30; i += 7) {
+        html += `<text x="${points[i].x}" y="${h - 6}" text-anchor="middle" fill="#999" font-size="10">${i + 1}日</text>`;
+      }
+
+      // 面积
+      const areaD = points.map((p, i) => (i === 0 ? 'M' : 'L') + p.x + ',' + p.y).join(' ') +
+        ` L${points[points.length - 1].x},${pad.t + ph} L${points[0].x},${pad.t + ph} Z`;
+      html += `<path d="${areaD}" class="area-path"/>`;
+
+      // 折线
+      const lineD = points.map((p, i) => (i === 0 ? 'M' : 'L') + p.x + ',' + p.y).join(' ');
+      html += `<path d="${lineD}" class="line-path"/>`;
+
+      // 数据点
+      points.forEach((p, i) => {
+        if (i % 5 === 0 || i === days - 1) {
+          html += `<circle cx="${p.x}" cy="${p.y}" r="3" class="dot"/>`;
+        }
+      });
+
+      svg.innerHTML = html;
+    }
+
+    // ============ 热力排行 ============
+    function drawRankList() {
+      const ranks = [
+        { name: '规则库', count: 1280, color: '#ffa940' },
+        { name: '财报库', count: 3420, color: '#1677ff' },
+        { name: '法规库', count: 892, color: '#52c41a' },
+        { name: '调研库', count: 567, color: '#9254de' },
+        { name: '竞品分析库', count: 234, color: '#eb2f96' },
+        { name: '行业报告库', count: 198, color: '#13c2c2' },
+        { name: '产品手册库', count: 156, color: '#fadb14' },
+        { name: '合同条款库', count: 112, color: '#fa541c' },
+      ];
+      const maxCount = Math.max(...ranks.map(r => r.count));
+      const el = document.getElementById('rankList');
+      el.innerHTML = ranks.map((r, i) => `
+        <div class="rank-item">
+          <span class="rank-num">${i + 1}</span>
+          <span class="rank-name">${r.name}</span>
+          <span class="rank-bar-wrap">
+            <div class="rank-bar" style="width:${(r.count / maxCount * 100).toFixed(0)}%;background:${r.color};"></div>
+          </span>
+          <span class="rank-val">${r.count.toLocaleString()}</span>
+        </div>
+      `).join('');
+    }
+
+    // ============ 时间线 ============
+    function drawTimeline() {
+      const events = [
+        { time: '10:30', user: '张三', action: '生成了「Q3华东区销售报告」', tag: 'done', tagText: '✅ 完成' },
+        { time: '10:15', user: '李四', action: '上传了「客户满意度.xlsx」到调研库', tag: 'done', tagText: '📤 入库' },
+        { time: '09:45', user: '系统', action: '数据源「ERP销售」自动同步完成', tag: 'sync', tagText: '🔄 同步' },
+        { time: '09:20', user: '王五', action: '创建了知识库「竞品分析库」', tag: 'create', tagText: '🆕 新建' },
+        { time: '08:55', user: '赵六', action: '修改了规则引擎「销售考核规则」', tag: 'sync', tagText: '🔧 配置' },
+        { time: '08:30', user: '张三', action: '导出了「华东区对比分析」为 PDF', tag: 'done', tagText: '📥 导出' },
+        { time: '昨天 17:20', user: '李四', action: '批注了报告「华南区趋势分析」', tag: 'sync', tagText: '💬 批注' },
+        { time: '昨天 15:00', user: '系统', action: '定时任务「数据源同步」执行成功', tag: 'done', tagText: '⏰ 定时' },
+      ];
+      const el = document.getElementById('timeline');
+      el.innerHTML = events.map(e => `
+        <div class="tl-item">
+          <div class="tl-dot ${e.tag}"></div>
+          <span class="tl-time">${e.time}</span>
+          <span class="tl-user">${e.user}</span> ${e.action}
+          <span class="tl-tag ${e.tag}">${e.tagText}</span>
+        </div>
+      `).join('');
+    }
+
+    // ============ 初始化 ============
+    drawTrendChart();
+    drawRankList();
+    drawTimeline();
+    // ==================== 侧边栏交互 ====================
+    function toggleGroup(el) { el.parentElement.classList.toggle('collapsed'); }
+    function navTo(el, url) { window.location.href = url; }
+    (function() {
+      const params = new URLSearchParams(location.search);
+      const tab = params.get('tab');
+      document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+      const path = location.pathname;
+      let current = 'report';
+      if (path.includes('index.html') && tab === 'template') current = 'template';
+      else if (path.includes('knowledge-base.html')) current = 'knowledge';
+      else if (path.includes('dashboard.html')) current = 'dashboard';
+      else if (path.includes('rule-engine.html')) current = 'engine';
+      else if (path.includes('user-permission.html')) current = 'permission';
+      const activeItem = document.querySelector('.nav-item[data-page="' + current + '"]');
+      if (activeItem) activeItem.classList.add('active');
+    })();
+
+    // ==================== 跨页面角色管理 ====================
+    const roleConfig = { admin: { name: '管理员', avatar: '管', color: '#1677ff', bg: '#e6f4ff' }, senior: { name: '高级分析师', avatar: '高', color: '#1677ff', bg: '#e6f4ff' }, analyst: { name: '分析师', avatar: '分', color: '#52c41a', bg: '#f6ffed' }, viewer: { name: '查看者', avatar: '查', color: '#999', bg: '#f5f5f5' } };
+    function applyRole(role) { var cfg = roleConfig[role]; if (!cfg) return; localStorage.setItem('currentRole', role); var a = document.getElementById('roleAvatar'); var n = document.getElementById('roleName'); if (a) { a.textContent = cfg.avatar; a.style.background = cfg.color; } if (n) n.textContent = cfg.name; document.querySelectorAll('.role-option').forEach(function(o) { o.style.background = o.dataset.role === role ? cfg.bg : ''; }); }
+    window.switchRole = function(role) { applyRole(role); document.getElementById('roleDropdown').style.display = 'none'; };
+    (function() { var role = localStorage.getItem('currentRole') || 'admin'; applyRole(role); var rf = document.getElementById('roleFooter'); if (rf) rf.addEventListener('click', function(e) { var dd = document.getElementById('roleDropdown'); dd.style.display = dd.style.display === 'none' ? 'block' : 'none'; e.stopPropagation(); }); document.addEventListener('click', function() { var dd = document.getElementById('roleDropdown'); if (dd) dd.style.display = 'none'; }); })();
+  </script>
+</div>
+</body>
+</html>

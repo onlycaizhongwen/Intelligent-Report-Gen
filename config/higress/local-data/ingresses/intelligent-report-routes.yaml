@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: intelligent-report-routes
+  namespace: default
+  annotations:
+    higress.io/enable-ai-gateway: "true"
+    higress.io/enable-waf: "true"
+    higress.io/enable-prometheus: "true"
+    higress.io/ai-token-rate-limit: "true"
+    higress.io/prompt-security: "true"
+spec:
+  ingressClassName: higress
+  rules:
+  - http:
+      paths:
+      - path: /api/v1
+        pathType: Prefix
+        backend:
+          service:
+            name: java-report-core
+            port:
+              number: 8080

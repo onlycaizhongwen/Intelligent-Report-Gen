@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>历史记录 - 智能报告生成系统</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f0f2f5; height: 100vh; overflow: hidden; }
+    .app { display: flex; height: 100vh; overflow: hidden; }
+    .page-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .global-sidebar { width: 220px; min-width: 220px; background: #fff; border-right: 1px solid #e8e8e8; display: flex; flex-direction: column; flex-shrink: 0; }
+    .global-sidebar .sidebar-logo { padding: 0 16px; height: 52px; display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; color: #1677ff; border-bottom: 1px solid #f0f0f0; }
+    .global-sidebar .sidebar-logo .dot { width: 8px; height: 8px; border-radius: 50%; background: #1677ff; }
+    .global-sidebar .nav-menu { flex: 1; overflow-y: auto; padding: 8px 0; }
+    .nav-group { margin-bottom: 4px; }
+    .nav-group-title { padding: 10px 16px; font-size: 13px; font-weight: 600; color: #333; cursor: pointer; display: flex; align-items: center; justify-content: space-between; user-select: none; }
+    .nav-group-title:hover { background: #f5f5f5; }
+    .nav-group-title .arrow { font-size: 11px; color: #999; transition: transform .2s; }
+    .nav-group.collapsed .arrow { transform: rotate(-90deg); }
+    .nav-group.collapsed .nav-children { display: none; }
+    .nav-item { padding: 9px 16px 9px 32px; font-size: 13px; color: #666; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all .2s; }
+    .nav-item:hover { background: #f5f5f5; color: #1677ff; }
+    .nav-item.active { background: #e6f4ff; color: #1677ff; font-weight: 500; }
+    .sidebar-footer { padding: 12px 16px; border-top: 1px solid #f0f0f0; display: flex; align-items: center; gap: 8px; font-size: 13px; color: #666; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; background: #fff; border-bottom: 1px solid #e8e8e8; padding: 0 20px; height: 52px; flex-shrink: 0; }
+    .topbar .logo { font-size: 16px; font-weight: 700; color: #1677ff; display: flex; align-items: center; gap: 8px; }
+    .topbar .logo .dot { width: 8px; height: 8px; border-radius: 50%; background: #1677ff; }
+    .btn { padding: 6px 16px; border-radius: 6px; border: 1px solid #d9d9d9; background: #fff; cursor: pointer; font-size: 13px; color: #333; transition: all .2s; }
+    .btn-primary { background: #1677ff; color: #fff; border-color: #1677ff; }
+    .btn-primary:hover { background: #4096ff; border-color: #4096ff; color: #fff; }
+    .main { flex: 1; overflow-y: auto; padding: 24px; }
+    .page-header { margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; }
+    .page-header h1 { font-size: 20px; font-weight: 600; color: #333; }
+    /* 列表表格 */
+    .data-table { background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.06); width: 100%; border-collapse: collapse; }
+    .data-table thead { background: #fafafa; }
+    .data-table th { padding: 12px 16px; text-align: left; font-size: 13px; color: #666; font-weight: 500; border-bottom: 1px solid #f0f0f0; }
+    .data-table td { padding: 12px 16px; font-size: 13px; color: #333; border-bottom: 1px solid #f5f5f5; vertical-align: top; }
+    .data-table tbody tr:hover { background: #fafafa; }
+    .data-table .col-time { width: 140px; color: #666; white-space: nowrap; }
+    .data-table .col-type { width: 100px; }
+    .data-table .col-desc { }
+    .data-table .col-user { width: 80px; color: #666; }
+    .data-table .col-action { width: 60px; text-align: center; }
+    .type-tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 500; }
+    .type-tag.generate { background: #e6f4ff; color: #1677ff; }
+    .type-tag.template { background: #f6ffed; color: #52c41a; }
+    .type-tag.upload { background: #fff7e6; color: #fa8c16; }
+    .type-tag.config { background: #f0f0f0; color: #666; }
+    .type-tag.export { background: #f9f0ff; color: #722ed1; }
+    .type-tag.review { background: #e6fffb; color: #13c2c2; }
+    .data-table .title { font-weight: 600; color: #333; margin-bottom: 2px; }
+    .data-table .desc { color: #888; font-size: 12px; line-height: 1.5; }
+
+    /* 分页 */
+    .pagination { display: flex; justify-content: flex-end; align-items: center; gap: 6px; margin-top: 16px; }
+    .pagination .page-info { font-size: 13px; color: #666; margin-right: 8px; }
+    .pagination .page-btn {
+      min-width: 30px; height: 30px; border: 1px solid #d9d9d9; background: #fff;
+      border-radius: 4px; cursor: pointer; font-size: 13px; color: #333; display: flex;
+      align-items: center; justify-content: center; padding: 0 6px; transition: all .2s;
+    }
+    .pagination .page-btn:hover { border-color: #1677ff; color: #1677ff; }
+    .pagination .page-btn.active { background: #1677ff; border-color: #1677ff; color: #fff; }
+    .pagination .page-btn.disabled { color: #bbb; cursor: not-allowed; border-color: #e8e8e8; }
+    .pagination .page-btn.disabled:hover { border-color: #e8e8e8; color: #bbb; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="global-sidebar">
+      <div class="sidebar-logo"><span class="dot"></span>智能报告生成溯源系统</div>
+      <div class="nav-menu">
+        <div class="nav-group">
+          <div class="nav-group-title" onclick="toggleGroup(this)">
+            <span>📁 报告中心</span><span class="arrow">▼</span>
+          </div>
+          <div class="nav-children">
+            <div class="nav-item" data-page="report" onclick="navTo(this,'index.html?tab=chat')">💬 智能生成</div>
+            <div class="nav-item" data-page="template" onclick="navTo(this,'index.html?tab=template')">📋 模板填报</div>
+            <div class="nav-item" data-page="myreports" onclick="navTo(this,'my-reports.html')">📄 我的报告</div>
+            <div class="nav-item active" data-page="history" onclick="navTo(this,'history.html')">🕐 历史记录</div>
+          </div>
+        </div>
+        <div class="nav-group">
+          <div class="nav-group-title" onclick="toggleGroup(this)">
+            <span>⚙️ 管理中心</span><span class="arrow">▼</span>
+          </div>
+          <div class="nav-children">
+            <div class="nav-item" data-page="knowledge" onclick="navTo(this,'knowledge-base.html')">💡 知识库管理</div>
+            <div class="nav-item" data-page="dashboard" onclick="navTo(this,'dashboard.html')">📊 工作台</div>
+            <div class="nav-item" data-page="engine" onclick="navTo(this,'rule-engine.html')">🔧 规则引擎</div>
+            <div class="nav-item" data-page="permission" onclick="navTo(this,'user-permission.html')">👥 权限协作</div>
+          </div>
+        </div>
+      </div>
+      <div class="sidebar-footer" style="cursor:pointer;position:relative;" id="roleFooter">
+        <div style="width:28px;height:28px;border-radius:50%;background:#1677ff;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;" id="roleAvatar">管</div>
+        <span id="roleName">管理员</span>
+        <span style="font-size:10px;color:#999;margin-left:auto;">▼</span>
+        <div id="roleDropdown" style="display:none;position:absolute;bottom:50px;left:0;right:0;background:#fff;border:1px solid #e8e8e8;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:50;overflow:hidden;">
+          <div class="role-option" data-role="admin" onclick="event.stopPropagation();switchRole('admin')" style="padding:10px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;background:#e6f4ff;"><span>👑</span> 管理员</div>
+          <div class="role-option" data-role="senior" onclick="event.stopPropagation();switchRole('senior')" style="padding:10px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;"><span>⭐</span> 高级分析师</div>
+          <div class="role-option" data-role="analyst" onclick="event.stopPropagation();switchRole('analyst')" style="padding:10px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;"><span>📊</span> 分析师</div>
+          <div class="role-option" data-role="viewer" onclick="event.stopPropagation();switchRole('viewer')" style="padding:10px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;"><span>👁️</span> 查看者</div>
+        </div>
+      </div>
+    </div>
+    <div class="page-content">
+      <div class="topbar" style="justify-content: flex-end;">
+        <div class="actions">
+          <button class="btn" onclick="alert('通知')">🔔</button>
+          <button class="btn" onclick="alert('设置')">⚙️</button>
+        </div>
+      </div>
+      <div class="main">
+        <div class="page-header">
+          <h1>🕐 历史记录</h1>
+          <span class="page-info" style="font-size:13px;color:#999;">共 <span id="totalCount">0</span> 条记录</span>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>时间</th>
+              <th>操作类型</th>
+              <th>内容</th>
+              <th>操作人</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="historyTableBody"></tbody>
+        </table>
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </div>
+  </div>
+  <script>
+    function toggleGroup(el) { el.parentElement.classList.toggle('collapsed'); }
+    function navTo(el, url) { window.location.href = url; }
+
+    // 示例数据
+    const historyData = [
+      { time: '2024-11-15 14:30', type: 'generate', typeText: '智能生成', title: '2024年Q3 华东区销售业绩分析报告', desc: '共5个章节 · 引用3个数据源 · 耗时12秒', user: '管理员' },
+      { time: '2024-11-14 09:15', type: 'template', typeText: '模板填报', title: '2024年Q3 财务分析报告', desc: '模板：财务分析报告 · Excel导入 · 自动生成图表', user: '管理员' },
+      { time: '2024-11-14 08:40', type: 'export', typeText: '导出', title: '华东区销售业绩分析报告.pdf', desc: '导出格式：PDF · 文件大小：2.3MB', user: '管理员' },
+      { time: '2024-11-12 16:45', type: 'upload', typeText: '数据上传', title: '华东区销售数据汇总表', desc: '文件：华东区Q3销售汇总.xlsx · 已关联规则引擎', user: '管理员' },
+      { time: '2024-11-11 10:20', type: 'review', typeText: '审核', title: '审核通过：Q3风险评估报告', desc: '审核人：张经理 · 审核意见：内容完整，可发布', user: '张经理' },
+      { time: '2024-11-10 11:00', type: 'config', typeText: '规则配置', title: '配置规则引擎：销售业绩评估规则', desc: '新增3条规则 · 覆盖营收增长率、毛利率、费用率指标', user: '管理员' },
+      { time: '2024-11-09 15:30', type: 'generate', typeText: '智能生成', title: '2024年Q3 风险评估报告', desc: '共4个章节 · 引用2个数据源 · 耗时8秒', user: '管理员' },
+      { time: '2024-11-08 09:00', type: 'template', typeText: '模板填报', title: '2024年Q3 市场调研报告', desc: '模板：市场调研报告 · 调研数据导入', user: '管理员' },
+      { time: '2024-11-07 14:00', type: 'export', typeText: '导出', title: '2024年Q3财务分析报告.docx', desc: '导出格式：Word · 文件大小：1.8MB', user: '管理员' },
+      { time: '2024-11-06 10:15', type: 'config', typeText: '权限变更', title: '权限协作：给李分析师分配报告查看权限', desc: '用户：李分析师 · 角色：报告查看者', user: '管理员' },
+      { time: '2024-11-05 16:30', type: 'generate', typeText: '智能生成', title: '2024年Q3 华东区项目复盘报告', desc: '共6个章节 · 引用4个数据源 · 耗时15秒', user: '管理员' },
+      { time: '2024-11-04 09:45', type: 'upload', typeText: '数据上传', title: '全国客户满意度调研结果', desc: '文件：客户满意度调研2024Q3.xlsx · 已关联知识库', user: '管理员' },
+    ];
+
+    const PAGE_SIZE = 5;
+    let currentPage = 1;
+
+    function renderTable(page) {
+      const tbody = document.getElementById('historyTableBody');
+      const start = (page - 1) * PAGE_SIZE;
+      const end = start + PAGE_SIZE;
+      const pageData = historyData.slice(start, end);
+      document.getElementById('totalCount').textContent = historyData.length;
+
+      tbody.innerHTML = pageData.map(item => `
+        <tr>
+          <td class="col-time">${item.time}</td>
+          <td class="col-type"><span class="type-tag ${item.type}">${item.typeText}</span></td>
+          <td class="col-desc">
+            <div class="title">${item.title}</div>
+            <div class="desc">${item.desc}</div>
+          </td>
+          <td class="col-user">${item.user}</td>
+          <td class="col-action"><a href="#" style="color:#1677ff;font-size:12px;">详情</a></td>
+        </tr>
+      `).join('');
+    }
+
+    function renderPagination() {
+      const totalPages = Math.ceil(historyData.length / PAGE_SIZE);
+      const pager = document.getElementById('pagination');
+      let html = `<span class="page-info">第 ${currentPage} / ${totalPages} 页</span>`;
+
+      html += `<button class="page-btn ${currentPage === 1 ? 'disabled' : ''}" onclick="goPage(${currentPage - 1})">上一页</button>`;
+
+      for (let i = 1; i <= totalPages; i++) {
+        html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="goPage(${i})">${i}</button>`;
+      }
+
+      html += `<button class="page-btn ${currentPage === totalPages ? 'disabled' : ''}" onclick="goPage(${currentPage + 1})">下一页</button>`;
+      pager.innerHTML = html;
+    }
+
+    function goPage(page) {
+      const totalPages = Math.ceil(historyData.length / PAGE_SIZE);
+      if (page < 1 || page > totalPages) return;
+      currentPage = page;
+      renderTable(currentPage);
+      renderPagination();
+    }
+
+    renderTable(currentPage);
+    renderPagination();
+
+    // ==================== 跨页面角色管理 ====================
+    const roleConfig = { admin: { name: '管理员', avatar: '管', color: '#1677ff', bg: '#e6f4ff' }, senior: { name: '高级分析师', avatar: '高', color: '#1677ff', bg: '#e6f4ff' }, analyst: { name: '分析师', avatar: '分', color: '#52c41a', bg: '#f6ffed' }, viewer: { name: '查看者', avatar: '查', color: '#999', bg: '#f5f5f5' } };
+    function applyRole(role) { var cfg = roleConfig[role]; if (!cfg) return; localStorage.setItem('currentRole', role); var a = document.getElementById('roleAvatar'); var n = document.getElementById('roleName'); if (a) { a.textContent = cfg.avatar; a.style.background = cfg.color; } if (n) n.textContent = cfg.name; document.querySelectorAll('.role-option').forEach(function(o) { o.style.background = o.dataset.role === role ? cfg.bg : ''; }); }
+    window.switchRole = function(role) { applyRole(role); document.getElementById('roleDropdown').style.display = 'none'; };
+    (function() { var role = localStorage.getItem('currentRole') || 'admin'; applyRole(role); var rf = document.getElementById('roleFooter'); if (rf) rf.addEventListener('click', function(e) { var dd = document.getElementById('roleDropdown'); dd.style.display = dd.style.display === 'none' ? 'block' : 'none'; e.stopPropagation(); }); document.addEventListener('click', function() { var dd = document.getElementById('roleDropdown'); if (dd) dd.style.display = 'none'; }); })();
+  </script>
+</body>
+</html>

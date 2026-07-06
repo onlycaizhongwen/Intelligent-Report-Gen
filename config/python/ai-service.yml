@@ -1,0 +1,27 @@
+server:
+  host: 0.0.0.0
+  port: 8000
+
+security:
+  jwt_secret: ${JWT_SECRET}
+  jwt_algorithm: ${JWT_ALGORITHM:HS256}
+  oidc_jwks_url: ${OIDC_JWKS_URL:}
+
+llm:
+  provider: ${LLM_PROVIDER}
+  model: ${LLM_MODEL}
+  base_url: ${LLM_BASE_URL}
+  api_key: ${LLM_API_KEY}
+  timeout_seconds: ${LLM_TIMEOUT_SECONDS:30}
+  fallback_models: ${LLM_FALLBACK_MODELS:}
+
+rag:
+  chunk_size: ${RAG_CHUNK_SIZE:500}
+  chunk_overlap: ${RAG_CHUNK_OVERLAP:50}
+  max_context_length: ${RAG_MAX_CONTEXT_LENGTH:4000}
+  vector_top_k: ${VECTOR_TOP_K:5}
+  vector_score_threshold: ${VECTOR_SCORE_THRESHOLD:0.70}
+
+audit:
+  model_invocation_enabled: ${AUDIT_MODEL_INVOCATION_ENABLED:true}
+  prompt_context_enabled: ${AUDIT_PROMPT_CONTEXT_ENABLED:true}

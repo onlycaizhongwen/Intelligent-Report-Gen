@@ -1,0 +1,19 @@
+[project]
+name = "python-ai-service"
+version = "0.1.0"
+description = "智能报告生成系统 Python AI 服务"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.111",
+  "uvicorn[standard]>=0.30",
+  "pydantic>=2.7",
+  "python-jose[cryptography]>=3.3",
+  "python-multipart>=0.0.20",
+  "psycopg[binary]>=3.2",
+  "minio>=7.2",
+  "rocketmq>=0.4.4",
+  "pymilvus>=2.5"
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

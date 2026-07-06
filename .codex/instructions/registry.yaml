@@ -1,0 +1,437 @@
+dag:
+  name: fullstack_development_skill_chain
+  description: 全栈项目从 0 到 1 的 Skill 执行链（双模兼容：传统 + AI 大型项目）
+  version: 4.0.0
+  strict: true
+
+  skills:
+    # ===== 需求阶段 =====
+    - id: S1
+      name: requirement.extract
+      description: 从自然语言输入中提取结构化需求
+      category: requirement
+      inputs: []
+      outputs:
+        - docs/skill-chain/requirements.md
+      depends_on: []
+
+    - id: S2
+      name: user_journey.map
+      description: 根据用户需求生成用户旅程与用例
+      category: requirement
+      inputs:
+        - docs/skill-chain/requirements.md
+      outputs:
+        - docs/skill-chain/user_journey.md
+      depends_on: [S1]
+
+    - id: S3
+      name: domain_modeling
+      description: 根据需求和旅程建立领域模型
+      category: design
+      inputs:
+        - docs/skill-chain/requirements.md
+        - docs/skill-chain/user_journey.md
+      outputs:
+        - docs/skill-chain/domain_model.md
+        - openspec/project.md
+        - openspec/specs/
+      depends_on: [S1, S2]
+
+    - id: S4
+      name: api_contract.gen
+      description: 根据领域模型生成 API 契约文档
+      category: design
+      inputs:
+        - docs/skill-chain/domain_model.md
+        - openspec/specs/
+      outputs:
+        - docs/skill-chain/api_contract.md
+        - openspec/changes/
+      depends_on: [S3]
+
+    - id: S5
+      name: architecture.recommend
+      description: 根据需求推荐系统架构方案
+      category: architecture
+      inputs:
+        - docs/skill-chain/requirements.md
+        - openspec/project.md
+        - openspec/specs/
+      outputs:
+        - docs/skill-chain/architecture.md
+      depends_on: [S4]
+
+    # ===== 设计阶段 =====
+    - id: S6
+      name: tech_stack.selector
+      description: 根据架构推荐技术栈（支持 Python/Go/Java 混合选型）
+      category: architecture
+      inputs:
+        - docs/skill-chain/architecture.md
+        - openspec/project.md
+        - openspec/specs/
+      outputs:
+        - docs/skill-chain/tech_stack.md
+      depends_on: [S5]
+
+    - id: S7
+      name: module_design
+      description: 系统模块拆分与依赖设计
+      category: architecture
+      inputs:
+        - docs/skill-chain/architecture.md
+        - docs/skill-chain/tech_stack.md
+        - openspec/project.md
+        - openspec/specs/
+      outputs:
+        - docs/skill-chain/module_design.md
+      depends_on: [S5, S6]
+
+    - id: S8
+      name: security.design_review
+      description: 鉴权与权限模型设计
+      category: security
+      inputs:
+        - docs/skill-chain/module_design.md
+        - openspec/project.md
+        - openspec/specs/
+      outputs:
+        - docs/skill-chain/security_design.md
+      depends_on: [S7]
+
+    # ===== 数据层 =====
+    - id: S9
+      name: schema.design
+      description: 数据库表结构设计（含向量数据库）
+      category: database
+      inputs:
+        - docs/skill-chain/domain_model.md
+        - openspec/specs/
+      outputs:
+        - schema.sql
+      depends_on: [S3]
+
+    - id: S10
+      name: migration.gen
+      description: 自动生成数据库迁移脚本
+      category: database
+      inputs:
+        - schema.sql
+        - openspec/specs/
+      outputs:
+        - migrations/
+      depends_on: [S9]
+
+    - id: S11
+      name: seed_data.gen
+      description: 初始化示例数据
+      category: database
+      inputs:
+        - schema.sql
+        - openspec/specs/
+      outputs:
+        - seed.sql
+      depends_on: [S9]
+
+    # ===== 后端开发 =====
+    - id: S12
+      name: crud.gen
+      description: 生成标准 CRUD 接口代码
+      category: backend
+      inputs:
+        - docs/skill-chain/api_contract.md
+        - schema.sql
+        - docs/skill-chain/tech_stack.md
+        - docs/skill-chain/module_design.md
+        - openspec/specs/
+        - openspec/changes/
+      outputs:
+        - backend/
+      depends_on: [S4, S6, S7, S9]
+
+    - id: S13
+      name: auth.impl
+      description: 鉴权与权限控制实现
+      category: backend
+      inputs:
+        - docs/skill-chain/security_design.md
+        - backend/
+        - openspec/specs/
+      outputs:
+        - backend/
+      depends_on: [S8, S12]
+
+    - id: S14
+      name: biz_logic.impl
+      description: 业务逻辑与 AI 逻辑实现
+      category: backend
+      inputs:
+        - backend/
+        - docs/skill-chain/tech_stack.md
+        - docs/skill-chain/module_design.md
+        - openspec/specs/
+      outputs:
+        - backend/
+      depends_on: [S12, S6, S7]
+
+    - id: S15
+      name: error_handling.design
+      description: 错误码与异常处理规范
+      category: backend
+      inputs:
+        - backend/
+        - openspec/specs/
+      outputs:
+        - backend/
+      depends_on: [S12]
+
+    # ===== 前端开发 =====
+    - id: S16
+      name: ui_scaffold.gen
+      description: 前端页面骨架生成
+      category: frontend
+      inputs:
+        - docs/skill-chain/api_contract.md
+        - docs/skill-chain/tech_stack.md
+        - openspec/specs/
+      outputs:
+        - pages/
+      depends_on: [S4, S6]
+
+    - id: S17
+      name: component.generate
+      description: UI 组件代码生成
+      category: frontend
+      inputs:
+        - pages/
+        - openspec/specs/
+      outputs:
+        - components/
+      depends_on: [S16]
+
+    - id: S18
+      name: state_design
+      description: 前端状态管理方案设计
+      category: frontend
+      inputs:
+        - pages/
+        - docs/skill-chain/tech_stack.md
+        - openspec/specs/
+      outputs:
+        - store/
+      depends_on: [S16, S6]
+
+    - id: S19
+      name: api_client.gen
+      description: 前端 API 请求封装
+      category: frontend
+      inputs:
+        - docs/skill-chain/api_contract.md
+        - openspec/specs/
+      outputs:
+        - api/
+      depends_on: [S4]
+
+    # ===== 质量保障 =====
+    - id: S20
+      name: contract_validation
+      description: 前后端契约一致性校验
+      category: quality
+      inputs:
+        - docs/skill-chain/api_contract.md
+        - openspec/specs/
+        - backend/
+        - api/
+      outputs:
+        - docs/skill-chain/validation_report.md
+      depends_on: [S4, S12, S19]
+
+    - id: S21
+      name: unit_test.gen
+      description: 单元测试用例生成
+      category: quality
+      inputs:
+        - backend/
+        - openspec/specs/
+      outputs:
+        - tests/unit/
+      depends_on: [S14]
+
+    - id: S22
+      name: e2e_test.scenario
+      description: 端到端测试场景生成
+      category: quality
+      inputs:
+        - pages/
+        - backend/
+        - openspec/specs/
+      outputs:
+        - tests/e2e/
+      depends_on: [S16, S12]
+
+    - id: S23
+      name: code_review.automation
+      description: 自动代码审查报告
+      category: quality
+      inputs:
+        - backend/
+        - pages/
+        - components/
+        - openspec/specs/
+      outputs:
+        - docs/skill-chain/review_report.md
+      depends_on: [S14, S16, S17]
+
+    # ===== 工程化与交付 =====
+    - id: S24
+      name: dockerize
+      description: Docker 容器化配置生成
+      category: devops
+      inputs:
+        - backend/
+        - pages/
+        - docs/skill-chain/tech_stack.md
+        - docs/skill-chain/module_design.md
+        - openspec/specs/
+      outputs:
+        - Dockerfile
+        - docker-compose.yml
+      depends_on: [S14, S16, S6, S7]
+
+    - id: S25
+      name: ci_pipeline.gen
+      description: CI/CD 持续集成流水线配置
+      category: devops
+      inputs:
+        - Dockerfile
+        - openspec/specs/
+      outputs:
+        - .github/workflows/
+      depends_on: [S24]
+
+    - id: S26
+      name: env_config.manage
+      description: 环境变量与配置管理
+      category: devops
+      inputs:
+        - Dockerfile
+        - openspec/specs/
+      outputs:
+        - .env.example
+      depends_on: [S24]
+
+    - id: S27
+      name: deploy.guide
+      description: 部署文档生成
+      category: devops
+      inputs:
+        - .github/workflows/
+        - .env.example
+        - openspec/specs/
+      outputs:
+        - docs/skill-chain/DEPLOY.md
+      depends_on: [S25, S26]
+
+    - id: S28
+      name: changelog.gen
+      description: 自动生成变更日志
+      category: delivery
+      inputs:
+        - docs/skill-chain/DEPLOY.md
+        - openspec/changes/
+      outputs:
+        - docs/skill-chain/CHANGELOG.md
+      depends_on: [S27]
+
+    - id: S29
+      name: release_note.gen
+      description: 版本发版说明
+      category: delivery
+      inputs:
+        - docs/skill-chain/CHANGELOG.md
+        - openspec/changes/
+      outputs:
+        - docs/skill-chain/RELEASE.md
+      depends_on: [S28]
+
+    - id: S30
+      name: monitor.setup
+      description: 监控与告警配置
+      category: delivery
+      inputs:
+        - docs/skill-chain/DEPLOY.md
+        - openspec/specs/
+      outputs:
+        - monitoring/
+      depends_on: [S27]
+
+  checkpoints:
+    - after: S1
+      rule: user_approval_required
+      requires_user_approval: true
+      approval_text:
+        - APPROVED
+        - 批准
+      description: S1 完成后必须暂停，等待用户明确批准后才可进入 S2
+    - after: S2
+      rule: user_approval_required
+      requires_user_approval: true
+      approval_text:
+        - APPROVED
+        - 批准
+      description: S2 完成后必须暂停，等待用户明确批准后才可进入 S3
+    - after: S3
+      rule: user_approval_required
+      requires_user_approval: true
+      approval_text:
+        - APPROVED
+        - 批准
+      description: S3 完成后必须暂停，等待用户明确批准后才可进入 S4
+    - after: S4
+      rule: api_contract_valid
+      requires_user_approval: true
+      approval_text:
+        - APPROVED
+        - 批准
+      description: API 契约必须包含完整的请求/响应结构
+    - after: S5
+      rule: user_approval_required
+      requires_user_approval: true
+      approval_text:
+        - APPROVED
+        - 批准
+      description: S5 完成后必须暂停，等待用户明确批准后才可进入 S6
+    - after: S6
+      rule: user_approval_required
+      requires_user_approval: true
+      approval_text:
+        - APPROVED
+        - 批准
+      description: S6 完成后必须暂停，等待用户明确批准后才可进入 S7
+    - after: S7
+      rule: block_s8_until_user_approval
+      requires_user_approval: true
+      blocks_until_approved:
+        - S8
+      approval_text:
+        - APPROVED
+        - 批准
+      description: S7 完成后必须暂停，等待用户明确批准后才可进入 S8；未批准前绝对禁止进入 S8；批准后 OpenSpec baseline 冻结
+    - after: S12
+      rule: api_callable
+      description: 后端接口必须符合 API 契约
+    - after: S20
+      rule: contract_match
+      description: 前后端契约必须一致
+    - after: S23
+      rule: no_critical_issues
+      description: 代码审查无严重问题
+    - after: S27
+      rule: deployable
+      description: 系统可部署上线
+
+  policy:
+    fail_fast: true
+    retry: 1
+    allow_skip: false

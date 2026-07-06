@@ -1,0 +1,31 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: java-report-core
+  datasource:
+    url: ${DB_JDBC_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  flyway:
+    enabled: true
+    locations: filesystem:../../migrations
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+
+report:
+  ai-service-url: ${AI_SERVICE_URL:http://python-ai-service:8000}
+  object-storage:
+    endpoint: ${MINIO_ENDPOINT:http://minio:9000}
+    bucket: ${MINIO_BUCKET:report-artifacts}
+  mq:
+    endpoint: ${ROCKETMQ_ENDPOINT:rocketmq-namesrv:9876}
+    # Physical RocketMQ topics must not contain dots. Dotted names are kept as business event types/tags.
+    report-topic: ${ROCKETMQ_REPORT_TOPIC:report_generation_requested}
+    document-topic: ${ROCKETMQ_DOCUMENT_TOPIC:document_parse_requested}
+    export-topic: ${ROCKETMQ_EXPORT_TOPIC:report_export_requested}
+  security:
+    jwt-secret: ${JWT_SECRET}
