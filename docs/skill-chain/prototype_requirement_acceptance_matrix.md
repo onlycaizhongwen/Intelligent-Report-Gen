@@ -1046,3 +1046,11 @@
 - Code evidence: `KnowledgeController.reencryptDataSourceCredentials`, `ContractSurfaceTest#dataSourceCredentialMaintenanceEndpointRequiresDataSourceManagePermission`, `ContractSurfaceTest#dataSourceSyncRunEndpointsDeclareFieldLevelResponseContracts`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_closure_301_data_source_credential_reencryption_maintenance_api.md`.
 - Verification evidence: targeted endpoint permission test passed `1/1`; endpoint/API contract regression passed `4/4`; broader Java credential/data-source/profile regression passed `66/66`; `git diff --check` reported no whitespace errors.
 - Remaining gaps: scheduling/ops runbook for periodic execution, real Docker enterprise database/ERP/OA/finance sync smoke, and live Higress route checks remain production hardening work.
+
+### 2026-07-06 UC-07 Data source credential re-encryption scheduler
+
+- Scope: `REQ-KB-003`, operational execution of data-source credential key rotation.
+- Result: Java now includes a default-off Spring managed scheduler for stale data-source credential re-encryption, controlled by `DATA_SOURCE_CREDENTIAL_REENCRYPTION_SCHEDULER_ENABLED`, `DATA_SOURCE_CREDENTIAL_REENCRYPTION_SCHEDULER_DELAY_MS`, and `DATA_SOURCE_CREDENTIAL_REENCRYPTION_SCHEDULER_LIMIT`, so operators can run periodic rotation-window migration without exposing secrets.
+- Code evidence: `DataSourceCredentialReencryptionScheduler`, `application-dev.yml`, `application-prod.yml`, `KnowledgeApplicationServiceTest#credentialReencryptionSchedulerUsesConfiguredScanLimit`, and `docs/skill-chain/delivery_closure_302_data_source_credential_reencryption_scheduler.md`.
+- Verification evidence: targeted RED/GREEN scheduler test passed `1/1`; broader Java credential/data-source/profile regression passed `31/31`; static diff evidence is recorded in closure 302.
+- Remaining gaps: real Docker enterprise database/ERP/OA/finance sync smoke and live Higress route checks remain production hardening work.

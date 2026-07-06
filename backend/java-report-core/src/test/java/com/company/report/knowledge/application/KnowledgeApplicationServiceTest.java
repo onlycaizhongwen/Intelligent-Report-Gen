@@ -1070,6 +1070,65 @@ class KnowledgeApplicationServiceTest {
                 });
     }
 
+    @Test
+    void credentialReencryptionSchedulerUsesConfiguredScanLimit() {
+        CurrentUserHolder.set(new CurrentUser(43L, Set.of("admin"), Set.of("datasource:manage")));
+        FakeKnowledgeBaseRepository knowledgeBaseRepository = new FakeKnowledgeBaseRepository();
+        FakeAuditRepository auditRepository = new FakeAuditRepository();
+        DataSourceCredentialCodec retiredCodec = new DataSourceCredentialCodec(
+                "retired-2026-06",
+                "retired-data-source-key",
+                new java.security.SecureRandom(new byte[]{5, 6, 7, 8}));
+        DataSourceCredentialCodec currentCodec = new DataSourceCredentialCodec(
+                "primary-2026-07",
+                "current-data-source-key",
+                Map.of("retired-2026-06", "retired-data-source-key"),
+                new java.security.SecureRandom(new byte[]{9, 10, 11, 12}));
+        KnowledgeDataSource firstStale = knowledgeBaseRepository.saveDataSource(KnowledgeDataSource.enabled(
+                7L,
+                "Finance API A",
+                "api",
+                "https://example.test/a",
+                "sync_app",
+                retiredCodec.encrypt("rotated-password-a"),
+                null,
+                null,
+                null
+        ));
+        KnowledgeDataSource secondStale = knowledgeBaseRepository.saveDataSource(KnowledgeDataSource.enabled(
+                7L,
+                "Finance API B",
+                "api",
+                "https://example.test/b",
+                "sync_app",
+                retiredCodec.encrypt("rotated-password-b"),
+                null,
+                null,
+                null
+        ));
+        KnowledgeApplicationService service = new KnowledgeApplicationService(
+                new KnowledgeDomainService(),
+                new FakeStorage(),
+                new FakeRepository(),
+                knowledgeBaseRepository,
+                new FakePublisher(),
+                currentCodec,
+                auditRepository,
+                new FakeSystemAlertRepository());
+        DataSourceCredentialReencryptionScheduler scheduler =
+                new DataSourceCredentialReencryptionScheduler(service, false, 1);
+
+        Map<String, Object> result = scheduler.runCredentialReencryptionOnce();
+
+        assertThat(result)
+                .containsEntry("scannedCount", 1)
+                .containsEntry("migratedCount", 1);
+        assertThat(knowledgeBaseRepository.findDataSourceById(firstStale.id()).orElseThrow().credentialSecret())
+                .startsWith("enc:v2:primary-2026-07:");
+        assertThat(knowledgeBaseRepository.findDataSourceById(secondStale.id()).orElseThrow().credentialSecret())
+                .startsWith("enc:v2:retired-2026-06:");
+    }
+
     private static class FakeStorage implements DocumentStorage {
         private final AtomicReference<String> objectKey = new AtomicReference<>();
 

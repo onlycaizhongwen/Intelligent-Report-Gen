@@ -30,6 +30,11 @@ knowledge:
     scheduler:
       enabled: ${DATA_SOURCE_SYNC_SCHEDULER_ENABLED:false}
       fixed-delay-ms: ${DATA_SOURCE_SYNC_SCHEDULER_DELAY_MS:60000}
+    credential-reencryption:
+      scheduler:
+        enabled: ${DATA_SOURCE_CREDENTIAL_REENCRYPTION_SCHEDULER_ENABLED:false}
+        fixed-delay-ms: ${DATA_SOURCE_CREDENTIAL_REENCRYPTION_SCHEDULER_DELAY_MS:86400000}
+        limit: ${DATA_SOURCE_CREDENTIAL_REENCRYPTION_SCHEDULER_LIMIT:100}
 
 rule:
   webhook-replay:
