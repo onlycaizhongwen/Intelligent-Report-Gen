@@ -981,6 +981,101 @@ class KnowledgeApplicationServiceTest {
     }
 
     @Test
+    void previewsApiDataSourceProfileDriftRepairWithoutPersistingChanges() {
+        CurrentUserHolder.set(new CurrentUser(52L, Set.of("ops"), Set.of("datasource:manage")));
+        FakeKnowledgeBaseRepository knowledgeBaseRepository = new FakeKnowledgeBaseRepository();
+        KnowledgeBase base = knowledgeBaseRepository.save(KnowledgeBase.newBase("Profile Repair Preview KB", 52L));
+        KnowledgeApplicationService service = new KnowledgeApplicationService(
+                new KnowledgeDomainService(), new FakeStorage(), new FakeRepository(), knowledgeBaseRepository, new FakePublisher());
+        KnowledgeDataSource drifted = knowledgeBaseRepository.saveDataSource(KnowledgeDataSource.enabled(
+                52L,
+                "Finance API Preview Drift",
+                "api",
+                "http://localhost:18080/finance/vouchers",
+                "finance_reader",
+                "enc:v1:legacy-token",
+                base.id(),
+                null,
+                """
+                        {"profileId":"finance-vouchers","rowsPath":"data.vouchers","titleField":"voucherNo","contentField":"summary","cursorField":"voucherId","method":"POST","authType":"api_key","apiKeyHeader":"X-API-Key","headers":{"X-Tenant":"finance"}}
+                        """,
+                "id",
+                "42"
+        ));
+
+        Map<String, Object> preview = service.repairDataSourceProfileDrift(drifted.id(), Map.of("confirmed", false));
+
+        assertThat(preview)
+                .containsEntry("dataSourceId", drifted.id())
+                .containsEntry("profileId", "finance-vouchers")
+                .containsEntry("repaired", false)
+                .containsEntry("requiresConfirmation", true)
+                .containsEntry("currentFailureReason", "api data source profile finance-vouchers requires cursorColumn=voucherId")
+                .containsEntry("proposedCursorColumn", "voucherId");
+        assertThat(knowledgeBaseRepository.findDataSourceById(drifted.id()).orElseThrow().cursorColumn()).isEqualTo("id");
+        assertThat(service.auditDataSourceProfileDrift(100)).containsEntry("driftCount", 1);
+    }
+
+    @Test
+    void confirmsApiDataSourceProfileDriftRepairAndAllowsNextSync() {
+        CurrentUserHolder.set(new CurrentUser(53L, Set.of("ops"), Set.of("datasource:manage")));
+        FakeKnowledgeBaseRepository knowledgeBaseRepository = new FakeKnowledgeBaseRepository();
+        FakeAuditRepository auditRepository = new FakeAuditRepository();
+        KnowledgeBase base = knowledgeBaseRepository.save(KnowledgeBase.newBase("Profile Repair KB", 53L));
+        KnowledgeApplicationService service = new KnowledgeApplicationService(
+                new KnowledgeDomainService(),
+                new FakeStorage(),
+                new FakeRepository(),
+                knowledgeBaseRepository,
+                new FakePublisher(),
+                new DataSourceCredentialCodec("local-test-data-source-credential-key"),
+                auditRepository);
+        KnowledgeDataSource drifted = knowledgeBaseRepository.saveDataSource(KnowledgeDataSource.enabled(
+                53L,
+                "Finance API Repair Drift",
+                "api",
+                "http://localhost:18080/finance/vouchers",
+                "finance_reader",
+                "enc:v1:legacy-token",
+                base.id(),
+                null,
+                """
+                        {"profileId":"finance-vouchers","rowsPath":"data.vouchers","titleField":"voucherNo","contentField":"summary","cursorField":"voucherId","method":"POST","authType":"api_key","apiKeyHeader":"X-API-Key","headers":{"X-Tenant":"finance"}}
+                        """,
+                "id",
+                null
+        ));
+
+        Map<String, Object> repaired = service.repairDataSourceProfileDrift(drifted.id(), Map.of("confirmed", true));
+        KnowledgeDataSource repairedDataSource = knowledgeBaseRepository.findDataSourceById(drifted.id()).orElseThrow();
+        Map<String, Object> syncRun = service.startDataSourceSync(drifted.id(), Map.of(
+                "mode", "manual",
+                "sampleRows", List.of(Map.of(
+                        "voucherId", 2001,
+                        "voucherNo", "FIN-REPAIRED-001",
+                        "summary", "Imported after profile repair"
+                ))
+        ));
+
+        assertThat(repaired)
+                .containsEntry("dataSourceId", drifted.id())
+                .containsEntry("profileId", "finance-vouchers")
+                .containsEntry("repaired", true)
+                .containsEntry("requiresConfirmation", false)
+                .containsEntry("previousCursorColumn", "id")
+                .containsEntry("proposedCursorColumn", "voucherId");
+        assertThat(repairedDataSource.cursorColumn()).isEqualTo("voucherId");
+        assertThat(repairedDataSource.lastCursor()).isNull();
+        assertThat(service.auditDataSourceProfileDrift(100)).containsEntry("driftCount", 0);
+        assertThat(syncRun)
+                .containsEntry("status", "succeeded")
+                .containsEntry("processedRows", 1L)
+                .containsEntry("lastCursor", "2001");
+        assertThat(auditRepository.logs)
+                .anySatisfy(log -> assertThat(log.operationType()).isEqualTo("knowledge_data_source_profile_repaired"));
+    }
+
+    @Test
     void syncsHttpApiRowsWithPostBodyCustomHeadersAndApiKey() throws Exception {
         CurrentUserHolder.set(new CurrentUser(38L, Set.of("analyst"), Set.of("knowledge:manage")));
         FakeKnowledgeBaseRepository knowledgeBaseRepository = new FakeKnowledgeBaseRepository();

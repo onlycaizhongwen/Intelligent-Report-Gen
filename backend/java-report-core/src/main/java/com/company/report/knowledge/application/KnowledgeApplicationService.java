@@ -450,6 +450,42 @@ public class KnowledgeApplicationService {
         return result;
     }
 
+    public Map<String, Object> repairDataSourceProfileDrift(Long dataSourceId, Map<String, Object> request) {
+        KnowledgeDataSource dataSource = findOwnedDataSource(dataSourceId);
+        String currentFailureReason = dataSourceMappingFailureReason(dataSource);
+        String profileId = dataSourceProfileId(dataSource);
+        if (profileId.isBlank()) {
+            throw new IllegalArgumentException("api data source profile repair requires fieldMapping.profileId");
+        }
+        Map<String, Object> proposedMapping = canonicalApiProfileMapping(profileId, parseFieldMapping(dataSource.fieldMappingJson()));
+        String proposedCursorColumn = canonicalApiProfileCursorColumn(profileId);
+        String proposedFieldMappingJson = fieldMappingJson(proposedMapping);
+        validateDataSourceMapping(dataSource.sourceType(), dataSource.knowledgeBaseId(), proposedFieldMappingJson, proposedCursorColumn);
+
+        boolean needsRepair = !currentFailureReason.isBlank();
+        boolean confirmed = booleanValue(request == null ? null : request.get("confirmed"));
+        Map<String, Object> result = dataSourceProfileRepairResponse(
+                dataSource, profileId, currentFailureReason, proposedCursorColumn, proposedMapping, false, needsRepair);
+        if (!needsRepair || !confirmed) {
+            return result;
+        }
+
+        String nextLastCursor = proposedCursorColumn.equals(stringValue(dataSource.cursorColumn()).trim())
+                ? dataSource.lastCursor()
+                : null;
+        KnowledgeDataSource repaired = knowledgeBaseRepository.saveDataSource(
+                dataSource.withFieldMappingAndCursor(proposedFieldMappingJson, proposedCursorColumn, nextLastCursor));
+        writeDataSourceAudit("knowledge_data_source_profile_repaired", repaired, "succeeded", Map.of(
+                "dataSourceId", repaired.id(),
+                "profileId", profileId,
+                "previousCursorColumn", dataSource.cursorColumn() == null ? "" : dataSource.cursorColumn(),
+                "cursorColumn", proposedCursorColumn,
+                "lastCursorReset", nextLastCursor == null && dataSource.lastCursor() != null
+        ));
+        return dataSourceProfileRepairResponse(
+                dataSource, profileId, currentFailureReason, proposedCursorColumn, proposedMapping, true, false);
+    }
+
     public Map<String, Object> startDataSourceSync(Long dataSourceId, Map<String, Object> request) {
         KnowledgeDataSource dataSource = findOwnedDataSource(dataSourceId);
         String mode = String.valueOf(request == null ? "manual" : request.getOrDefault("mode", "manual"));
@@ -946,6 +982,67 @@ public class KnowledgeApplicationService {
         } catch (IllegalArgumentException ex) {
             return "";
         }
+    }
+
+    private Map<String, Object> dataSourceProfileRepairResponse(KnowledgeDataSource dataSource,
+                                                                String profileId,
+                                                                String currentFailureReason,
+                                                                String proposedCursorColumn,
+                                                                Map<String, Object> proposedMapping,
+                                                                boolean repaired,
+                                                                boolean requiresConfirmation) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("dataSourceId", dataSource.id());
+        result.put("profileId", profileId);
+        result.put("repaired", repaired);
+        result.put("requiresConfirmation", requiresConfirmation);
+        result.put("currentFailureReason", currentFailureReason);
+        result.put("previousCursorColumn", dataSource.cursorColumn() == null ? "" : dataSource.cursorColumn());
+        result.put("proposedCursorColumn", proposedCursorColumn);
+        result.put("proposedFieldMapping", proposedMapping);
+        return result;
+    }
+
+    private Map<String, Object> canonicalApiProfileMapping(String profileId, Map<String, Object> originalMapping) {
+        Map<String, Object> mapping = new LinkedHashMap<>(originalMapping);
+        switch (profileId) {
+            case "oa-documents" -> {
+                mapping.put("profileId", "oa-documents");
+                mapping.put("rowsPath", "data.documents");
+                mapping.put("titleField", "documentNo");
+                mapping.put("contentField", "content");
+                mapping.put("cursorField", "id");
+                mapping.put("method", "GET");
+                mapping.put("authType", "bearer");
+            }
+            case "finance-vouchers" -> {
+                mapping.put("profileId", "finance-vouchers");
+                mapping.put("rowsPath", "data.vouchers");
+                mapping.put("titleField", "voucherNo");
+                mapping.put("contentField", "summary");
+                mapping.put("cursorField", "voucherId");
+                mapping.put("method", "POST");
+                mapping.put("authType", "api_key");
+                mapping.put("apiKeyHeader", "X-API-Key");
+                Map<String, Object> headers = new LinkedHashMap<>();
+                Object rawHeaders = mapping.get("headers");
+                if (rawHeaders instanceof Map<?, ?> existingHeaders) {
+                    existingHeaders.forEach((key, value) -> headers.put(String.valueOf(key), value));
+                }
+                headers.put("X-Tenant", "finance");
+                mapping.put("headers", headers);
+            }
+            default -> throw new IllegalArgumentException("api data source fieldMapping.profileId is not supported: " + profileId);
+        }
+        return mapping;
+    }
+
+    private String canonicalApiProfileCursorColumn(String profileId) {
+        return switch (profileId) {
+            case "oa-documents" -> "id";
+            case "finance-vouchers" -> "voucherId";
+            default -> throw new IllegalArgumentException("api data source fieldMapping.profileId is not supported: " + profileId);
+        };
     }
 
     private void requireApiFieldMapping(Map<String, Object> fieldMapping, String fieldName) {

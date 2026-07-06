@@ -149,6 +149,16 @@ export function buildHigressDataSourceSecurityChecks({
       bodyIncludes: 'driftCount',
     },
     {
+      name: 'data-source-profile-drift-repair-not-found-through-higress',
+      url: `${baseUrl}/api/v1/data-sources/999999999/profile-drift/repair`,
+      method: 'POST',
+      expectedStatus: 404,
+      expectedCode: 404,
+      headers: authHeaders,
+      body: JSON.stringify({ confirmed: false }),
+      bodyIncludes: 'knowledge data source not found',
+    },
+    {
       name: 'data-source-save-validation-through-higress',
       url: `${baseUrl}/api/v1/data-sources`,
       method: 'POST',

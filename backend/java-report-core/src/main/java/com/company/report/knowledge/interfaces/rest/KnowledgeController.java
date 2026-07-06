@@ -114,6 +114,14 @@ public class KnowledgeController {
         return ApiResponse.success(service.auditDataSourceProfileDrift(Math.max(limit, 1)));
     }
 
+    /** OpenSpec: knowledge-base-ingestion / REQ-KB-003 / Repair one legacy API profile mapping drift after explicit confirmation. */
+    @RequiresPermission("datasource:manage")
+    @PostMapping("/data-sources/{dataSourceId}/profile-drift/repair")
+    public ApiResponse<Map<String, Object>> repairDataSourceProfileDrift(@PathVariable Long dataSourceId,
+                                                                         @RequestBody(required = false) Map<String, Object> request) {
+        return ApiResponse.success(service.repairDataSourceProfileDrift(dataSourceId, request));
+    }
+
     /** OpenSpec: knowledge-base-ingestion / REQ-KB-003 / 启动数据源同步 */
     @RequiresPermission("datasource:manage")
     @PostMapping("/data-sources/{dataSourceId}/sync-runs")

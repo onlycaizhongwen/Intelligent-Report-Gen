@@ -193,6 +193,14 @@ async function runSourceSmoke({ apiBaseUrl, token, source }) {
     headers,
     body: JSON.stringify({ mode: 'manual', timeoutMs: 30000 }),
   });
+  let profileRepair = null;
+  if (source.dataSource.fieldMapping?.profileId) {
+    profileRepair = await apiJson(`${apiBaseUrl}/data-sources/${dataSourceId}/profile-drift/repair`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ confirmed: false }),
+    });
+  }
   const profileDrift = await apiJson(`${apiBaseUrl}/data-sources/profile-drift?limit=50`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -211,6 +219,8 @@ async function runSourceSmoke({ apiBaseUrl, token, source }) {
     && Number(syncRun.data.processedRows) === source.expectedProcessedRows
     && Number.isInteger(profileDrift.data.driftCount)
     && !JSON.stringify(profileDrift.data).includes('enc:v1:')
+    && (!profileRepair || (profileRepair.data.repaired === false && profileRepair.data.requiresConfirmation === false))
+    && (!profileRepair || !JSON.stringify(profileRepair.data).includes('enc:v1:'))
     && titleChecks.every((check) => check.found);
   return {
     key: source.key,
@@ -221,6 +231,7 @@ async function runSourceSmoke({ apiBaseUrl, token, source }) {
     processedRows: syncRun.data.processedRows,
     lastCursor: syncRun.data.lastCursor,
     profileDriftCount: profileDrift.data.driftCount,
+    profileRepairPreview: profileRepair?.data ?? null,
     titleChecks,
     passed,
   };

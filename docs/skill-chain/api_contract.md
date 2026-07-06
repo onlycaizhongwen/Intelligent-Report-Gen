@@ -82,6 +82,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 | `/api/v1/data-sources/presets` | GET | 查询 ERP/OA/财务数据源模板预设 | Header | 模板预设列表 | 200/401/403 |
 | `/api/v1/data-sources/credentials/reencrypt` | POST | 维护重加密数据源凭证 | JSON Body | 重加密结果 | 200/400/401/403 |
 | `/api/v1/data-sources/profile-drift` | GET | 审计历史 API profile 配置漂移 | Query | 漂移审计结果 | 200/400/401/403 |
+| `/api/v1/data-sources/{dataSourceId}/profile-drift/repair` | POST | 预览或确认修复单个历史 API profile 配置漂移 | Path + JSON Body | 修复预览或结果 | 200/400/401/403/404 |
 | `/api/v1/rules` | GET | 查询规则列表 | Query | 分页规则列表 | 200/401/403 |
 | `/api/v1/rules` | POST | 创建规则草稿 | JSON Body | 规则 | 200/400/401/403 |
 | `/api/v1/rules/{ruleId}` | PUT | 保存规则节点、连线和参数 | Path + JSON Body | 规则 | 200/400/401/403/404 |
@@ -3080,6 +3081,38 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 | `items[].cursorColumn` | string | 已保存增量游标字段 |
 | `items[].failureReason` | string | 与当前 profile 规则不一致的具体原因 |
 
+### 8.14 预览或确认修复历史 API profile 配置漂移
+
+| 接口路径 | 方法 | 描述 | 请求参数 | 响应数据 | 状态码 |
+|----------|------|------|----------|----------|--------|
+| `/api/v1/data-sources/{dataSourceId}/profile-drift/repair` | POST | 对单个已保存 API 数据源按当前内置 profile 规则生成修复预览；仅当 `confirmed=true` 时落库 | Path + JSON Body | 修复预览或结果 | 200/400/401/403/404 |
+
+请求参数：
+
+| 参数名 | 类型 | 必填 | 描述 |
+|--------|------|------|------|
+| `dataSourceId` | integer | 是 | 数据源 ID |
+| `confirmed` | boolean | 否 | 是否确认执行修复；默认 `false`，只返回预览不落库 |
+
+响应数据：
+
+| 字段名 | 类型 | 描述 |
+|--------|------|------|
+| `dataSourceId` | integer | 数据源 ID |
+| `profileId` | string | 当前映射声明的内置 profile ID |
+| `repaired` | boolean | 是否已执行落库修复 |
+| `requiresConfirmation` | boolean | 是否仍需要用户确认后才能落库 |
+| `currentFailureReason` | string | 修复前的 profile 校验失败原因；若无漂移则为空 |
+| `previousCursorColumn` | string | 修复前增量游标字段 |
+| `proposedCursorColumn` | string | 按内置 profile 计算出的目标增量游标字段 |
+| `proposedFieldMapping` | object | 修复后的规范 API fieldMapping；保留非 profile 强制字段，如分页和请求模板 |
+
+安全与审计：
+
+- 默认 dry-run，不修改数据源。
+- `confirmed=true` 时才覆盖 profile 强制字段和 `cursorColumn`；如果游标字段变化，会清空旧 `lastCursor`，避免用旧游标跳过新字段数据。
+- 修复成功写入 `knowledge_data_source_profile_repaired` 操作审计，不返回任何凭证明文或密文。
+
 ## 9. 规则引擎 API
 
 ### 9.1 查询规则列表
@@ -3631,6 +3664,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 | `GET /api/v1/data-sources/presets` | `knowledge-base-ingestion` | `datasource:manage` | 查询企业数据源模板预设 | 返回 ERP/OA/财务模板，不包含密钥 |
 | `POST /api/v1/data-sources/credentials/reencrypt` | `knowledge-base-ingestion` | `datasource:manage` | 维护重加密旧密钥数据源凭证 | 不返回任何凭证明文或密文 |
 | `GET /api/v1/data-sources/profile-drift` | `knowledge-base-ingestion` | `datasource:manage` | 审计历史 API profile 配置漂移 | 不返回任何凭证明文或密文 |
+| `POST /api/v1/data-sources/{dataSourceId}/profile-drift/repair` | `knowledge-base-ingestion` | `datasource:manage` | 预览或确认修复单个历史 API profile 配置漂移 | 默认 dry-run，确认后写操作审计 |
 | `GET /api/v1/system-alerts` | `audit-history-dashboard` | `notification:read` | 查询系统告警与通知 | 工作台通知入口 |
 | `GET /api/v1/auth/me` | `permission-collaboration` | authenticated | 获取当前认证用户 RBAC 上下文 | Higress/OIDC 登录后读取 Java 权限上下文 |
 | `POST /api/v1/users/batch-import` | `permission-collaboration` | `user:manage` | 批量导入用户 | 支持组织与角色初始化 |
@@ -4472,6 +4506,144 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       400,
       401,
       403
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/data-sources/{dataSourceId}/profile-drift/repair",
+    "description": "Preview or confirm repair for one saved API data source whose profile mapping no longer matches current built-in profile rules",
+    "module": "knowledge-base-ingestion",
+    "securityIntent": "datasource:manage",
+    "contentType": "application/json",
+    "pathParams": {
+      "dataSourceId": {
+        "type": "string",
+        "required": true,
+        "description": "dataSourceId path parameter"
+      }
+    },
+    "queryParams": {},
+    "headers": {
+      "Authorization": {
+        "type": "string",
+        "required": true,
+        "description": "Bearer JWT; optional only for public share POST endpoints"
+      }
+    },
+    "requestBody": {
+      "confirmed": {
+        "type": "boolean",
+        "required": false,
+        "description": "when true, persist the proposed repair; defaults to dry-run preview"
+      }
+    },
+    "responseBody": {
+      "code": {
+        "type": "integer",
+        "required": true,
+        "description": "response code"
+      },
+      "message": {
+        "type": "string",
+        "required": true,
+        "description": "response message"
+      },
+      "data": {
+        "type": "object",
+        "required": true,
+        "description": "API profile drift repair preview or result without secret values",
+        "properties": {
+          "dataSourceId": {
+            "type": "integer",
+            "required": true,
+            "description": "data source identifier"
+          },
+          "profileId": {
+            "type": "string",
+            "required": true,
+            "description": "built-in API profile id"
+          },
+          "repaired": {
+            "type": "boolean",
+            "required": true,
+            "description": "whether the repair was persisted"
+          },
+          "requiresConfirmation": {
+            "type": "boolean",
+            "required": true,
+            "description": "whether the proposed repair still needs explicit confirmation"
+          },
+          "currentFailureReason": {
+            "type": "string",
+            "required": false,
+            "description": "profile validation failure before repair"
+          },
+          "previousCursorColumn": {
+            "type": "string",
+            "required": false,
+            "description": "saved cursor column before repair"
+          },
+          "proposedCursorColumn": {
+            "type": "string",
+            "required": true,
+            "description": "cursor column required by the built-in profile"
+          },
+          "proposedFieldMapping": {
+            "type": "object",
+            "required": true,
+            "description": "canonical fieldMapping after repair; non-profile fields may be preserved",
+            "properties": {
+              "profileId": {
+                "type": "string",
+                "required": true,
+                "description": "built-in API profile id"
+              },
+              "rowsPath": {
+                "type": "string",
+                "required": true,
+                "description": "JSON path to response rows"
+              },
+              "titleField": {
+                "type": "string",
+                "required": true,
+                "description": "row field mapped to knowledge title"
+              },
+              "contentField": {
+                "type": "string",
+                "required": true,
+                "description": "row field mapped to knowledge content"
+              },
+              "cursorField": {
+                "type": "string",
+                "required": true,
+                "description": "row field used as incremental cursor"
+              },
+              "method": {
+                "type": "string",
+                "required": true,
+                "description": "HTTP method required by the profile"
+              },
+              "authType": {
+                "type": "string",
+                "required": true,
+                "description": "authentication mode required by the profile"
+              }
+            }
+          }
+        }
+      },
+      "timestamp": {
+        "type": "string",
+        "required": true,
+        "description": "response timestamp"
+      }
+    },
+    "statusCodes": [
+      200,
+      400,
+      401,
+      403,
+      404
     ]
   },
   {

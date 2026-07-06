@@ -211,6 +211,12 @@ class ContractSurfaceTest {
                 "scannedCount", "driftCount", "items");
         assertArrayItemProperties(contractsByEndpoint.get("GET /api/v1/data-sources/profile-drift"),
                 "items", "dataSourceId", "name", "sourceType", "profileId", "cursorColumn", "failureReason");
+        assertResponseDataProperties(contractsByEndpoint.get("POST /api/v1/data-sources/{dataSourceId}/profile-drift/repair"),
+                "dataSourceId", "profileId", "repaired", "requiresConfirmation", "currentFailureReason",
+                "previousCursorColumn", "proposedCursorColumn", "proposedFieldMapping");
+        assertNestedObjectProperties(contractsByEndpoint.get("POST /api/v1/data-sources/{dataSourceId}/profile-drift/repair"),
+                "proposedFieldMapping", "profileId", "rowsPath", "titleField", "contentField", "cursorField",
+                "method", "authType");
         assertDataSourceSyncRunProperties(contractsByEndpoint.get("POST /api/v1/data-sources/{dataSourceId}/sync-runs"));
         assertResponseDataProperties(contractsByEndpoint.get("GET /api/v1/data-sources/{dataSourceId}/sync-runs"),
                 "items", "page", "pageSize", "total");
@@ -895,6 +901,8 @@ class ContractSurfaceTest {
         assertThat(knowledgeController).contains("reencryptStaleDataSourceCredentials");
         assertThat(knowledgeController).contains("@RequiresPermission(\"datasource:manage\")\n    @GetMapping(\"/data-sources/profile-drift\")");
         assertThat(knowledgeController).contains("auditDataSourceProfileDrift");
+        assertThat(knowledgeController).contains("@RequiresPermission(\"datasource:manage\")\n    @PostMapping(\"/data-sources/{dataSourceId}/profile-drift/repair\")");
+        assertThat(knowledgeController).contains("repairDataSourceProfileDrift(dataSourceId, request)");
     }
 
     @Test

@@ -133,4 +133,12 @@ public record KnowledgeDataSource(
                 newCredentialSecret, knowledgeBaseId, syncQuery, fieldMappingJson, cursorColumn, lastCursor,
                 scheduleEnabled, scheduleIntervalSeconds, nextRunAt, failureCount, maxRetryCount, status);
     }
+
+    public KnowledgeDataSource withFieldMappingAndCursor(String newFieldMappingJson,
+                                                         String newCursorColumn,
+                                                         String newLastCursor) {
+        return new KnowledgeDataSource(id, ownerUserId, name, sourceType, endpoint, username,
+                credentialSecret, knowledgeBaseId, syncQuery, newFieldMappingJson, newCursorColumn, newLastCursor,
+                scheduleEnabled, scheduleIntervalSeconds, nextRunAt, failureCount, maxRetryCount, status);
+    }
 }
