@@ -6,6 +6,7 @@ import {
   buildGatewaySecurityJwt,
   buildHigressEndpointSecurityChecks,
   buildHigressGatewaySmokeChecks,
+  buildHigressRepresentativeAuthorizationMatrixChecks,
   classifyGatewayResponse,
 } from '../../../scripts/higress-gateway-smoke-lib.mjs';
 
@@ -116,4 +117,40 @@ test('buildHigressDataSourceSecurityChecks covers presets, configuration and syn
   assert.match(checks[5].headers.Authorization, /^Bearer /);
   assert.match(checks[6].headers.Authorization, /^Bearer /);
   assert.match(checks[7].headers.Authorization, /^Bearer /);
+});
+
+test('buildHigressRepresentativeAuthorizationMatrixChecks covers core modules', () => {
+  const checks = buildHigressRepresentativeAuthorizationMatrixChecks({
+    gatewayBaseUrl: 'http://127.0.0.1:28000',
+    jwtSecret: 'local-dev-secret-change-me-32-bytes-minimum',
+  });
+
+  assert.deepEqual(
+    checks.map((check) => [check.name, check.expectedStatus, check.expectedCode]),
+    [
+      ['report-read-missing-token-through-higress', 401, 401],
+      ['report-read-insufficient-permission-through-higress', 403, 403],
+      ['report-read-authorized-through-higress', 200, 200],
+      ['knowledge-manage-missing-token-through-higress', 401, 401],
+      ['knowledge-manage-insufficient-permission-through-higress', 403, 403],
+      ['knowledge-manage-authorized-through-higress', 200, 200],
+      ['rule-manage-missing-token-through-higress', 401, 401],
+      ['rule-manage-insufficient-permission-through-higress', 403, 403],
+      ['rule-manage-authorized-through-higress', 200, 200],
+      ['audit-read-missing-token-through-higress', 401, 401],
+      ['audit-read-insufficient-permission-through-higress', 403, 403],
+      ['audit-read-authorized-through-higress', 200, 200],
+      ['dashboard-read-missing-token-through-higress', 401, 401],
+      ['dashboard-read-insufficient-permission-through-higress', 403, 403],
+      ['dashboard-read-authorized-through-higress', 200, 200],
+      ['notification-read-missing-token-through-higress', 401, 401],
+      ['notification-read-insufficient-permission-through-higress', 403, 403],
+      ['notification-read-authorized-through-higress', 200, 200],
+    ],
+  );
+  assert.equal(checks[0].url, 'http://127.0.0.1:28000/api/v1/reports?page=1&pageSize=1');
+  assert.equal(checks[8].url, 'http://127.0.0.1:28000/api/v1/rules?page=1&pageSize=1');
+  assert.equal(checks[14].url, 'http://127.0.0.1:28000/api/v1/dashboard/overview?range=last7days');
+  assert.match(checks[2].headers.Authorization, /^Bearer /);
+  assert.match(checks[17].headers.Authorization, /^Bearer /);
 });

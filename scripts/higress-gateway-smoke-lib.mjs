@@ -94,6 +94,83 @@ export function buildHigressEndpointSecurityChecks({
   ];
 }
 
+export function buildHigressRepresentativeAuthorizationMatrixChecks({
+  gatewayBaseUrl = 'http://127.0.0.1:18000',
+  jwtSecret = 'local-dev-secret-change-me-32-bytes-minimum',
+} = {}) {
+  const baseUrl = gatewayBaseUrl.replace(/\/$/, '');
+  const surfaces = [
+    {
+      key: 'report-read',
+      path: '/api/v1/reports?page=1&pageSize=1',
+      permission: 'report:read',
+    },
+    {
+      key: 'knowledge-manage',
+      path: '/api/v1/knowledge-bases?page=1&pageSize=1',
+      permission: 'knowledge:manage',
+    },
+    {
+      key: 'rule-manage',
+      path: '/api/v1/rules?page=1&pageSize=1',
+      permission: 'rule:manage',
+    },
+    {
+      key: 'audit-read',
+      path: '/api/v1/audit-logs?page=1&pageSize=1',
+      permission: 'audit:read',
+    },
+    {
+      key: 'dashboard-read',
+      path: '/api/v1/dashboard/overview?range=last7days',
+      permission: 'dashboard:read',
+    },
+    {
+      key: 'notification-read',
+      path: '/api/v1/system-alerts?page=1&pageSize=1',
+      permission: 'notification:read',
+    },
+  ];
+  return surfaces.flatMap((surface, index) => {
+    const insufficientToken = buildGatewaySecurityJwt({
+      secret: jwtSecret,
+      userId: 920 + index,
+      roles: ['viewer'],
+      permissions: [],
+    });
+    const allowedToken = buildGatewaySecurityJwt({
+      secret: jwtSecret,
+      userId: 940 + index,
+      roles: ['module_operator'],
+      permissions: [surface.permission],
+    });
+    const url = `${baseUrl}${surface.path}`;
+    return [
+      {
+        name: `${surface.key}-missing-token-through-higress`,
+        url,
+        expectedStatus: 401,
+        expectedCode: 401,
+        headers: {},
+      },
+      {
+        name: `${surface.key}-insufficient-permission-through-higress`,
+        url,
+        expectedStatus: 403,
+        expectedCode: 403,
+        headers: { Authorization: `Bearer ${insufficientToken}` },
+      },
+      {
+        name: `${surface.key}-authorized-through-higress`,
+        url,
+        expectedStatus: 200,
+        expectedCode: 200,
+        headers: { Authorization: `Bearer ${allowedToken}` },
+      },
+    ];
+  });
+}
+
 export function buildHigressDataSourceSecurityChecks({
   gatewayBaseUrl = 'http://127.0.0.1:18000',
   jwtSecret = 'local-dev-secret-change-me-32-bytes-minimum',
@@ -226,6 +303,7 @@ export async function runHigressGatewaySmoke({
   const checks = [
     ...buildHigressGatewaySmokeChecks({ gatewayBaseUrl }),
     ...buildHigressEndpointSecurityChecks({ gatewayBaseUrl, jwtSecret }),
+    ...buildHigressRepresentativeAuthorizationMatrixChecks({ gatewayBaseUrl, jwtSecret }),
     ...buildHigressDataSourceSecurityChecks({ gatewayBaseUrl, jwtSecret }),
   ];
   const results = [];
