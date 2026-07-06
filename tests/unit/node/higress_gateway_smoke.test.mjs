@@ -95,6 +95,7 @@ test('buildHigressDataSourceSecurityChecks covers presets, configuration and syn
       ['data-source-presets-insufficient-permission-through-higress', 403, 403],
       ['data-source-presets-authorized-through-higress', 200, 200],
       ['data-source-profile-drift-audit-authorized-through-higress', 200, 200],
+      ['data-source-profile-drift-bulk-repair-preview-through-higress', 200, 200],
       ['data-source-profile-drift-repair-not-found-through-higress', 404, 404],
       ['data-source-save-validation-through-higress', 400, 400],
       ['data-source-sync-not-found-through-higress', 404, 404],
@@ -103,13 +104,16 @@ test('buildHigressDataSourceSecurityChecks covers presets, configuration and syn
   assert.equal(checks[0].url, 'http://127.0.0.1:28000/api/v1/data-sources/presets');
   assert.equal(checks[3].url, 'http://127.0.0.1:28000/api/v1/data-sources/profile-drift?limit=10');
   assert.equal(checks[4].method, 'POST');
-  assert.equal(checks[4].url, 'http://127.0.0.1:28000/api/v1/data-sources/999999999/profile-drift/repair');
+  assert.equal(checks[4].url, 'http://127.0.0.1:28000/api/v1/data-sources/profile-drift/repair');
   assert.equal(checks[5].method, 'POST');
-  assert.equal(checks[5].url, 'http://127.0.0.1:28000/api/v1/data-sources');
-  assert.equal(checks[6].url, 'http://127.0.0.1:28000/api/v1/data-sources/999999999/sync-runs');
+  assert.equal(checks[5].url, 'http://127.0.0.1:28000/api/v1/data-sources/999999999/profile-drift/repair');
+  assert.equal(checks[6].method, 'POST');
+  assert.equal(checks[6].url, 'http://127.0.0.1:28000/api/v1/data-sources');
+  assert.equal(checks[7].url, 'http://127.0.0.1:28000/api/v1/data-sources/999999999/sync-runs');
   assert.match(checks[2].headers.Authorization, /^Bearer /);
   assert.match(checks[3].headers.Authorization, /^Bearer /);
   assert.match(checks[4].headers.Authorization, /^Bearer /);
   assert.match(checks[5].headers.Authorization, /^Bearer /);
   assert.match(checks[6].headers.Authorization, /^Bearer /);
+  assert.match(checks[7].headers.Authorization, /^Bearer /);
 });

@@ -149,6 +149,16 @@ export function buildHigressDataSourceSecurityChecks({
       bodyIncludes: 'driftCount',
     },
     {
+      name: 'data-source-profile-drift-bulk-repair-preview-through-higress',
+      url: `${baseUrl}/api/v1/data-sources/profile-drift/repair`,
+      method: 'POST',
+      expectedStatus: 200,
+      expectedCode: 200,
+      headers: authHeaders,
+      body: JSON.stringify({ limit: 10, confirmed: false }),
+      bodyIncludes: 'repairedCount',
+    },
+    {
       name: 'data-source-profile-drift-repair-not-found-through-higress',
       url: `${baseUrl}/api/v1/data-sources/999999999/profile-drift/repair`,
       method: 'POST',

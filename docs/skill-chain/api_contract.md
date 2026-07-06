@@ -82,6 +82,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 | `/api/v1/data-sources/presets` | GET | 查询 ERP/OA/财务数据源模板预设 | Header | 模板预设列表 | 200/401/403 |
 | `/api/v1/data-sources/credentials/reencrypt` | POST | 维护重加密数据源凭证 | JSON Body | 重加密结果 | 200/400/401/403 |
 | `/api/v1/data-sources/profile-drift` | GET | 审计历史 API profile 配置漂移 | Query | 漂移审计结果 | 200/400/401/403 |
+| `/api/v1/data-sources/profile-drift/repair` | POST | 批量预览或确认修复历史 API profile 配置漂移 | JSON Body | 批量修复预览或结果 | 200/400/401/403 |
 | `/api/v1/data-sources/{dataSourceId}/profile-drift/repair` | POST | 预览或确认修复单个历史 API profile 配置漂移 | Path + JSON Body | 修复预览或结果 | 200/400/401/403/404 |
 | `/api/v1/rules` | GET | 查询规则列表 | Query | 分页规则列表 | 200/401/403 |
 | `/api/v1/rules` | POST | 创建规则草稿 | JSON Body | 规则 | 200/400/401/403 |
@@ -3082,7 +3083,41 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 | `items[].cursorColumn` | string | 已保存增量游标字段 |
 | `items[].failureReason` | string | 与当前 profile 规则不一致的具体原因 |
 
-### 8.14 预览或确认修复历史 API profile 配置漂移
+### 8.14 批量预览或确认修复历史 API profile 配置漂移
+
+| 接口路径 | 方法 | 描述 | 请求参数 | 响应数据 | 状态码 |
+|----------|------|------|----------|----------|--------|
+| `/api/v1/data-sources/profile-drift/repair` | POST | 扫描已保存 API profile 数据源，默认 dry-run 返回批量修复预览；仅当 `confirmed=true` 时逐项落库修复 | JSON Body | 批量修复预览或结果 | 200/400/401/403 |
+
+请求参数：
+
+| 参数名 | 类型 | 必填 | 描述 |
+|--------|------|------|------|
+| `limit` | integer | 否 | 单次扫描上限，默认 100，后端最小钳制为 1 |
+| `confirmed` | boolean | 否 | 是否确认执行批量修复；默认 `false`，只返回预览不落库 |
+
+响应数据：
+
+| 字段名 | 类型 | 描述 |
+|--------|------|------|
+| `scannedCount` | integer | 本次扫描的 API profile 数据源数量 |
+| `driftCount` | integer | 扫描时发现的漂移数据源数量 |
+| `repairedCount` | integer | 本次已确认并成功落库修复的数据源数量 |
+| `failedCount` | integer | 本次修复失败的数据源数量 |
+| `requiresConfirmation` | boolean | 当前响应是否仍需要用户确认后才能落库 |
+| `items` | array | 逐项预览或修复结果，不包含任何凭证明文或密文 |
+| `items[].dataSourceId` | integer | 数据源 ID |
+| `items[].profileId` | string | 当前映射声明的 profile ID |
+| `items[].repaired` | boolean | 该数据源是否已执行落库修复 |
+| `items[].requiresConfirmation` | boolean | 该数据源是否仍需要确认 |
+
+安全与审计：
+
+- 默认 dry-run，不修改任何数据源。
+- `confirmed=true` 时逐项复用单条 profile drift 修复链路；修复成功写入 `knowledge_data_source_profile_repaired` 操作审计。
+- 单项失败不会中断整批响应，失败项只返回错误原因，不返回任何凭证明文或密文。
+
+### 8.15 预览或确认修复历史 API profile 配置漂移
 
 | 接口路径 | 方法 | 描述 | 请求参数 | 响应数据 | 状态码 |
 |----------|------|------|----------|----------|--------|
@@ -3665,6 +3700,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 | `GET /api/v1/data-sources/presets` | `knowledge-base-ingestion` | `datasource:manage` | 查询企业数据源模板预设 | 返回 ERP/OA/财务模板，不包含密钥 |
 | `POST /api/v1/data-sources/credentials/reencrypt` | `knowledge-base-ingestion` | `datasource:manage` | 维护重加密旧密钥数据源凭证 | 不返回任何凭证明文或密文 |
 | `GET /api/v1/data-sources/profile-drift` | `knowledge-base-ingestion` | `datasource:manage` | 审计历史 API profile 配置漂移 | 不返回任何凭证明文或密文 |
+| `POST /api/v1/data-sources/profile-drift/repair` | `knowledge-base-ingestion` | `datasource:manage` | 批量预览或确认修复历史 API profile 配置漂移 | 默认 dry-run，确认后逐项写操作审计 |
 | `POST /api/v1/data-sources/{dataSourceId}/profile-drift/repair` | `knowledge-base-ingestion` | `datasource:manage` | 预览或确认修复单个历史 API profile 配置漂移 | 默认 dry-run，确认后写操作审计 |
 | `GET /api/v1/system-alerts` | `audit-history-dashboard` | `notification:read` | 查询系统告警与通知 | 工作台通知入口 |
 | `GET /api/v1/auth/me` | `permission-collaboration` | authenticated | 获取当前认证用户 RBAC 上下文 | Higress/OIDC 登录后读取 Java 权限上下文 |
@@ -4490,6 +4526,125 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
                   "type": "string",
                   "required": true,
                   "description": "profile validation failure reason"
+                }
+              }
+            }
+          }
+        }
+      },
+      "timestamp": {
+        "type": "string",
+        "required": true,
+        "description": "response timestamp"
+      }
+    },
+    "statusCodes": [
+      200,
+      400,
+      401,
+      403
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/data-sources/profile-drift/repair",
+    "description": "Preview or confirm repair for all scanned saved API data sources whose profile mapping no longer matches current profile catalog rules",
+    "module": "knowledge-base-ingestion",
+    "securityIntent": "datasource:manage",
+    "contentType": "application/json",
+    "pathParams": {},
+    "queryParams": {},
+    "headers": {
+      "Authorization": {
+        "type": "string",
+        "required": true,
+        "description": "Bearer JWT; optional only for public share POST endpoints"
+      }
+    },
+    "requestBody": {
+      "limit": {
+        "type": "integer",
+        "required": false,
+        "description": "maximum number of API profile data sources to scan; defaults to 100 and is clamped to at least 1"
+      },
+      "confirmed": {
+        "type": "boolean",
+        "required": false,
+        "description": "when true, persist each proposed repair; defaults to dry-run preview"
+      }
+    },
+    "responseBody": {
+      "code": {
+        "type": "integer",
+        "required": true,
+        "description": "response code"
+      },
+      "message": {
+        "type": "string",
+        "required": true,
+        "description": "response message"
+      },
+      "data": {
+        "type": "object",
+        "required": true,
+        "description": "bulk API profile drift repair preview or result without secret values",
+        "properties": {
+          "scannedCount": {
+            "type": "integer",
+            "required": true,
+            "description": "number of API profile data sources scanned"
+          },
+          "driftCount": {
+            "type": "integer",
+            "required": true,
+            "description": "number of drifted data sources found before repair"
+          },
+          "repairedCount": {
+            "type": "integer",
+            "required": true,
+            "description": "number of data sources repaired in this request"
+          },
+          "failedCount": {
+            "type": "integer",
+            "required": true,
+            "description": "number of data sources that could not be repaired"
+          },
+          "requiresConfirmation": {
+            "type": "boolean",
+            "required": true,
+            "description": "whether the batch response still needs explicit confirmation"
+          },
+          "items": {
+            "type": "array",
+            "required": true,
+            "description": "per-data-source preview or repair result",
+            "items": {
+              "type": "object",
+              "properties": {
+                "dataSourceId": {
+                  "type": "integer",
+                  "required": true,
+                  "description": "data source identifier"
+                },
+                "profileId": {
+                  "type": "string",
+                  "required": true,
+                  "description": "API profile id from the built-in or configured catalog"
+                },
+                "repaired": {
+                  "type": "boolean",
+                  "required": true,
+                  "description": "whether this data source was persisted"
+                },
+                "requiresConfirmation": {
+                  "type": "boolean",
+                  "required": true,
+                  "description": "whether this item still needs explicit confirmation"
+                },
+                "failureReason": {
+                  "type": "string",
+                  "required": false,
+                  "description": "repair failure reason for failed items"
                 }
               }
             }

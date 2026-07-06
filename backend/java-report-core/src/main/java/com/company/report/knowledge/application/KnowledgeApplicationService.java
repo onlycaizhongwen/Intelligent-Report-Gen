@@ -503,6 +503,48 @@ public class KnowledgeApplicationService {
                 dataSource, profileId, currentFailureReason, proposedCursorColumn, proposedMapping, true, false);
     }
 
+    public Map<String, Object> repairDataSourceProfileDriftBatch(Map<String, Object> request) {
+        int limit = integerValue(request == null ? null : request.get("limit"), 100);
+        boolean confirmed = booleanValue(request == null ? null : request.get("confirmed"));
+        List<KnowledgeDataSource> candidates = knowledgeBaseRepository.findDataSourcesForProfileAudit(Math.max(limit, 1));
+        List<Map<String, Object>> items = new java.util.ArrayList<>();
+        int driftCount = 0;
+        int repairedCount = 0;
+        int failedCount = 0;
+        for (KnowledgeDataSource dataSource : candidates) {
+            String failureReason = dataSourceMappingFailureReason(dataSource);
+            if (failureReason.isBlank()) {
+                continue;
+            }
+            driftCount++;
+            try {
+                Map<String, Object> item = repairDataSourceProfileDrift(dataSource.id(), Map.of("confirmed", confirmed));
+                items.add(item);
+                if (Boolean.TRUE.equals(item.get("repaired"))) {
+                    repairedCount++;
+                }
+            } catch (RuntimeException ex) {
+                failedCount++;
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("dataSourceId", dataSource.id());
+                item.put("name", dataSource.name());
+                item.put("profileId", dataSourceProfileId(dataSource));
+                item.put("repaired", false);
+                item.put("requiresConfirmation", false);
+                item.put("failureReason", ex.getMessage());
+                items.add(item);
+            }
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("scannedCount", candidates.size());
+        result.put("driftCount", driftCount);
+        result.put("repairedCount", repairedCount);
+        result.put("failedCount", failedCount);
+        result.put("requiresConfirmation", !confirmed && driftCount > 0);
+        result.put("items", items);
+        return result;
+    }
+
     public Map<String, Object> startDataSourceSync(Long dataSourceId, Map<String, Object> request) {
         KnowledgeDataSource dataSource = findOwnedDataSource(dataSourceId);
         String mode = String.valueOf(request == null ? "manual" : request.getOrDefault("mode", "manual"));
