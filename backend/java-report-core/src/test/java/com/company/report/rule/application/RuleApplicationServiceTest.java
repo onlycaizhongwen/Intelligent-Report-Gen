@@ -1399,6 +1399,53 @@ class RuleApplicationServiceTest {
     }
 
     @Test
+    void rejectsApprovalSupplementAttachmentWhenOfficeArchiveContainsExternalRelationshipBeforeStorageWrite() throws IOException {
+        InMemoryRuleRepository ruleRepository = new InMemoryRuleRepository();
+        InMemoryAuditRepository auditRepository = new InMemoryAuditRepository();
+        FakeApprovalSupplementStorage storage = new FakeApprovalSupplementStorage();
+        RuleApplicationService approvalService = new RuleApplicationService(
+                new RuleDomainService(),
+                ruleRepository,
+                auditRepository,
+                new FakeSystemAlertRepository(),
+                storage
+        );
+        Long ruleId = publishRule(approvalService, "Supplement attachment external relationship rule", approvalRuleDefinition());
+        Long approvalRecordId = rejectedApprovalRecordId(approvalService, ruleId);
+        byte[] docx = officeArchiveWithEntries(Map.of(
+                "word/document.xml", "<w:document><w:body><w:t>evidence</w:t></w:body></w:document>",
+                "word/_rels/document.xml.rels", """
+                        <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+                          <Relationship Id="rId9" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="https://malicious.example/payload" TargetMode="External"/>
+                        </Relationships>
+                        """
+        ));
+
+        assertThatThrownBy(() -> approvalService.uploadApprovalSupplementAttachment(
+                ruleId,
+                approvalRecordId,
+                new MockMultipartFile(
+                        "file",
+                        "external-link.docx",
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        docx
+                )
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("approval supplement attachment failed content inspection: external_relationship_detected");
+
+        assertThat(storage.storeCallCount).isZero();
+        assertThat(auditRepository.logs)
+                .filteredOn(log -> "rule_approval_supplement_attachment_rejected".equals(log.operationType()))
+                .singleElement()
+                .satisfies(log -> assertThat(log.detail())
+                        .containsEntry("approvalRecordId", approvalRecordId)
+                        .containsEntry("fileName", "external-link.docx")
+                        .containsEntry("rejectionReason", "external_relationship_detected")
+                        .containsEntry("inspectionEngine", "basic_attachment_content_inspector"));
+    }
+
+    @Test
     void productionRunExecutesSubprocessRuleAndWritesParentChildAudit() {
         InMemoryRuleRepository ruleRepository = new InMemoryRuleRepository();
         InMemoryAuditRepository auditRepository = new InMemoryAuditRepository();
@@ -5473,11 +5520,18 @@ class RuleApplicationServiceTest {
     }
 
     private static byte[] officeArchiveWithEntryBytes(String entryName, byte[] content) throws IOException {
+        return officeArchiveWithEntries(Map.of(entryName, content));
+    }
+
+    private static byte[] officeArchiveWithEntries(Map<String, ?> entries) throws IOException {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         try (ZipOutputStream zip = new ZipOutputStream(output)) {
-            zip.putNextEntry(new ZipEntry(entryName));
-            zip.write(content);
-            zip.closeEntry();
+            for (Map.Entry<String, ?> entry : entries.entrySet()) {
+                zip.putNextEntry(new ZipEntry(entry.getKey()));
+                Object value = entry.getValue();
+                zip.write(value instanceof byte[] bytes ? bytes : value.toString().getBytes(StandardCharsets.UTF_8));
+                zip.closeEntry();
+            }
         }
         return output.toByteArray();
     }

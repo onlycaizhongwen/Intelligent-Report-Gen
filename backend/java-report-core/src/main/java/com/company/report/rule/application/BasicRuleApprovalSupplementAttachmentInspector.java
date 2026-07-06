@@ -116,7 +116,7 @@ public class BasicRuleApprovalSupplementAttachmentInspector implements RuleAppro
                             "office archive contains a macro payload"
                     );
                 }
-                InspectionResult entryInspection = inspectEntryContent(zip);
+                InspectionResult entryInspection = inspectEntryContent(zip, entryName);
                 if (!entryInspection.accepted()) {
                     return entryInspection;
                 }
@@ -151,7 +151,7 @@ public class BasicRuleApprovalSupplementAttachmentInspector implements RuleAppro
         return offset < bytes.length && (unsigned(bytes[offset]) & 0x01) == 0x01;
     }
 
-    private static InspectionResult inspectEntryContent(ZipInputStream zip) throws IOException {
+    private static InspectionResult inspectEntryContent(ZipInputStream zip, String entryName) throws IOException {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         byte[] buffer = new byte[4096];
         long inspectedBytes = 0L;
@@ -172,7 +172,27 @@ public class BasicRuleApprovalSupplementAttachmentInspector implements RuleAppro
                     "known antivirus test signature detected inside office archive"
             );
         }
+        if (isRelationshipEntry(entryName) && containsExternalRelationship(output.toByteArray())) {
+            return InspectionResult.rejected(
+                    "external_relationship_detected",
+                    "office archive contains an external relationship"
+            );
+        }
         return InspectionResult.passed();
+    }
+
+    private static boolean isRelationshipEntry(String entryName) {
+        return entryName != null && entryName.endsWith(".rels");
+    }
+
+    private static boolean containsExternalRelationship(byte[] bytes) {
+        String relationshipXml = new String(bytes, StandardCharsets.UTF_8).toLowerCase(Locale.ROOT);
+        return relationshipXml.contains("targetmode=\"external\"")
+                || relationshipXml.contains("targetmode='external'")
+                || relationshipXml.contains("target=\"http://")
+                || relationshipXml.contains("target='http://")
+                || relationshipXml.contains("target=\"https://")
+                || relationshipXml.contains("target='https://");
     }
 
     private static boolean startsWith(byte[] bytes, byte[] prefix) {
