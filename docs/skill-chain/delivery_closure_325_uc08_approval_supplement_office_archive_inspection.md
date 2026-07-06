@@ -36,4 +36,4 @@ Approval supplement attachment inspection now opens allowed OOXML Office archive
 ## Remaining Risk
 
 - This closure is not a full external antivirus deployment.
-- Encrypted archive handling, ZIP-bomb throttling, OCR/image malware inspection, and sandbox/deep parser analysis remain future production hardening.
+- Office archive expansion throttling is added in Closure 326; encrypted archive handling, OCR/image malware inspection, and sandbox/deep parser analysis remain future production hardening.

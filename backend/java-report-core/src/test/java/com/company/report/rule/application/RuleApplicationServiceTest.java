@@ -1277,6 +1277,46 @@ class RuleApplicationServiceTest {
     }
 
     @Test
+    void rejectsApprovalSupplementAttachmentWhenOfficeArchiveExpansionLimitIsExceededBeforeStorageWrite() throws IOException {
+        InMemoryRuleRepository ruleRepository = new InMemoryRuleRepository();
+        InMemoryAuditRepository auditRepository = new InMemoryAuditRepository();
+        FakeApprovalSupplementStorage storage = new FakeApprovalSupplementStorage();
+        RuleApplicationService approvalService = new RuleApplicationService(
+                new RuleDomainService(),
+                ruleRepository,
+                auditRepository,
+                new FakeSystemAlertRepository(),
+                storage
+        );
+        Long ruleId = publishRule(approvalService, "Supplement attachment archive expansion limit rule", approvalRuleDefinition());
+        Long approvalRecordId = rejectedApprovalRecordId(approvalService, ruleId);
+        byte[] docx = officeArchiveWithEntryBytes("word/document.xml", new byte[(10 * 1024 * 1024) + 1]);
+
+        assertThatThrownBy(() -> approvalService.uploadApprovalSupplementAttachment(
+                ruleId,
+                approvalRecordId,
+                new MockMultipartFile(
+                        "file",
+                        "oversized-archive.docx",
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        docx
+                )
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("approval supplement attachment failed content inspection: archive_expansion_limit_exceeded");
+
+        assertThat(storage.storeCallCount).isZero();
+        assertThat(auditRepository.logs)
+                .filteredOn(log -> "rule_approval_supplement_attachment_rejected".equals(log.operationType()))
+                .singleElement()
+                .satisfies(log -> assertThat(log.detail())
+                        .containsEntry("approvalRecordId", approvalRecordId)
+                        .containsEntry("fileName", "oversized-archive.docx")
+                        .containsEntry("rejectionReason", "archive_expansion_limit_exceeded")
+                        .containsEntry("inspectionEngine", "basic_attachment_content_inspector"));
+    }
+
+    @Test
     void productionRunExecutesSubprocessRuleAndWritesParentChildAudit() {
         InMemoryRuleRepository ruleRepository = new InMemoryRuleRepository();
         InMemoryAuditRepository auditRepository = new InMemoryAuditRepository();
@@ -5334,10 +5374,14 @@ class RuleApplicationServiceTest {
     }
 
     private static byte[] officeArchiveWithEntry(String entryName, String content) throws IOException {
+        return officeArchiveWithEntryBytes(entryName, content.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static byte[] officeArchiveWithEntryBytes(String entryName, byte[] content) throws IOException {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         try (ZipOutputStream zip = new ZipOutputStream(output)) {
             zip.putNextEntry(new ZipEntry(entryName));
-            zip.write(content.getBytes(StandardCharsets.UTF_8));
+            zip.write(content);
             zip.closeEntry();
         }
         return output.toByteArray();

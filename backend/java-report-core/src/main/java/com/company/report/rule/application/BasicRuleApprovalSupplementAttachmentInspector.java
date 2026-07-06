@@ -15,6 +15,7 @@ import java.util.zip.ZipInputStream;
 public class BasicRuleApprovalSupplementAttachmentInspector implements RuleApprovalSupplementAttachmentInspector {
     private static final String ENGINE_NAME = "basic_attachment_content_inspector";
     private static final String EICAR_SIGNATURE = "EICAR-STANDARD-ANTIVIRUS-TEST-FILE";
+    private static final long MAX_ARCHIVE_INSPECTION_BYTES = 10L * 1024 * 1024;
 
     @Override
     public InspectionResult inspect(MultipartFile file, String contentType, String fileName) throws IOException {
@@ -87,12 +88,9 @@ public class BasicRuleApprovalSupplementAttachmentInspector implements RuleAppro
                             "office archive contains a macro payload"
                     );
                 }
-                byte[] entryBytes = readEntry(zip);
-                if (containsAscii(entryBytes, EICAR_SIGNATURE)) {
-                    return InspectionResult.rejected(
-                            "malware_signature_detected",
-                            "known antivirus test signature detected inside office archive"
-                    );
+                InspectionResult entryInspection = inspectEntryContent(zip);
+                if (!entryInspection.accepted()) {
+                    return entryInspection;
                 }
                 zip.closeEntry();
             }
@@ -100,14 +98,28 @@ public class BasicRuleApprovalSupplementAttachmentInspector implements RuleAppro
         return InspectionResult.passed();
     }
 
-    private static byte[] readEntry(ZipInputStream zip) throws IOException {
+    private static InspectionResult inspectEntryContent(ZipInputStream zip) throws IOException {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         byte[] buffer = new byte[4096];
+        long inspectedBytes = 0L;
         int read;
         while ((read = zip.read(buffer)) != -1) {
+            inspectedBytes += read;
+            if (inspectedBytes > MAX_ARCHIVE_INSPECTION_BYTES) {
+                return InspectionResult.rejected(
+                        "archive_expansion_limit_exceeded",
+                        "office archive expanded beyond the inspection limit"
+                );
+            }
             output.write(buffer, 0, read);
         }
-        return output.toByteArray();
+        if (containsAscii(output.toByteArray(), EICAR_SIGNATURE)) {
+            return InspectionResult.rejected(
+                    "malware_signature_detected",
+                    "known antivirus test signature detected inside office archive"
+            );
+        }
+        return InspectionResult.passed();
     }
 
     private static boolean startsWith(byte[] bytes, byte[] prefix) {
