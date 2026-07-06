@@ -39,6 +39,10 @@ knowledge:
         limit: ${DATA_SOURCE_CREDENTIAL_REENCRYPTION_SCHEDULER_LIMIT:100}
 
 rule:
+  approval:
+    supplement-attachment:
+      max-size-bytes: ${RULE_APPROVAL_SUPPLEMENT_ATTACHMENT_MAX_SIZE_BYTES:10485760}
+      allowed-content-types: ${RULE_APPROVAL_SUPPLEMENT_ATTACHMENT_ALLOWED_CONTENT_TYPES:application/pdf,image/jpeg,image/png,text/csv,text/markdown,text/plain,application/msword,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.wordprocessingml.document}
   webhook-replay:
     worker:
       enabled: ${RULE_WEBHOOK_REPLAY_WORKER_ENABLED:false}

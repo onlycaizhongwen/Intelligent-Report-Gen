@@ -1048,6 +1048,76 @@ class RuleApplicationServiceTest {
     }
 
     @Test
+    void usesConfiguredApprovalSupplementAttachmentMaxSizeBeforeStorageWrite() {
+        InMemoryRuleRepository ruleRepository = new InMemoryRuleRepository();
+        InMemoryAuditRepository auditRepository = new InMemoryAuditRepository();
+        FakeApprovalSupplementStorage storage = new FakeApprovalSupplementStorage();
+        RuleApplicationService approvalService = new RuleApplicationService(
+                new RuleDomainService(),
+                ruleRepository,
+                auditRepository,
+                new FakeSystemAlertRepository(),
+                storage,
+                new RuleApprovalSupplementAttachmentPolicy(3L, Set.of("text/plain"))
+        );
+        Long ruleId = publishRule(approvalService, "Customer attachment size policy rule", approvalRuleDefinition());
+        Long approvalRecordId = rejectedApprovalRecordId(approvalService, ruleId);
+
+        assertThatThrownBy(() -> approvalService.uploadApprovalSupplementAttachment(
+                ruleId,
+                approvalRecordId,
+                new MockMultipartFile("file", "evidence.txt", "text/plain", "four".getBytes())
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("approval supplement attachment exceeds max size: 4 > 3");
+
+        assertThat(storage.storeCallCount).isZero();
+        assertThat(auditRepository.logs)
+                .filteredOn(log -> "rule_approval_supplement_attachment_rejected".equals(log.operationType()))
+                .singleElement()
+                .satisfies(log -> assertThat(log.detail())
+                        .containsEntry("contentType", "text/plain")
+                        .containsEntry("sizeBytes", 4L)
+                        .containsEntry("maxSizeBytes", 3L)
+                        .containsEntry("rejectionReason", "file_too_large"));
+    }
+
+    @Test
+    void usesConfiguredApprovalSupplementAttachmentAllowedTypesBeforeStorageWrite() {
+        InMemoryRuleRepository ruleRepository = new InMemoryRuleRepository();
+        InMemoryAuditRepository auditRepository = new InMemoryAuditRepository();
+        FakeApprovalSupplementStorage storage = new FakeApprovalSupplementStorage();
+        RuleApplicationService approvalService = new RuleApplicationService(
+                new RuleDomainService(),
+                ruleRepository,
+                auditRepository,
+                new FakeSystemAlertRepository(),
+                storage,
+                new RuleApprovalSupplementAttachmentPolicy(10L, Set.of("text/plain"))
+        );
+        Long ruleId = publishRule(approvalService, "Customer attachment type policy rule", approvalRuleDefinition());
+        Long approvalRecordId = rejectedApprovalRecordId(approvalService, ruleId);
+
+        assertThatThrownBy(() -> approvalService.uploadApprovalSupplementAttachment(
+                ruleId,
+                approvalRecordId,
+                new MockMultipartFile("file", "evidence.pdf", "application/pdf", "ok".getBytes())
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("unsupported approval supplement attachment content type: application/pdf");
+
+        assertThat(storage.storeCallCount).isZero();
+        assertThat(auditRepository.logs)
+                .filteredOn(log -> "rule_approval_supplement_attachment_rejected".equals(log.operationType()))
+                .singleElement()
+                .satisfies(log -> assertThat(log.detail())
+                        .containsEntry("contentType", "application/pdf")
+                        .containsEntry("sizeBytes", 2L)
+                        .containsEntry("maxSizeBytes", 10L)
+                        .containsEntry("rejectionReason", "unsupported_content_type"));
+    }
+
+    @Test
     void productionRunExecutesSubprocessRuleAndWritesParentChildAudit() {
         InMemoryRuleRepository ruleRepository = new InMemoryRuleRepository();
         InMemoryAuditRepository auditRepository = new InMemoryAuditRepository();

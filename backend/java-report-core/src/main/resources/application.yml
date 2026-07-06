@@ -30,3 +30,8 @@ rocketmq:
   knowledge-item-deleted-topic: ${ROCKETMQ_KNOWLEDGE_ITEM_DELETED_TOPIC:knowledge_item_deleted}
   knowledge-item-index-requested-topic: ${ROCKETMQ_KNOWLEDGE_ITEM_INDEX_REQUESTED_TOPIC:knowledge_item_index_requested}
   producer-group: ${ROCKETMQ_PRODUCER_GROUP:java-report-core-producer}
+rule:
+  approval:
+    supplement-attachment:
+      max-size-bytes: ${RULE_APPROVAL_SUPPLEMENT_ATTACHMENT_MAX_SIZE_BYTES:10485760}
+      allowed-content-types: ${RULE_APPROVAL_SUPPLEMENT_ATTACHMENT_ALLOWED_CONTENT_TYPES:application/pdf,image/jpeg,image/png,text/csv,text/markdown,text/plain,application/msword,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.wordprocessingml.document}
