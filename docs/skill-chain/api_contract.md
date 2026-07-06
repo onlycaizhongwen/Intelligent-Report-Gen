@@ -2948,6 +2948,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 | 参数名 | 类型 | 必填 | 描述 |
 |--------|------|------|------|
 | `sourceType` | string | 是 | 数据源类型：数据库、ERP、OA、财务系统、API |
+| `endpoint` | string | 是 | 已保存数据源的连接端点必须命中 `DATA_SOURCE_ENDPOINT_ALLOWLIST`；不允许时测试连接返回失败且不得出站访问 |
 | `connectionConfig` | object | 是 | 连接配置，响应和审计中不得明文返回密钥 |
 | `syncScope` | object | 否 | 同步范围 |
 
@@ -2971,6 +2972,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 |--------|------|------|------|
 | `name` | string | 是 | 数据源名称 |
 | `sourceType` | string | 是 | 数据源类型 |
+| `endpoint` | string | 是 | API/JDBC 连接端点；HTTP、PostgreSQL JDBC、MySQL JDBC 主机必须命中 `DATA_SOURCE_ENDPOINT_ALLOWLIST` |
 | `connectionConfig` | object | 是 | 连接配置 |
 | `syncPolicy` | object | 否 | 同步策略 |
 | `targetKnowledgeBaseId` | string | 是 | 目标知识库 |
@@ -2985,6 +2987,12 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 | `dataSourceId` | string | 数据源 ID |
 | `status` | string | 数据源状态 |
 | `lastTestResult` | object | 最近测试结果 |
+
+安全约束：
+
+- `POST /api/v1/data-sources` 会在保存前校验 endpoint allowlist，未授权主机返回 `403`。
+- `POST /api/v1/data-sources/{dataSourceId}/sync-runs` 会在同步执行前复核已保存 endpoint；即使请求体提供 `sampleRows`，也不能绕过 allowlist。
+- `application-dev.yml` 默认仅放行本地 loopback 和 Docker 开发服务名；`application-prod.yml` 必须通过 `DATA_SOURCE_ENDPOINT_ALLOWLIST` 显式声明生产可访问源。
 
 ### 8.11 查询数据源模板预设
 

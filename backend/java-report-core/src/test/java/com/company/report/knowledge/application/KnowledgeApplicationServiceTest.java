@@ -700,6 +700,69 @@ class KnowledgeApplicationServiceTest {
     }
 
     @Test
+    void rejectsApiDataSourceEndpointOutsideAllowlistOnSave() {
+        CurrentUserHolder.set(new CurrentUser(44L, Set.of("analyst"), Set.of("knowledge:manage")));
+        FakeKnowledgeBaseRepository knowledgeBaseRepository = new FakeKnowledgeBaseRepository();
+        KnowledgeApplicationService service = new KnowledgeApplicationService(
+                new KnowledgeDomainService(), new FakeStorage(), new FakeRepository(), knowledgeBaseRepository, new FakePublisher());
+
+        assertThatThrownBy(() -> service.saveDataSource(Map.of(
+                "name", "Metadata Service API",
+                "sourceType", "api",
+                "endpoint", "http://169.254.169.254/latest/meta-data"
+        )))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("knowledge data source endpoint is not allowed");
+    }
+
+    @Test
+    void rejectsJdbcDataSourceEndpointOutsideAllowlistOnSave() {
+        CurrentUserHolder.set(new CurrentUser(45L, Set.of("analyst"), Set.of("knowledge:manage")));
+        FakeKnowledgeBaseRepository knowledgeBaseRepository = new FakeKnowledgeBaseRepository();
+        KnowledgeApplicationService service = new KnowledgeApplicationService(
+                new KnowledgeDomainService(), new FakeStorage(), new FakeRepository(), knowledgeBaseRepository, new FakePublisher());
+
+        assertThatThrownBy(() -> service.saveDataSource(Map.of(
+                "name", "External ERP PostgreSQL",
+                "sourceType", "postgresql",
+                "endpoint", "jdbc:postgresql://evil.internal:5432/erp"
+        )))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("knowledge data source endpoint is not allowed");
+    }
+
+    @Test
+    void rejectsDisallowedEndpointDuringSyncEvenWhenRowsAreProvidedByRequest() {
+        CurrentUserHolder.set(new CurrentUser(46L, Set.of("analyst"), Set.of("knowledge:manage")));
+        FakeKnowledgeBaseRepository knowledgeBaseRepository = new FakeKnowledgeBaseRepository();
+        KnowledgeBase base = knowledgeBaseRepository.save(KnowledgeBase.newBase("Bypass KB", 46L));
+        KnowledgeDataSource dataSource = knowledgeBaseRepository.saveDataSource(KnowledgeDataSource.enabled(
+                46L,
+                "Bypass API",
+                "api",
+                "http://169.254.169.254/latest/meta-data",
+                null,
+                null,
+                base.id(),
+                null,
+                "{\"rowsPath\":\"data.items\",\"titleField\":\"title\",\"contentField\":\"content\"}"
+        ));
+        KnowledgeApplicationService service = new KnowledgeApplicationService(
+                new KnowledgeDomainService(), new FakeStorage(), new FakeRepository(), knowledgeBaseRepository, new FakePublisher());
+
+        Map<String, Object> syncRun = service.startDataSourceSync(dataSource.id(), Map.of(
+                "mode", "manual",
+                "sampleRows", List.of(Map.of("title", "Should not import", "content", "Blocked by allowlist"))
+        ));
+
+        assertThat(syncRun)
+                .containsEntry("status", "failed")
+                .containsEntry("processedRows", 0L)
+                .containsEntry("failureReason", "endpoint not allowed");
+        assertThat(service.searchItems(1, 10, "Should not import").total()).isZero();
+    }
+
+    @Test
     void syncsHttpApiRowsWithPostBodyCustomHeadersAndApiKey() throws Exception {
         CurrentUserHolder.set(new CurrentUser(38L, Set.of("analyst"), Set.of("knowledge:manage")));
         FakeKnowledgeBaseRepository knowledgeBaseRepository = new FakeKnowledgeBaseRepository();

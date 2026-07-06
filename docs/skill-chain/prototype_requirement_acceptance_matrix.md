@@ -1088,3 +1088,12 @@
 - Code evidence: `scripts/data-source-enterprise-docker-smoke-lib.mjs`, `scripts/data-source-enterprise-docker-smoke.mjs`, `scripts/p3-local-smoke-lib.mjs`, `tests/unit/node/data_source_enterprise_docker_smoke.test.mjs`, `tests/unit/node/p3_local_smoke_bundle.test.mjs`, and `docs/skill-chain/delivery_closure_306_data_source_enterprise_docker_sync_smoke.md`.
 - Verification evidence: RED unit test failed because the smoke lib did not exist and P3 had only 9 steps; GREEN unit test passed `3/3`; live `node scripts/data-source-enterprise-docker-smoke.mjs` passed with `erp-mysql`, `oa-api`, and `finance-api` each reporting `connectionSuccess=true`, `syncStatus=succeeded`, `processedRows=2`, and imported title checks found.
 - Remaining gaps: production OIDC/TLS/WAF checks, customer-specific connector allowlists, and long-running source-specific schema hardening remain open production work.
+
+### 2026-07-06 UC-07 Data source endpoint allowlist
+
+- Scope: `REQ-KB-003`, outbound endpoint allowlist and SSRF guard for enterprise data-source connectors.
+- Result: Java now validates API and PostgreSQL/MySQL JDBC hosts through `DataSourceEndpointAllowlist`. Data-source save rejects disallowed hosts, connection testing refuses to open disallowed outbound connections, and sync checks the endpoint before leases or request-provided `sampleRows`, preventing historical data sources from bypassing the boundary.
+- Runtime path: Java report core -> `DataSourceEndpointAllowlist` -> approved local Docker or customer-configured enterprise source.
+- Code evidence: `DataSourceEndpointAllowlist`, `KnowledgeApplicationService.ensureDataSourceEndpointAllowed`, `KnowledgeApplicationService.startDataSourceSync`, `application-dev.yml`, `application-prod.yml`, `.env.example`, and `docs/skill-chain/delivery_closure_307_data_source_endpoint_allowlist.md`.
+- Verification evidence: RED first failed because disallowed API/JDBC endpoints were saved and a disallowed historical endpoint synced request-provided rows; GREEN passed `KnowledgeApplicationServiceTest` (`32/32`), rebuilt/restarted `ir-java-smoke`, live Docker data-source smoke passed, live Higress smoke passed, and Node smoke regression passed `9/9`.
+- Remaining gaps: production OIDC/TLS/WAF checks and customer-specific ERP/OA/finance schema governance remain open production hardening work.

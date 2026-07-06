@@ -51,4 +51,4 @@
 ## Remaining Gaps
 
 - Production OIDC/TLS/WAF checks for the complete endpoint authorization matrix.
-- Long-running production connector hardening such as credential rotation runbooks, source allowlists, and customer-specific ERP/OA/finance schemas.
+- Long-running production connector hardening such as credential rotation runbooks and customer-specific ERP/OA/finance schemas. Source allowlist enforcement is covered by closure 307.

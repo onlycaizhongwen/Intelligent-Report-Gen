@@ -20,6 +20,7 @@ import com.company.report.shared.security.CurrentUserHolder;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -51,6 +52,7 @@ public class KnowledgeApplicationService {
     private final DataSourceCredentialCodec credentialCodec;
     private final AuditRepository auditRepository;
     private final SystemAlertRepository systemAlertRepository;
+    private final DataSourceEndpointAllowlist endpointAllowlist;
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
@@ -96,6 +98,26 @@ public class KnowledgeApplicationService {
                                        DomainEventPublisher eventPublisher,
                                        DataSourceCredentialCodec credentialCodec,
                                        AuditRepository auditRepository,
+                                       SystemAlertRepository systemAlertRepository,
+                                       @Value("${knowledge.data-source.endpoint-allowlist:}") String endpointAllowlist) {
+        this.domainService = domainService;
+        this.documentStorage = documentStorage;
+        this.documentRepository = documentRepository;
+        this.knowledgeBaseRepository = knowledgeBaseRepository;
+        this.eventPublisher = eventPublisher;
+        this.credentialCodec = credentialCodec;
+        this.auditRepository = auditRepository;
+        this.systemAlertRepository = systemAlertRepository;
+        this.endpointAllowlist = new DataSourceEndpointAllowlist(endpointAllowlist);
+    }
+
+    public KnowledgeApplicationService(KnowledgeDomainService domainService,
+                                       DocumentStorage documentStorage,
+                                       KnowledgeDocumentRepository documentRepository,
+                                       KnowledgeBaseRepository knowledgeBaseRepository,
+                                       DomainEventPublisher eventPublisher,
+                                       DataSourceCredentialCodec credentialCodec,
+                                       AuditRepository auditRepository,
                                        SystemAlertRepository systemAlertRepository) {
         this.domainService = domainService;
         this.documentStorage = documentStorage;
@@ -105,6 +127,7 @@ public class KnowledgeApplicationService {
         this.credentialCodec = credentialCodec;
         this.auditRepository = auditRepository;
         this.systemAlertRepository = systemAlertRepository;
+        this.endpointAllowlist = DataSourceEndpointAllowlist.localDevelopmentDefault();
     }
 
     public PageResponse<Map<String, Object>> listKnowledgeBases(int page, int pageSize) {
@@ -297,6 +320,7 @@ public class KnowledgeApplicationService {
             throw new IllegalArgumentException("maxRetryCount must be between 0 and 20");
         }
         validateDataSourceMapping(sourceType, knowledgeBaseId, fieldMappingJson);
+        ensureDataSourceEndpointAllowed(sourceType, endpoint);
         KnowledgeDataSource saved = knowledgeBaseRepository.saveDataSource(KnowledgeDataSource.enabled(
                 currentUserId(),
                 name,
@@ -404,6 +428,9 @@ public class KnowledgeApplicationService {
         KnowledgeDataSource dataSource = findOwnedDataSource(dataSourceId);
         String mode = String.valueOf(request == null ? "manual" : request.getOrDefault("mode", "manual"));
         int timeoutMs = syncTimeoutMs(request);
+        if (!isDataSourceEndpointAllowed(dataSource)) {
+            return saveDataSourceSyncRun(dataSource, mode, "failed", 0L, "endpoint not allowed", "sync failed", dataSource.lastCursor());
+        }
         if (!knowledgeBaseRepository.tryAcquireDataSourceSyncLease(dataSource.id(), OffsetDateTime.now().plus(Duration.ofMillis(timeoutMs + 30_000L)))) {
             return saveDataSourceSyncRun(dataSource, mode, "skipped", 0L, "sync already running", "sync skipped", dataSource.lastCursor());
         }
@@ -705,6 +732,9 @@ public class KnowledgeApplicationService {
     }
 
     private boolean canConnect(KnowledgeDataSource dataSource) {
+        if (!isDataSourceEndpointAllowed(dataSource)) {
+            return false;
+        }
         if ("api".equalsIgnoreCase(dataSource.sourceType())) {
             return canConnectApi(dataSource);
         }
@@ -820,6 +850,16 @@ public class KnowledgeApplicationService {
         } catch (Exception ex) {
             return false;
         }
+    }
+
+    private void ensureDataSourceEndpointAllowed(String sourceType, String endpoint) {
+        if (!endpointAllowlist.isAllowed(sourceType, endpoint)) {
+            throw new SecurityException("knowledge data source endpoint is not allowed");
+        }
+    }
+
+    private boolean isDataSourceEndpointAllowed(KnowledgeDataSource dataSource) {
+        return endpointAllowlist.isAllowed(dataSource.sourceType(), dataSource.endpoint());
     }
 
     private boolean isSupportedJdbcDataSource(KnowledgeDataSource dataSource) {
