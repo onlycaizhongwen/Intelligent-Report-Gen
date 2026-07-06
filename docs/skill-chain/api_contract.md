@@ -2920,6 +2920,9 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 | `connectionConfig` | object | 是 | 连接配置 |
 | `syncPolicy` | object | 否 | 同步策略 |
 | `targetKnowledgeBaseId` | string | 是 | 目标知识库 |
+| `fieldMapping.rowsPath` | string | 条件必填 | 当 `sourceType=api` 且配置目标知识库时必填，指向响应中的列表节点 |
+| `fieldMapping.titleField` | string | 条件必填 | 当 `sourceType=api` 且配置目标知识库时必填，映射知识条目标题字段 |
+| `fieldMapping.contentField` | string | 条件必填 | 当 `sourceType=api` 且配置目标知识库时必填，映射知识条目正文/内容字段 |
 
 响应数据：
 
@@ -3916,7 +3919,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "fieldMapping": {
         "type": "object",
         "required": false,
-        "description": "API or row field mapping settings"
+        "description": "API or row field mapping settings; for API sources targeting a knowledge base, rowsPath, titleField, and contentField are required"
       },
       "cursorColumn": {
         "type": "string",

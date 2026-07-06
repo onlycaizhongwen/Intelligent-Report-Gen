@@ -652,6 +652,28 @@ class KnowledgeApplicationServiceTest {
     }
 
     @Test
+    void rejectsApiKnowledgeDataSourceWithoutRequiredFieldMapping() {
+        CurrentUserHolder.set(new CurrentUser(40L, Set.of("analyst"), Set.of("knowledge:manage")));
+        FakeKnowledgeBaseRepository knowledgeBaseRepository = new FakeKnowledgeBaseRepository();
+        KnowledgeBase base = knowledgeBaseRepository.save(KnowledgeBase.newBase("API Mapping KB", 40L));
+        KnowledgeApplicationService service = new KnowledgeApplicationService(
+                new KnowledgeDomainService(), new FakeStorage(), new FakeRepository(), knowledgeBaseRepository, new FakePublisher());
+
+        assertThatThrownBy(() -> service.saveDataSource(Map.of(
+                "name", "Incomplete API Mapping",
+                "sourceType", "api",
+                "endpoint", "https://erp.example.test/items",
+                "knowledgeBaseId", base.id(),
+                "fieldMapping", Map.of(
+                        "rowsPath", "data.items",
+                        "titleField", "headline"
+                )
+        )))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("api data source fieldMapping.contentField is required");
+    }
+
+    @Test
     void syncsHttpApiRowsWithPostBodyCustomHeadersAndApiKey() throws Exception {
         CurrentUserHolder.set(new CurrentUser(38L, Set.of("analyst"), Set.of("knowledge:manage")));
         FakeKnowledgeBaseRepository knowledgeBaseRepository = new FakeKnowledgeBaseRepository();
@@ -788,6 +810,11 @@ class KnowledgeApplicationServiceTest {
             request.put("sourceType", "api");
             request.put("endpoint", "http://localhost:" + server.getAddress().getPort() + "/items");
             request.put("knowledgeBaseId", base.id());
+            request.put("fieldMapping", Map.of(
+                    "rowsPath", "data.items",
+                    "titleField", "headline",
+                    "contentField", "body"
+            ));
             Long dataSourceId = ((Number) service.saveDataSource(request).get("dataSourceId")).longValue();
 
             Map<String, Object> syncRun = service.startDataSourceSync(dataSourceId, Map.of(

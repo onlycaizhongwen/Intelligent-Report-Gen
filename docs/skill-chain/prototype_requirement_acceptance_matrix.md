@@ -1054,3 +1054,11 @@
 - Code evidence: `DataSourceCredentialReencryptionScheduler`, `application-dev.yml`, `application-prod.yml`, `KnowledgeApplicationServiceTest#credentialReencryptionSchedulerUsesConfiguredScanLimit`, and `docs/skill-chain/delivery_closure_302_data_source_credential_reencryption_scheduler.md`.
 - Verification evidence: targeted RED/GREEN scheduler test passed `1/1`; broader Java credential/data-source/profile regression passed `31/31`; static diff evidence is recorded in closure 302.
 - Remaining gaps: real Docker enterprise database/ERP/OA/finance sync smoke and live Higress route checks remain production hardening work.
+
+### 2026-07-06 UC-07 API data-source field mapping validation
+
+- Scope: `REQ-KB-003`, source-specific mapping validation for enterprise API connectors.
+- Result: API data sources that target a knowledge base now fail fast during save unless `fieldMapping.rowsPath`, `fieldMapping.titleField`, and `fieldMapping.contentField` are explicitly configured, preventing silent imports with empty titles or content.
+- Code evidence: `KnowledgeApplicationService.validateDataSourceMapping`, `KnowledgeApplicationServiceTest#rejectsApiKnowledgeDataSourceWithoutRequiredFieldMapping`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_closure_303_api_data_source_field_mapping_validation.md`.
+- Verification evidence: targeted RED/GREEN mapping validation test passed `1/1`; API connector regression passed `5/5`; broader Java regression passed `66/66`; static diff evidence is recorded in closure 303.
+- Remaining gaps: ERP/OA/finance source template presets, real Docker enterprise database/ERP/OA/finance sync smoke, and live Higress route checks remain production hardening work.

@@ -296,6 +296,7 @@ public class KnowledgeApplicationService {
         if (maxRetryCount != null && (maxRetryCount < 0 || maxRetryCount > 20)) {
             throw new IllegalArgumentException("maxRetryCount must be between 0 and 20");
         }
+        validateDataSourceMapping(sourceType, knowledgeBaseId, fieldMappingJson);
         KnowledgeDataSource saved = knowledgeBaseRepository.saveDataSource(KnowledgeDataSource.enabled(
                 currentUserId(),
                 name,
@@ -742,6 +743,22 @@ public class KnowledgeApplicationService {
                     || endpoint.startsWith("jdbc:h2:mem:");
             default -> false;
         };
+    }
+
+    private void validateDataSourceMapping(String sourceType, Long knowledgeBaseId, String fieldMappingJson) {
+        if (!"api".equalsIgnoreCase(sourceType) || knowledgeBaseId == null) {
+            return;
+        }
+        Map<String, Object> fieldMapping = parseFieldMapping(fieldMappingJson);
+        requireApiFieldMapping(fieldMapping, "rowsPath");
+        requireApiFieldMapping(fieldMapping, "titleField");
+        requireApiFieldMapping(fieldMapping, "contentField");
+    }
+
+    private void requireApiFieldMapping(Map<String, Object> fieldMapping, String fieldName) {
+        if (stringValue(fieldMapping.get(fieldName)).trim().isBlank()) {
+            throw new IllegalArgumentException("api data source fieldMapping." + fieldName + " is required");
+        }
     }
 
     private List<Map<String, Object>> extractApiRows(KnowledgeDataSource dataSource, int timeoutMs) throws Exception {
