@@ -1359,6 +1359,46 @@ class RuleApplicationServiceTest {
     }
 
     @Test
+    void rejectsApprovalSupplementAttachmentWhenOfficeArchiveIsEncryptedBeforeStorageWrite() throws IOException {
+        InMemoryRuleRepository ruleRepository = new InMemoryRuleRepository();
+        InMemoryAuditRepository auditRepository = new InMemoryAuditRepository();
+        FakeApprovalSupplementStorage storage = new FakeApprovalSupplementStorage();
+        RuleApplicationService approvalService = new RuleApplicationService(
+                new RuleDomainService(),
+                ruleRepository,
+                auditRepository,
+                new FakeSystemAlertRepository(),
+                storage
+        );
+        Long ruleId = publishRule(approvalService, "Supplement attachment encrypted archive rule", approvalRuleDefinition());
+        Long approvalRecordId = rejectedApprovalRecordId(approvalService, ruleId);
+        byte[] docx = officeArchiveWithEncryptedFlaggedEntry("word/document.xml", "<w:t>locked evidence</w:t>");
+
+        assertThatThrownBy(() -> approvalService.uploadApprovalSupplementAttachment(
+                ruleId,
+                approvalRecordId,
+                new MockMultipartFile(
+                        "file",
+                        "locked-evidence.docx",
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        docx
+                )
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("approval supplement attachment failed content inspection: encrypted_archive_unsupported");
+
+        assertThat(storage.storeCallCount).isZero();
+        assertThat(auditRepository.logs)
+                .filteredOn(log -> "rule_approval_supplement_attachment_rejected".equals(log.operationType()))
+                .singleElement()
+                .satisfies(log -> assertThat(log.detail())
+                        .containsEntry("approvalRecordId", approvalRecordId)
+                        .containsEntry("fileName", "locked-evidence.docx")
+                        .containsEntry("rejectionReason", "encrypted_archive_unsupported")
+                        .containsEntry("inspectionEngine", "basic_attachment_content_inspector"));
+    }
+
+    @Test
     void productionRunExecutesSubprocessRuleAndWritesParentChildAudit() {
         InMemoryRuleRepository ruleRepository = new InMemoryRuleRepository();
         InMemoryAuditRepository auditRepository = new InMemoryAuditRepository();
@@ -5417,6 +5457,19 @@ class RuleApplicationServiceTest {
 
     private static byte[] officeArchiveWithEntry(String entryName, String content) throws IOException {
         return officeArchiveWithEntryBytes(entryName, content.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static byte[] officeArchiveWithEncryptedFlaggedEntry(String entryName, String content) throws IOException {
+        byte[] archive = officeArchiveWithEntry(entryName, content);
+        for (int index = 0; index < archive.length - 8; index++) {
+            if (archive[index] == 0x50 && archive[index + 1] == 0x4B && archive[index + 2] == 0x03 && archive[index + 3] == 0x04) {
+                archive[index + 6] = (byte) (archive[index + 6] | 0x01);
+            }
+            if (archive[index] == 0x50 && archive[index + 1] == 0x4B && archive[index + 2] == 0x01 && archive[index + 3] == 0x02) {
+                archive[index + 8] = (byte) (archive[index + 8] | 0x01);
+            }
+        }
+        return archive;
     }
 
     private static byte[] officeArchiveWithEntryBytes(String entryName, byte[] content) throws IOException {

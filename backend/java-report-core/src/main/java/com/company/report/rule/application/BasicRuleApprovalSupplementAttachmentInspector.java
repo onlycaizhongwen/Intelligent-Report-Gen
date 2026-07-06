@@ -100,6 +100,12 @@ public class BasicRuleApprovalSupplementAttachmentInspector implements RuleAppro
     }
 
     private static InspectionResult inspectOfficeArchive(byte[] bytes) throws IOException {
+        if (hasEncryptedZipEntryFlag(bytes)) {
+            return InspectionResult.rejected(
+                    "encrypted_archive_unsupported",
+                    "office archive declares encrypted entries"
+            );
+        }
         try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(bytes))) {
             ZipEntry entry;
             while ((entry = zip.getNextEntry()) != null) {
@@ -118,6 +124,31 @@ public class BasicRuleApprovalSupplementAttachmentInspector implements RuleAppro
             }
         }
         return InspectionResult.passed();
+    }
+
+    private static boolean hasEncryptedZipEntryFlag(byte[] bytes) {
+        for (int index = 0; index < bytes.length - 8; index++) {
+            if (matchesSignature(bytes, index, 0x50, 0x4B, 0x03, 0x04)
+                    && hasEncryptionFlag(bytes, index + 6)) {
+                return true;
+            }
+            if (matchesSignature(bytes, index, 0x50, 0x4B, 0x01, 0x02)
+                    && hasEncryptionFlag(bytes, index + 8)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean matchesSignature(byte[] bytes, int offset, int first, int second, int third, int fourth) {
+        return unsigned(bytes[offset]) == first
+                && unsigned(bytes[offset + 1]) == second
+                && unsigned(bytes[offset + 2]) == third
+                && unsigned(bytes[offset + 3]) == fourth;
+    }
+
+    private static boolean hasEncryptionFlag(byte[] bytes, int offset) {
+        return offset < bytes.length && (unsigned(bytes[offset]) & 0x01) == 0x01;
     }
 
     private static InspectionResult inspectEntryContent(ZipInputStream zip) throws IOException {
