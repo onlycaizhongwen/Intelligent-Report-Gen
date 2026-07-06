@@ -903,6 +903,47 @@ class KnowledgeApplicationServiceTest {
     }
 
     @Test
+    void rejectsLegacyApiProfileCursorDriftBeforeSyncingRows() {
+        CurrentUserHolder.set(new CurrentUser(50L, Set.of("analyst"), Set.of("knowledge:manage")));
+        FakeKnowledgeBaseRepository knowledgeBaseRepository = new FakeKnowledgeBaseRepository();
+        KnowledgeBase base = knowledgeBaseRepository.save(KnowledgeBase.newBase("Legacy Profile KB", 50L));
+        KnowledgeApplicationService service = new KnowledgeApplicationService(
+                new KnowledgeDomainService(), new FakeStorage(), new FakeRepository(), knowledgeBaseRepository, new FakePublisher());
+        KnowledgeDataSource legacyDrifted = knowledgeBaseRepository.saveDataSource(KnowledgeDataSource.enabled(
+                50L,
+                "Legacy Finance API",
+                "api",
+                "http://localhost:18080/finance/vouchers",
+                "finance_reader",
+                "enc:v1:legacy-token",
+                base.id(),
+                null,
+                """
+                        {"profileId":"finance-vouchers","rowsPath":"data.vouchers","titleField":"voucherNo","contentField":"summary","cursorField":"voucherId","method":"POST","authType":"api_key","apiKeyHeader":"X-API-Key","headers":{"X-Tenant":"finance"}}
+                        """,
+                "id",
+                null
+        ));
+
+        Map<String, Object> syncRun = service.startDataSourceSync(legacyDrifted.id(), Map.of(
+                "mode", "manual",
+                "sampleRows", List.of(Map.of(
+                        "voucherId", 1,
+                        "voucherNo", "FIN-LEGACY-001",
+                        "summary", "Should not import drifted legacy profile"
+                ))
+        ));
+
+        assertThat(syncRun)
+                .containsEntry("status", "failed")
+                .containsEntry("processedRows", 0L)
+                .containsEntry("failureReason", "api data source profile finance-vouchers requires cursorColumn=voucherId")
+                .containsEntry("lastCursor", "");
+        assertThat(knowledgeBaseRepository.releaseLeaseCalls).isZero();
+        assertThat(service.searchItems(1, 10, "FIN-LEGACY").total()).isZero();
+    }
+
+    @Test
     void syncsHttpApiRowsWithPostBodyCustomHeadersAndApiKey() throws Exception {
         CurrentUserHolder.set(new CurrentUser(38L, Set.of("analyst"), Set.of("knowledge:manage")));
         FakeKnowledgeBaseRepository knowledgeBaseRepository = new FakeKnowledgeBaseRepository();

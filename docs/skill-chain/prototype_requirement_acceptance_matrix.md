@@ -1122,3 +1122,11 @@
 - Code evidence: `KnowledgeApplicationService.validateApiProfileMapping`, `KnowledgeApplicationServiceTest#rejectsApiKnowledgeDataSourceWhenProfileCursorColumnDoesNotMatchSchemaCursor`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_closure_310_api_data_source_profile_cursor_governance.md`.
 - Verification evidence: RED first failed because `finance-vouchers` with `cursorColumn=id` saved successfully; GREEN passed `KnowledgeApplicationServiceTest` (`35/35`), rebuilt/restarted `ir-java-smoke`, live Docker data-source smoke passed, and live Higress smoke passed.
 - Remaining gaps: customer-specific profile catalogs and legacy saved data-source drift detection remain future production hardening work.
+
+### 2026-07-06 UC-07 API data-source legacy profile drift guard
+
+- Scope: `REQ-KB-003`, sync-time validation for already-saved API data sources whose governed profile no longer matches current schema/cursor rules.
+- Result: data-source sync now revalidates saved API `fieldMapping` and `cursorColumn` before acquiring the sync lease or importing `sampleRows`; legacy `finance-vouchers` records with `cursorColumn=id` fail with the concrete profile validation message instead of silently importing unsafe rows.
+- Code evidence: `KnowledgeApplicationService.dataSourceMappingFailureReason`, `KnowledgeApplicationService.startDataSourceSync`, `KnowledgeApplicationServiceTest#rejectsLegacyApiProfileCursorDriftBeforeSyncingRows`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_closure_311_api_data_source_legacy_profile_drift_guard.md`.
+- Verification evidence: RED first failed because a drifted legacy profile synced `sampleRows` and imported 1 row; GREEN passed `KnowledgeApplicationServiceTest` (`36/36`), rebuilt/restarted `ir-java-smoke`, live Docker data-source smoke passed, and live Higress smoke passed.
+- Remaining gaps: bulk audit/reporting for already-saved legacy drifted data sources and customer-specific profile catalogs remain future production hardening work.

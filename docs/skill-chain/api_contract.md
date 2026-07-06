@@ -3002,7 +3002,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 - `POST /api/v1/data-sources` 会在保存前校验 endpoint allowlist，未授权主机返回 `403`。
 - API 数据源会在保存前校验高级 `fieldMapping`，非法 method/authType/page/header 配置返回 `400`。
 - API 数据源设置 `fieldMapping.profileId` 后只允许内置 profile；`oa-documents` 固定 `rowsPath=data.documents/titleField=documentNo/contentField=content/cursorField=id/cursorColumn=id/method=GET/authType=bearer`，`finance-vouchers` 固定 `rowsPath=data.vouchers/titleField=voucherNo/contentField=summary/cursorField=voucherId/cursorColumn=voucherId/method=POST/authType=api_key/apiKeyHeader=X-API-Key/headers.X-Tenant=finance`。
-- `POST /api/v1/data-sources/{dataSourceId}/sync-runs` 会在同步执行前复核已保存 endpoint；即使请求体提供 `sampleRows`，也不能绕过 allowlist。
+- `POST /api/v1/data-sources/{dataSourceId}/sync-runs` 会在同步执行前复核已保存 endpoint 和 API `fieldMapping`/profile/cursor 配置；即使请求体提供 `sampleRows`，也不能绕过 allowlist 或历史配置漂移校验。
 - `application-dev.yml` 默认仅放行本地 loopback 和 Docker 开发服务名；`application-prod.yml` 必须通过 `DATA_SOURCE_ENDPOINT_ALLOWLIST` 显式声明生产可访问源。
 
 ### 8.11 查询数据源模板预设

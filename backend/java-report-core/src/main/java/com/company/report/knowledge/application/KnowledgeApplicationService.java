@@ -433,6 +433,10 @@ public class KnowledgeApplicationService {
         if (!isDataSourceEndpointAllowed(dataSource)) {
             return saveDataSourceSyncRun(dataSource, mode, "failed", 0L, "endpoint not allowed", "sync failed", dataSource.lastCursor());
         }
+        String mappingFailureReason = dataSourceMappingFailureReason(dataSource);
+        if (!mappingFailureReason.isBlank()) {
+            return saveDataSourceSyncRun(dataSource, mode, "failed", 0L, mappingFailureReason, "sync failed", dataSource.lastCursor());
+        }
         if (!knowledgeBaseRepository.tryAcquireDataSourceSyncLease(dataSource.id(), OffsetDateTime.now().plus(Duration.ofMillis(timeoutMs + 30_000L)))) {
             return saveDataSourceSyncRun(dataSource, mode, "skipped", 0L, "sync already running", "sync skipped", dataSource.lastCursor());
         }
@@ -901,6 +905,15 @@ public class KnowledgeApplicationService {
         }
         validateApiAdvancedMapping(fieldMapping);
         validateApiProfileMapping(fieldMapping, cursorColumn);
+    }
+
+    private String dataSourceMappingFailureReason(KnowledgeDataSource dataSource) {
+        try {
+            validateDataSourceMapping(dataSource.sourceType(), dataSource.knowledgeBaseId(), dataSource.fieldMappingJson(), dataSource.cursorColumn());
+            return "";
+        } catch (IllegalArgumentException ex) {
+            return ex.getMessage();
+        }
     }
 
     private void requireApiFieldMapping(Map<String, Object> fieldMapping, String fieldName) {
