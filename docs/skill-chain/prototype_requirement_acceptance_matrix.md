@@ -1097,3 +1097,11 @@
 - Code evidence: `DataSourceEndpointAllowlist`, `KnowledgeApplicationService.ensureDataSourceEndpointAllowed`, `KnowledgeApplicationService.startDataSourceSync`, `application-dev.yml`, `application-prod.yml`, `.env.example`, and `docs/skill-chain/delivery_closure_307_data_source_endpoint_allowlist.md`.
 - Verification evidence: RED first failed because disallowed API/JDBC endpoints were saved and a disallowed historical endpoint synced request-provided rows; GREEN passed `KnowledgeApplicationServiceTest` (`32/32`), rebuilt/restarted `ir-java-smoke`, live Docker data-source smoke passed, live Higress smoke passed, and Node smoke regression passed `9/9`.
 - Remaining gaps: production OIDC/TLS/WAF checks and customer-specific ERP/OA/finance schema governance remain open production hardening work.
+
+### 2026-07-06 UC-07 API data-source mapping governance
+
+- Scope: `REQ-KB-003`, fail-fast governance for advanced API connector mapping options.
+- Result: API data-source save now rejects unsafe advanced `fieldMapping` values before persistence: HTTP method must be `GET` or `POST`, auth type must be `bearer/api_key/basic/none`, pagination bounds are validated, and reserved outbound headers cannot be configured by users.
+- Code evidence: `KnowledgeApplicationService.validateApiAdvancedMapping`, `KnowledgeApplicationServiceTest#rejectsApiKnowledgeDataSourceWithUnsafeAdvancedMappingConfigurationOnSave`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_closure_308_api_data_source_mapping_governance.md`.
+- Verification evidence: RED first failed because unsafe API mapping was saved; GREEN passed `KnowledgeApplicationServiceTest` (`33/33`), rebuilt/restarted `ir-java-smoke`, live Docker data-source smoke passed, live Higress smoke passed, and Node smoke regression passed `9/9`.
+- Remaining gaps: customer-specific ERP/OA/finance schema profiles and production OIDC/TLS/WAF checks remain future production hardening work.

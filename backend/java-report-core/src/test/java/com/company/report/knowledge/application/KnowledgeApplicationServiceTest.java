@@ -763,6 +763,46 @@ class KnowledgeApplicationServiceTest {
     }
 
     @Test
+    void rejectsApiKnowledgeDataSourceWithUnsafeAdvancedMappingConfigurationOnSave() {
+        CurrentUserHolder.set(new CurrentUser(47L, Set.of("analyst"), Set.of("knowledge:manage")));
+        FakeKnowledgeBaseRepository knowledgeBaseRepository = new FakeKnowledgeBaseRepository();
+        KnowledgeBase base = knowledgeBaseRepository.save(KnowledgeBase.newBase("API Governance KB", 47L));
+        KnowledgeApplicationService service = new KnowledgeApplicationService(
+                new KnowledgeDomainService(), new FakeStorage(), new FakeRepository(), knowledgeBaseRepository, new FakePublisher());
+
+        List<Map<String, Object>> invalidMappings = List.of(
+                Map.of(
+                        "fieldMapping", apiMappingWith(Map.of("method", "DELETE")),
+                        "message", "api data source fieldMapping.method must be GET or POST"
+                ),
+                Map.of(
+                        "fieldMapping", apiMappingWith(Map.of("authType", "oauth")),
+                        "message", "api data source fieldMapping.authType must be bearer, api_key, basic, or none"
+                ),
+                Map.of(
+                        "fieldMapping", apiMappingWith(Map.of("maxPages", 101)),
+                        "message", "api data source fieldMapping.maxPages must be between 1 and 100"
+                ),
+                Map.of(
+                        "fieldMapping", apiMappingWith(Map.of("headers", Map.of("Authorization", "Bearer override"))),
+                        "message", "api data source fieldMapping.headers must not include reserved header: Authorization"
+                )
+        );
+
+        for (Map<String, Object> invalidMapping : invalidMappings) {
+            assertThatThrownBy(() -> service.saveDataSource(Map.of(
+                    "name", "Unsafe API Mapping",
+                    "sourceType", "api",
+                    "endpoint", "http://localhost:18080/items",
+                    "knowledgeBaseId", base.id(),
+                    "fieldMapping", invalidMapping.get("fieldMapping")
+            )))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining(String.valueOf(invalidMapping.get("message")));
+        }
+    }
+
+    @Test
     void syncsHttpApiRowsWithPostBodyCustomHeadersAndApiKey() throws Exception {
         CurrentUserHolder.set(new CurrentUser(38L, Set.of("analyst"), Set.of("knowledge:manage")));
         FakeKnowledgeBaseRepository knowledgeBaseRepository = new FakeKnowledgeBaseRepository();
@@ -1243,6 +1283,15 @@ class KnowledgeApplicationServiceTest {
                 .startsWith("enc:v2:primary-2026-07:");
         assertThat(knowledgeBaseRepository.findDataSourceById(secondStale.id()).orElseThrow().credentialSecret())
                 .startsWith("enc:v2:retired-2026-06:");
+    }
+
+    private static Map<String, Object> apiMappingWith(Map<String, Object> overrides) {
+        Map<String, Object> mapping = new LinkedHashMap<>();
+        mapping.put("rowsPath", "data.items");
+        mapping.put("titleField", "headline");
+        mapping.put("contentField", "body");
+        mapping.putAll(overrides);
+        return mapping;
     }
 
     private static class FakeStorage implements DocumentStorage {

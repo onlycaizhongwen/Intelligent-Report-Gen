@@ -2979,6 +2979,11 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 | `fieldMapping.rowsPath` | string | 条件必填 | 当 `sourceType=api` 且配置目标知识库时必填，指向响应中的列表节点 |
 | `fieldMapping.titleField` | string | 条件必填 | 当 `sourceType=api` 且配置目标知识库时必填，映射知识条目标题字段 |
 | `fieldMapping.contentField` | string | 条件必填 | 当 `sourceType=api` 且配置目标知识库时必填，映射知识条目正文/内容字段 |
+| `fieldMapping.method` | string | 否 | API 请求方法，仅允许 `GET` 或 `POST` |
+| `fieldMapping.authType` | string | 否 | 认证方式，仅允许 `bearer`、`api_key`、`basic`、`none` |
+| `fieldMapping.maxPages` | integer | 否 | 分页最大页数，必须为 1-100 |
+| `fieldMapping.pageSize` | integer | 否 | 分页大小，必须为 1-1000 |
+| `fieldMapping.headers` | object | 否 | 自定义 Header；禁止覆盖 `Authorization`、`Content-Length`、`Host` |
 
 响应数据：
 
@@ -2991,6 +2996,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 安全约束：
 
 - `POST /api/v1/data-sources` 会在保存前校验 endpoint allowlist，未授权主机返回 `403`。
+- API 数据源会在保存前校验高级 `fieldMapping`，非法 method/authType/page/header 配置返回 `400`。
 - `POST /api/v1/data-sources/{dataSourceId}/sync-runs` 会在同步执行前复核已保存 endpoint；即使请求体提供 `sampleRows`，也不能绕过 allowlist。
 - `application-dev.yml` 默认仅放行本地 loopback 和 Docker 开发服务名；`application-prod.yml` 必须通过 `DATA_SOURCE_ENDPOINT_ALLOWLIST` 显式声明生产可访问源。
 

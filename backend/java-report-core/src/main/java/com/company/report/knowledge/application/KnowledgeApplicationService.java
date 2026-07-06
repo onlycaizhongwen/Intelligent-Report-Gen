@@ -881,18 +881,65 @@ public class KnowledgeApplicationService {
     }
 
     private void validateDataSourceMapping(String sourceType, Long knowledgeBaseId, String fieldMappingJson) {
-        if (!"api".equalsIgnoreCase(sourceType) || knowledgeBaseId == null) {
+        if (!"api".equalsIgnoreCase(sourceType)) {
             return;
         }
         Map<String, Object> fieldMapping = parseFieldMapping(fieldMappingJson);
-        requireApiFieldMapping(fieldMapping, "rowsPath");
-        requireApiFieldMapping(fieldMapping, "titleField");
-        requireApiFieldMapping(fieldMapping, "contentField");
+        if (knowledgeBaseId != null) {
+            requireApiFieldMapping(fieldMapping, "rowsPath");
+            requireApiFieldMapping(fieldMapping, "titleField");
+            requireApiFieldMapping(fieldMapping, "contentField");
+        }
+        validateApiAdvancedMapping(fieldMapping);
     }
 
     private void requireApiFieldMapping(Map<String, Object> fieldMapping, String fieldName) {
         if (stringValue(fieldMapping.get(fieldName)).trim().isBlank()) {
             throw new IllegalArgumentException("api data source fieldMapping." + fieldName + " is required");
+        }
+    }
+
+    private void validateApiAdvancedMapping(Map<String, Object> fieldMapping) {
+        String method = stringValue(fieldMapping.getOrDefault("method", "GET")).trim().toUpperCase();
+        if (!method.isBlank() && !Set.of("GET", "POST").contains(method)) {
+            throw new IllegalArgumentException("api data source fieldMapping.method must be GET or POST");
+        }
+        String authType = stringValue(fieldMapping.getOrDefault("authType", "bearer")).trim().toLowerCase();
+        if (!authType.isBlank() && !Set.of("bearer", "api_key", "basic", "none").contains(authType)) {
+            throw new IllegalArgumentException("api data source fieldMapping.authType must be bearer, api_key, basic, or none");
+        }
+        Integer maxPages = nullableInteger(fieldMapping.get("maxPages"));
+        if (maxPages != null && (maxPages < 1 || maxPages > 100)) {
+            throw new IllegalArgumentException("api data source fieldMapping.maxPages must be between 1 and 100");
+        }
+        Integer pageSize = nullableInteger(fieldMapping.get("pageSize"));
+        if (pageSize != null && (pageSize < 1 || pageSize > 1000)) {
+            throw new IllegalArgumentException("api data source fieldMapping.pageSize must be between 1 and 1000");
+        }
+        Integer pageStart = nullableInteger(fieldMapping.get("pageStart"));
+        if (pageStart != null && pageStart < 0) {
+            throw new IllegalArgumentException("api data source fieldMapping.pageStart must be zero or greater");
+        }
+        validateApiHeaderName("apiKeyHeader", stringValue(fieldMapping.get("apiKeyHeader")).trim());
+        Object rawHeaders = fieldMapping.get("headers");
+        if (rawHeaders instanceof Map<?, ?> headers) {
+            headers.keySet().forEach(key -> validateApiHeaderName("headers", String.valueOf(key).trim()));
+        } else if (rawHeaders != null) {
+            throw new IllegalArgumentException("api data source fieldMapping.headers must be an object");
+        }
+    }
+
+    private void validateApiHeaderName(String fieldName, String headerName) {
+        if (headerName.isBlank()) {
+            return;
+        }
+        if (headerName.equalsIgnoreCase("Authorization")
+                || headerName.equalsIgnoreCase("Content-Length")
+                || headerName.equalsIgnoreCase("Host")) {
+            throw new IllegalArgumentException("api data source fieldMapping." + fieldName + " must not include reserved header: " + headerName);
+        }
+        if (!headerName.matches("[A-Za-z0-9!#$%&'*+.^_`|~-]+")) {
+            throw new IllegalArgumentException("api data source fieldMapping." + fieldName + " contains invalid header name: " + headerName);
         }
     }
 
