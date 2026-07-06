@@ -15,6 +15,7 @@ storage:
 
 security:
   data-source-credential-key: ${DATA_SOURCE_CREDENTIAL_KEY:local-dev-data-source-credential-key-change-me}
+  data-source-credential-key-id: ${DATA_SOURCE_CREDENTIAL_KEY_ID:local-dev}
 
 rocketmq:
   endpoint: ${ROCKETMQ_ENDPOINT:localhost:9876}

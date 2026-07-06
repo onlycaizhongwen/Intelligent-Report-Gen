@@ -16,22 +16,38 @@ import java.util.Base64;
 @Component
 public class DataSourceCredentialCodec {
     private static final String CURRENT_PREFIX = "enc:v1:";
+    private static final String KEYED_PREFIX = "enc:v2:";
     private static final String LEGACY_PREFIX = "enc:";
     private static final int IV_BYTES = 12;
     private static final int TAG_BITS = 128;
 
     private final SecretKeySpec secretKey;
     private final SecureRandom secureRandom;
+    private final String currentPrefix;
 
     @Autowired
     public DataSourceCredentialCodec(
-            @Value("${security.data-source-credential-key:local-dev-data-source-credential-key-change-me}") String keyMaterial) {
+            @Value("${security.data-source-credential-key:local-dev-data-source-credential-key-change-me}") String keyMaterial,
+            @Value("${security.data-source-credential-key-id:local-dev}") String keyId) {
+        this(keyId, keyMaterial, new SecureRandom());
+    }
+
+    public DataSourceCredentialCodec(String keyMaterial) {
         this(keyMaterial, new SecureRandom());
     }
 
     DataSourceCredentialCodec(String keyMaterial, SecureRandom secureRandom) {
+        this(keyMaterial, secureRandom, CURRENT_PREFIX);
+    }
+
+    DataSourceCredentialCodec(String keyId, String keyMaterial, SecureRandom secureRandom) {
+        this(keyMaterial, secureRandom, KEYED_PREFIX + normalizeKeyId(keyId) + ":");
+    }
+
+    private DataSourceCredentialCodec(String keyMaterial, SecureRandom secureRandom, String currentPrefix) {
         this.secretKey = new SecretKeySpec(sha256(keyMaterial), "AES");
         this.secureRandom = secureRandom;
+        this.currentPrefix = currentPrefix;
     }
 
     public String encrypt(String plainText) {
@@ -47,7 +63,7 @@ public class DataSourceCredentialCodec {
             ByteBuffer buffer = ByteBuffer.allocate(iv.length + encrypted.length);
             buffer.put(iv);
             buffer.put(encrypted);
-            return CURRENT_PREFIX + Base64.getEncoder().encodeToString(buffer.array());
+            return currentPrefix + Base64.getEncoder().encodeToString(buffer.array());
         } catch (Exception ex) {
             throw new IllegalStateException("failed to encrypt data source credential", ex);
         }
@@ -60,6 +76,13 @@ public class DataSourceCredentialCodec {
         if (encodedSecret.startsWith(CURRENT_PREFIX)) {
             return decryptCurrent(encodedSecret.substring(CURRENT_PREFIX.length()));
         }
+        if (encodedSecret.startsWith(KEYED_PREFIX)) {
+            int payloadStart = encodedSecret.indexOf(':', KEYED_PREFIX.length());
+            if (payloadStart > KEYED_PREFIX.length()) {
+                return decryptCurrent(encodedSecret.substring(payloadStart + 1));
+            }
+            return "";
+        }
         if (encodedSecret.startsWith(LEGACY_PREFIX)) {
             return new String(Base64.getDecoder().decode(encodedSecret.substring(LEGACY_PREFIX.length())), StandardCharsets.UTF_8);
         }
@@ -67,7 +90,7 @@ public class DataSourceCredentialCodec {
     }
 
     public boolean isCurrent(String encodedSecret) {
-        return encodedSecret != null && encodedSecret.startsWith(CURRENT_PREFIX);
+        return encodedSecret != null && encodedSecret.startsWith(currentPrefix);
     }
 
     private String decryptCurrent(String payload) {
@@ -95,5 +118,12 @@ public class DataSourceCredentialCodec {
         } catch (Exception ex) {
             throw new IllegalStateException("failed to derive data source credential key", ex);
         }
+    }
+
+    private static String normalizeKeyId(String keyId) {
+        if (keyId == null || keyId.isBlank()) {
+            return "default";
+        }
+        return keyId.trim().replaceAll("[^A-Za-z0-9_.-]", "_");
     }
 }
