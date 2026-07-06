@@ -36,4 +36,4 @@
 
 ## Remaining Gaps
 
-- Run real Docker enterprise database/ERP/OA/finance sync smoke tests.
+- Real Docker enterprise ERP/OA/finance sync smoke is covered by delivery closure 306.

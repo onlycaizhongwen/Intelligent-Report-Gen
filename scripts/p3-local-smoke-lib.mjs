@@ -36,6 +36,15 @@ export function buildP3SmokeSteps({
       },
     },
     {
+      name: 'uc07-enterprise-data-source-docker-smoke',
+      command: 'node',
+      args: ['scripts/data-source-enterprise-docker-smoke.mjs'],
+      env: {
+        REAL_BACKEND_API_BASE_URL: realBackendApiBaseUrl,
+        REAL_BACKEND_ORIGIN: realBackendOrigin,
+      },
+    },
+    {
       name: 'uc08-real-backend-e2e',
       command: 'npm',
       args: [

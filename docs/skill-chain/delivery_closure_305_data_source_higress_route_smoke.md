@@ -43,5 +43,5 @@ browser/client -> Higress :18000 -> Java report core :18082 -> PostgreSQL/RBAC/d
 
 ## Remaining Gaps
 
-- Run real Docker enterprise database/ERP/OA/finance sync smoke tests against representative external source containers/services.
+- Real Docker enterprise ERP/OA/finance sync smoke is covered by delivery closure 306.
 - Add production OIDC/TLS/WAF checks for the complete endpoint authorization matrix.
