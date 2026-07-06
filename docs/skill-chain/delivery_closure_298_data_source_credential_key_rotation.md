@@ -27,6 +27,6 @@ Data-source connector secrets now carry an explicit credential key identifier in
 
 ## Remaining Gaps
 
-- Full multi-keyring decrypt support is not implemented yet; rotating the key material itself still requires an operational migration or explicit keyring configuration.
+- Full multi-keyring decrypt support is covered by Closure 299; rotating the key material itself still requires an operational migration or stale-secret re-encryption job.
 - No scheduled re-encryption job exists yet for stale `enc:v1:` or retired `enc:v2:<keyId>:` payloads.
 - Real Docker enterprise database/ERP/OA/finance sync smoke and live Higress route checks still need to be rerun when the local Docker daemon and gateway dependencies are available.

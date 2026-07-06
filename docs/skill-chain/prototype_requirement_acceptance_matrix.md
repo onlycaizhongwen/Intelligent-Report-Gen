@@ -1020,4 +1020,13 @@
 - Compatibility: existing `enc:v1:` AES-GCM secrets and legacy `enc:` Base64 secrets remain readable by the current codec, so the marker change does not force immediate data migration.
 - Code evidence: `DataSourceCredentialCodec`, `application-dev.yml`, `application-prod.yml`, `ReportCoreProdProfileContextTest`, `DataSourceCredentialCodecTest`, and `docs/skill-chain/delivery_closure_298_data_source_credential_key_rotation.md`.
 - Verification evidence: targeted RED/GREEN codec test passed `1/1`; credential service regression passed `26/26`; dev/prod Spring profile context tests passed `2/2`.
-- Remaining gaps: full multi-keyring decrypt support, an operational stale-secret re-encryption job, real Docker enterprise database/ERP/OA/finance sync smoke, and live Higress route checks remain production hardening work.
+- Remaining gaps: an operational stale-secret re-encryption job, real Docker enterprise database/ERP/OA/finance sync smoke, and live Higress route checks remain production hardening work.
+
+### 2026-07-06 UC-07 Data source credential keyring decrypt
+
+- Scope: `REQ-KB-003`, enterprise data-source connector credential decryption during key rotation.
+- Result: newly encrypted credentials still use the active key id, while retired `enc:v2:<keyId>:` credentials can be decrypted through `security.data-source-credential-previous-keys` keyring entries.
+- Compatibility: `enc:v1:` AES-GCM and legacy `enc:` Base64 payloads remain readable; retired v2 payloads decrypt successfully but still return `isCurrent=false` so re-encryption can be scheduled later.
+- Code evidence: `DataSourceCredentialCodec`, `application-dev.yml`, `application-prod.yml`, `DataSourceCredentialCodecTest`, and `docs/skill-chain/delivery_closure_299_data_source_credential_keyring_decrypt.md`.
+- Verification evidence: targeted RED/GREEN codec test passed `2/2`.
+- Remaining gaps: stale-secret discovery/re-encryption job, real Docker enterprise database/ERP/OA/finance sync smoke, and live Higress route checks remain production hardening work.
