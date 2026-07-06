@@ -121,13 +121,7 @@ class ContractSurfaceTest {
 
     @Test
     void publicShareEndpointsDeclareFieldLevelResponseContracts() throws IOException {
-        List<Map<String, Object>> structuredContracts = new ArrayList<>();
-        String apiContract = Files.readString(API_CONTRACT);
-        structuredContracts.addAll(readJsonContractBlock(apiContract, "## 6. API JSON 契约清单"));
-        structuredContracts.addAll(readJsonContractBlock(apiContract, "### 13.2 后端实际端点结构化 JSON 契约补遗"));
-        Map<String, Map<String, Object>> contractsByEndpoint = structuredContracts.stream()
-                .collect(Collectors.toMap(contract -> contract.get("method") + " " + contract.get("path"),
-                        contract -> contract));
+        Map<String, Map<String, Object>> contractsByEndpoint = structuredContractsByEndpoint();
 
         assertResponseDataProperties(contractsByEndpoint.get("POST /api/v1/share-links/{shareToken}/report"),
                 "accessGranted", "shareToken", "reportId", "title", "status", "currentVersionId",
@@ -200,6 +194,13 @@ class ContractSurfaceTest {
     void dataSourceSyncRunEndpointsDeclareFieldLevelResponseContracts() throws IOException {
         Map<String, Map<String, Object>> contractsByEndpoint = structuredContractsByEndpoint();
 
+        assertResponseDataProperties(contractsByEndpoint.get("POST /api/v1/data-sources/test-connection"),
+                "dataSourceId", "success", "message", "sourceType");
+        assertResponseDataProperties(contractsByEndpoint.get("POST /api/v1/data-sources"),
+                "dataSourceId", "ownerUserId", "name", "sourceType", "endpoint", "status",
+                "knowledgeBaseId", "syncQuery", "fieldMapping", "cursorColumn", "lastCursor",
+                "scheduleEnabled", "scheduleIntervalSeconds", "nextRunAt", "failureCount",
+                "maxRetryCount", "credentialConfigured");
         assertDataSourceSyncRunProperties(contractsByEndpoint.get("POST /api/v1/data-sources/{dataSourceId}/sync-runs"));
         assertResponseDataProperties(contractsByEndpoint.get("GET /api/v1/data-sources/{dataSourceId}/sync-runs"),
                 "items", "page", "pageSize", "total");

@@ -833,7 +833,7 @@
 - Result: `GET /api/v1/documents/{documentId}` and `POST /api/v1/knowledge-items/batch-import` now declare backend-real field-level `responseBody.data.properties` instead of generic `business response data`.
 - Code evidence: `ContractSurfaceTest#knowledgeDocumentEndpointsDeclareFieldLevelResponseContracts`, `docs/skill-chain/api_contract.md` section `13.2`, and `docs/skill-chain/delivery_closure_273_knowledge_document_contract_schema.md`.
 - Verification evidence: RED first failed because `GET /api/v1/documents/{documentId}` lacked `responseBody.data.properties`; GREEN passed the targeted knowledge-document contract test (`1/1`).
-- Remaining gaps: real Docker OCR/OpenSearch/Milvus/browser upload smoke was not rerun in this closure; data-source sync endpoints still have generic schemas and should be deepened under `REQ-KB-003`.
+- Remaining gaps: real Docker OCR/OpenSearch/Milvus/browser upload smoke was not rerun in this closure; REQ-KB-003 data-source configuration and sync contracts are tracked by the later data-source contract closures.
 
 ### 2026-07-02 UC-06 Data source sync field-level contract closure
 
@@ -1004,3 +1004,11 @@
 - Code evidence: `scripts/p3-local-smoke-lib.mjs`, `tests/unit/node/p3_local_smoke_bundle.test.mjs`, `frontend/web-console/tests/e2e/approval-inbox-real-backend.spec.ts`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_progress_20260706_uc08_approval_supplement_upload_smoke_harness.md`.
 - Verification evidence: P3 smoke bundle unit test passed `1/1`; frontend typecheck passed; API structured contract coverage passed `1/1`.
 - Runtime status: local Docker daemon was not running, so explicit real-backend execution failed at `ECONNREFUSED 127.0.0.1:18082`; direct Java/MinIO and Higress runtime acceptance remains pending until local services are back up.
+
+### 2026-07-06 UC-06 Data source configuration contract completion
+
+- Scope: `REQ-KB-003`, S4 API contract, enterprise data-source connection test and configuration save endpoints.
+- Result: `POST /api/v1/data-sources/test-connection` and `POST /api/v1/data-sources` now have backend-real field-level request and response contracts instead of generic `summary` schema.
+- Code evidence: `ContractSurfaceTest#dataSourceSyncRunEndpointsDeclareFieldLevelResponseContracts`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_closure_297_data_source_configuration_contract_schema.md`.
+- Verification evidence: RED first failed because `POST /api/v1/data-sources/test-connection` lacked `responseBody.data.dataSourceId`; GREEN passed the targeted data-source contract test (`1/1`).
+- Remaining gaps: real Docker enterprise database/ERP/OA/finance sync smoke, connector credential rotation policy, source-specific field mapping validation, and live Higress route checks remain open production hardening work.

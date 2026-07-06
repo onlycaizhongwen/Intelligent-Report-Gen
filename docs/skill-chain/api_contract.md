@@ -3766,6 +3766,280 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
   },
   {
     "method": "POST",
+    "path": "/api/v1/data-sources/test-connection",
+    "description": "测试企业数据源连接",
+    "module": "knowledge-base-ingestion",
+    "securityIntent": "datasource:manage",
+    "contentType": "application/json",
+    "pathParams": {},
+    "queryParams": {},
+    "headers": {
+      "Authorization": {
+        "type": "string",
+        "required": true,
+        "description": "Bearer JWT"
+      }
+    },
+    "requestBody": {
+      "dataSourceId": {
+        "type": "integer",
+        "required": true,
+        "description": "data source identifier to test"
+      }
+    },
+    "responseBody": {
+      "code": {
+        "type": "integer",
+        "required": true,
+        "description": "response code"
+      },
+      "message": {
+        "type": "string",
+        "required": true,
+        "description": "response message"
+      },
+      "data": {
+        "type": "object",
+        "required": true,
+        "description": "data source connection test result",
+        "properties": {
+          "dataSourceId": {
+            "type": "integer",
+            "required": true,
+            "description": "tested data source identifier"
+          },
+          "success": {
+            "type": "boolean",
+            "required": true,
+            "description": "whether the configured source is reachable"
+          },
+          "message": {
+            "type": "string",
+            "required": true,
+            "description": "connection test result message"
+          },
+          "sourceType": {
+            "type": "string",
+            "required": true,
+            "description": "data source type, for example postgresql, mysql, or api"
+          }
+        }
+      },
+      "timestamp": {
+        "type": "string",
+        "required": true,
+        "description": "response timestamp"
+      }
+    },
+    "statusCodes": [
+      200,
+      400,
+      401,
+      403,
+      404
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/data-sources",
+    "description": "保存企业数据源配置和同步策略",
+    "module": "knowledge-base-ingestion",
+    "securityIntent": "datasource:manage",
+    "contentType": "application/json",
+    "pathParams": {},
+    "queryParams": {},
+    "headers": {
+      "Authorization": {
+        "type": "string",
+        "required": true,
+        "description": "Bearer JWT"
+      }
+    },
+    "requestBody": {
+      "name": {
+        "type": "string",
+        "required": true,
+        "description": "data source name"
+      },
+      "sourceType": {
+        "type": "string",
+        "required": true,
+        "description": "data source type, for example postgresql, mysql, or api"
+      },
+      "endpoint": {
+        "type": "string",
+        "required": true,
+        "description": "JDBC URL or HTTP API endpoint"
+      },
+      "username": {
+        "type": "string",
+        "required": false,
+        "description": "connection username"
+      },
+      "password": {
+        "type": "string",
+        "required": false,
+        "description": "connection secret; encrypted before persistence"
+      },
+      "knowledgeBaseId": {
+        "type": "integer",
+        "required": false,
+        "description": "target knowledge base identifier"
+      },
+      "syncQuery": {
+        "type": "string",
+        "required": false,
+        "description": "SQL sync query for JDBC sources"
+      },
+      "fieldMapping": {
+        "type": "object",
+        "required": false,
+        "description": "API or row field mapping settings"
+      },
+      "cursorColumn": {
+        "type": "string",
+        "required": false,
+        "description": "incremental cursor column"
+      },
+      "scheduleEnabled": {
+        "type": "boolean",
+        "required": false,
+        "description": "whether scheduled sync is enabled"
+      },
+      "scheduleIntervalSeconds": {
+        "type": "integer",
+        "required": false,
+        "description": "scheduled sync interval in seconds; minimum 30 when enabled"
+      },
+      "nextRunAt": {
+        "type": "string",
+        "required": false,
+        "description": "first scheduled run timestamp"
+      },
+      "maxRetryCount": {
+        "type": "integer",
+        "required": false,
+        "description": "maximum retry count for failed scheduled sync"
+      }
+    },
+    "responseBody": {
+      "code": {
+        "type": "integer",
+        "required": true,
+        "description": "response code"
+      },
+      "message": {
+        "type": "string",
+        "required": true,
+        "description": "response message"
+      },
+      "data": {
+        "type": "object",
+        "required": true,
+        "description": "saved data source configuration",
+        "properties": {
+          "dataSourceId": {
+            "type": "integer",
+            "required": true,
+            "description": "data source identifier"
+          },
+          "ownerUserId": {
+            "type": "integer",
+            "required": true,
+            "description": "owner user identifier"
+          },
+          "name": {
+            "type": "string",
+            "required": true,
+            "description": "data source name"
+          },
+          "sourceType": {
+            "type": "string",
+            "required": true,
+            "description": "data source type"
+          },
+          "endpoint": {
+            "type": "string",
+            "required": true,
+            "description": "JDBC URL or HTTP API endpoint"
+          },
+          "status": {
+            "type": "string",
+            "required": true,
+            "description": "data source lifecycle status"
+          },
+          "knowledgeBaseId": {
+            "type": "integer",
+            "required": false,
+            "description": "target knowledge base identifier"
+          },
+          "syncQuery": {
+            "type": "string",
+            "required": false,
+            "description": "configured SQL sync query"
+          },
+          "fieldMapping": {
+            "type": "object",
+            "required": true,
+            "description": "parsed field mapping configuration"
+          },
+          "cursorColumn": {
+            "type": "string",
+            "required": false,
+            "description": "incremental cursor column"
+          },
+          "lastCursor": {
+            "type": "string",
+            "required": false,
+            "description": "last successful cursor value"
+          },
+          "scheduleEnabled": {
+            "type": "boolean",
+            "required": true,
+            "description": "whether scheduled sync is enabled"
+          },
+          "scheduleIntervalSeconds": {
+            "type": "integer",
+            "required": false,
+            "description": "scheduled sync interval in seconds"
+          },
+          "nextRunAt": {
+            "type": "string",
+            "required": false,
+            "description": "next scheduled sync timestamp"
+          },
+          "failureCount": {
+            "type": "integer",
+            "required": true,
+            "description": "consecutive scheduled sync failure count"
+          },
+          "maxRetryCount": {
+            "type": "integer",
+            "required": true,
+            "description": "maximum retry count before manual intervention"
+          },
+          "credentialConfigured": {
+            "type": "boolean",
+            "required": true,
+            "description": "whether a credential secret is configured"
+          }
+        }
+      },
+      "timestamp": {
+        "type": "string",
+        "required": true,
+        "description": "response timestamp"
+      }
+    },
+    "statusCodes": [
+      200,
+      400,
+      401,
+      403
+    ]
+  },
+  {
+    "method": "POST",
     "path": "/api/v1/data-sources/{dataSourceId}/sync-runs",
     "description": "触发企业数据源同步",
     "module": "knowledge-base-ingestion",
