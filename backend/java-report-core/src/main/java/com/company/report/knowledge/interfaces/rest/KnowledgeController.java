@@ -107,6 +107,13 @@ public class KnowledgeController {
         return ApiResponse.success(service.reencryptStaleDataSourceCredentials(requestLimit(request)));
     }
 
+    /** OpenSpec: knowledge-base-ingestion / REQ-KB-003 / Audit legacy API profile mapping drift. */
+    @RequiresPermission("datasource:manage")
+    @GetMapping("/data-sources/profile-drift")
+    public ApiResponse<Map<String, Object>> auditDataSourceProfileDrift(@RequestParam(defaultValue = "100") int limit) {
+        return ApiResponse.success(service.auditDataSourceProfileDrift(Math.max(limit, 1)));
+    }
+
     /** OpenSpec: knowledge-base-ingestion / REQ-KB-003 / 启动数据源同步 */
     @RequiresPermission("datasource:manage")
     @PostMapping("/data-sources/{dataSourceId}/sync-runs")

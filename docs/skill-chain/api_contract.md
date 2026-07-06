@@ -81,6 +81,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 | `/api/v1/data-sources` | POST | 保存数据源配置 | JSON Body | 数据源连接 | 200/400/401/403 |
 | `/api/v1/data-sources/presets` | GET | 查询 ERP/OA/财务数据源模板预设 | Header | 模板预设列表 | 200/401/403 |
 | `/api/v1/data-sources/credentials/reencrypt` | POST | 维护重加密数据源凭证 | JSON Body | 重加密结果 | 200/400/401/403 |
+| `/api/v1/data-sources/profile-drift` | GET | 审计历史 API profile 配置漂移 | Query | 漂移审计结果 | 200/400/401/403 |
 | `/api/v1/rules` | GET | 查询规则列表 | Query | 分页规则列表 | 200/401/403 |
 | `/api/v1/rules` | POST | 创建规则草稿 | JSON Body | 规则 | 200/400/401/403 |
 | `/api/v1/rules/{ruleId}` | PUT | 保存规则节点、连线和参数 | Path + JSON Body | 规则 | 200/400/401/403/404 |
@@ -3053,6 +3054,32 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 | `scannedCount` | integer | 本次扫描到的带凭证数据源数量 |
 | `migratedCount` | integer | 本次完成重加密的数据源凭证数量 |
 
+### 8.13 审计历史 API profile 配置漂移
+
+| 接口路径 | 方法 | 描述 | 请求参数 | 响应数据 | 状态码 |
+|----------|------|------|----------|----------|--------|
+| `/api/v1/data-sources/profile-drift` | GET | 扫描已保存 API 数据源，找出与当前内置 profile 规则不一致的历史配置 | Query | 漂移审计结果 | 200/400/401/403 |
+
+请求参数：
+
+| 参数名 | 类型 | 必填 | 描述 |
+|--------|------|------|------|
+| `limit` | integer | 否 | 单次扫描上限，默认 100，后端最小钳制为 1 |
+
+响应数据：
+
+| 字段名 | 类型 | 描述 |
+|--------|------|------|
+| `scannedCount` | integer | 本次扫描的 API profile 数据源数量 |
+| `driftCount` | integer | 发现的漂移数据源数量 |
+| `items` | array | 漂移明细，不包含任何凭证明文或密文 |
+| `items[].dataSourceId` | integer | 数据源 ID |
+| `items[].name` | string | 数据源名称 |
+| `items[].sourceType` | string | 数据源类型，当前为 `api` |
+| `items[].profileId` | string | 当前映射声明的内置 profile ID |
+| `items[].cursorColumn` | string | 已保存增量游标字段 |
+| `items[].failureReason` | string | 与当前 profile 规则不一致的具体原因 |
+
 ## 9. 规则引擎 API
 
 ### 9.1 查询规则列表
@@ -3603,6 +3630,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 | `GET /api/v1/data-sources/{dataSourceId}/sync-runs` | `knowledge-base-ingestion` | `datasource:manage` | 查询企业数据源同步记录 | 用于运维排障与审计 |
 | `GET /api/v1/data-sources/presets` | `knowledge-base-ingestion` | `datasource:manage` | 查询企业数据源模板预设 | 返回 ERP/OA/财务模板，不包含密钥 |
 | `POST /api/v1/data-sources/credentials/reencrypt` | `knowledge-base-ingestion` | `datasource:manage` | 维护重加密旧密钥数据源凭证 | 不返回任何凭证明文或密文 |
+| `GET /api/v1/data-sources/profile-drift` | `knowledge-base-ingestion` | `datasource:manage` | 审计历史 API profile 配置漂移 | 不返回任何凭证明文或密文 |
 | `GET /api/v1/system-alerts` | `audit-history-dashboard` | `notification:read` | 查询系统告警与通知 | 工作台通知入口 |
 | `GET /api/v1/auth/me` | `permission-collaboration` | authenticated | 获取当前认证用户 RBAC 上下文 | Higress/OIDC 登录后读取 Java 权限上下文 |
 | `POST /api/v1/users/batch-import` | `permission-collaboration` | `user:manage` | 批量导入用户 | 支持组织与角色初始化 |
@@ -4326,6 +4354,110 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
             "type": "integer",
             "required": true,
             "description": "number of credentials re-encrypted onto the active key"
+          }
+        }
+      },
+      "timestamp": {
+        "type": "string",
+        "required": true,
+        "description": "response timestamp"
+      }
+    },
+    "statusCodes": [
+      200,
+      400,
+      401,
+      403
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data-sources/profile-drift",
+    "description": "Audit saved API data sources whose profile mapping no longer matches current built-in profile rules",
+    "module": "knowledge-base-ingestion",
+    "securityIntent": "datasource:manage",
+    "contentType": "none",
+    "pathParams": {},
+    "queryParams": {
+      "limit": {
+        "type": "integer",
+        "required": false,
+        "description": "maximum number of API profile data sources to scan; defaults to 100 and is clamped to at least 1"
+      }
+    },
+    "headers": {
+      "Authorization": {
+        "type": "string",
+        "required": true,
+        "description": "Bearer JWT; optional only for public share POST endpoints"
+      }
+    },
+    "requestBody": {},
+    "responseBody": {
+      "code": {
+        "type": "integer",
+        "required": true,
+        "description": "response code"
+      },
+      "message": {
+        "type": "string",
+        "required": true,
+        "description": "response message"
+      },
+      "data": {
+        "type": "object",
+        "required": true,
+        "description": "API profile drift audit result without secret values",
+        "properties": {
+          "scannedCount": {
+            "type": "integer",
+            "required": true,
+            "description": "number of API profile data sources scanned"
+          },
+          "driftCount": {
+            "type": "integer",
+            "required": true,
+            "description": "number of drifted data sources found"
+          },
+          "items": {
+            "type": "array",
+            "required": true,
+            "description": "drifted data-source details",
+            "items": {
+              "type": "object",
+              "properties": {
+                "dataSourceId": {
+                  "type": "integer",
+                  "required": true,
+                  "description": "data source identifier"
+                },
+                "name": {
+                  "type": "string",
+                  "required": true,
+                  "description": "data source display name"
+                },
+                "sourceType": {
+                  "type": "string",
+                  "required": true,
+                  "description": "data source type"
+                },
+                "profileId": {
+                  "type": "string",
+                  "required": true,
+                  "description": "built-in API profile id"
+                },
+                "cursorColumn": {
+                  "type": "string",
+                  "required": false,
+                  "description": "saved incremental cursor column"
+                },
+                "failureReason": {
+                  "type": "string",
+                  "required": true,
+                  "description": "profile validation failure reason"
+                }
+              }
+            }
           }
         }
       },

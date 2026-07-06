@@ -426,6 +426,30 @@ public class KnowledgeApplicationService {
         return result;
     }
 
+    public Map<String, Object> auditDataSourceProfileDrift(int limit) {
+        List<KnowledgeDataSource> candidates = knowledgeBaseRepository.findDataSourcesForProfileAudit(Math.max(limit, 1));
+        List<Map<String, Object>> items = new java.util.ArrayList<>();
+        for (KnowledgeDataSource dataSource : candidates) {
+            String failureReason = dataSourceMappingFailureReason(dataSource);
+            if (failureReason.isBlank()) {
+                continue;
+            }
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("dataSourceId", dataSource.id());
+            item.put("name", dataSource.name());
+            item.put("sourceType", dataSource.sourceType());
+            item.put("profileId", dataSourceProfileId(dataSource));
+            item.put("cursorColumn", dataSource.cursorColumn() == null ? "" : dataSource.cursorColumn());
+            item.put("failureReason", failureReason);
+            items.add(item);
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("scannedCount", candidates.size());
+        result.put("driftCount", items.size());
+        result.put("items", items);
+        return result;
+    }
+
     public Map<String, Object> startDataSourceSync(Long dataSourceId, Map<String, Object> request) {
         KnowledgeDataSource dataSource = findOwnedDataSource(dataSourceId);
         String mode = String.valueOf(request == null ? "manual" : request.getOrDefault("mode", "manual"));
@@ -913,6 +937,14 @@ public class KnowledgeApplicationService {
             return "";
         } catch (IllegalArgumentException ex) {
             return ex.getMessage();
+        }
+    }
+
+    private String dataSourceProfileId(KnowledgeDataSource dataSource) {
+        try {
+            return stringValue(parseFieldMapping(dataSource.fieldMappingJson()).get("profileId")).trim();
+        } catch (IllegalArgumentException ex) {
+            return "";
         }
     }
 

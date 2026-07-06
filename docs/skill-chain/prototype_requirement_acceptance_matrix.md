@@ -1130,3 +1130,12 @@
 - Code evidence: `KnowledgeApplicationService.dataSourceMappingFailureReason`, `KnowledgeApplicationService.startDataSourceSync`, `KnowledgeApplicationServiceTest#rejectsLegacyApiProfileCursorDriftBeforeSyncingRows`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_closure_311_api_data_source_legacy_profile_drift_guard.md`.
 - Verification evidence: RED first failed because a drifted legacy profile synced `sampleRows` and imported 1 row; GREEN passed `KnowledgeApplicationServiceTest` (`36/36`), rebuilt/restarted `ir-java-smoke`, live Docker data-source smoke passed, and live Higress smoke passed.
 - Remaining gaps: bulk audit/reporting for already-saved legacy drifted data sources and customer-specific profile catalogs remain future production hardening work.
+
+### 2026-07-06 UC-07 API data-source profile drift audit
+
+- Scope: `REQ-KB-003`, operational discovery for already-saved API data sources whose `fieldMapping.profileId` no longer matches current governed schema/profile/cursor rules.
+- Result: `GET /api/v1/data-sources/profile-drift` now returns `scannedCount`, `driftCount`, and drift `items` with `dataSourceId/name/sourceType/profileId/cursorColumn/failureReason`, protected by `datasource:manage` and excluding credential values.
+- Runtime path: operator -> Higress or Java API -> `KnowledgeApplicationService.auditDataSourceProfileDrift()` -> `KnowledgeBaseRepository.findDataSourcesForProfileAudit()` -> existing profile validation chain.
+- Code evidence: `KnowledgeApplicationService.auditDataSourceProfileDrift`, `JdbcKnowledgeBaseRepository.findDataSourcesForProfileAudit`, `KnowledgeController#auditDataSourceProfileDrift`, `KnowledgeApplicationServiceTest#listsApiDataSourcesWithProfileDriftForOperationalAudit`, `ContractSurfaceTest#dataSourceSyncRunEndpointsDeclareFieldLevelResponseContracts`, `scripts/data-source-enterprise-docker-smoke-lib.mjs`, `scripts/higress-gateway-smoke-lib.mjs`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_closure_312_api_data_source_profile_drift_audit.md`.
+- Verification evidence: RED first failed because the service method and structured API contract were absent; GREEN passed `KnowledgeApplicationServiceTest` (`37/37`), `ContractSurfaceTest` (`36/36`), Node smoke unit tests (`8/8`), Java package, live Docker data-source smoke, and live Higress smoke with the new profile-drift route returning `200`.
+- Remaining gaps: customer-specific profile catalogs and explicit operator-driven migration of legacy drifted configs remain production hardening work.

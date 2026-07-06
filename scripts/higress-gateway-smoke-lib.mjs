@@ -141,6 +141,14 @@ export function buildHigressDataSourceSecurityChecks({
       bodyIncludes: 'finance-api',
     },
     {
+      name: 'data-source-profile-drift-audit-authorized-through-higress',
+      url: `${baseUrl}/api/v1/data-sources/profile-drift?limit=10`,
+      expectedStatus: 200,
+      expectedCode: 200,
+      headers: { Authorization: `Bearer ${allowedToken}` },
+      bodyIncludes: 'driftCount',
+    },
+    {
       name: 'data-source-save-validation-through-higress',
       url: `${baseUrl}/api/v1/data-sources`,
       method: 'POST',

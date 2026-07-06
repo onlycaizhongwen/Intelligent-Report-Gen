@@ -944,6 +944,43 @@ class KnowledgeApplicationServiceTest {
     }
 
     @Test
+    void listsApiDataSourcesWithProfileDriftForOperationalAudit() {
+        CurrentUserHolder.set(new CurrentUser(51L, Set.of("ops"), Set.of("datasource:manage")));
+        FakeKnowledgeBaseRepository knowledgeBaseRepository = new FakeKnowledgeBaseRepository();
+        KnowledgeBase base = knowledgeBaseRepository.save(KnowledgeBase.newBase("Profile Audit KB", 51L));
+        KnowledgeApplicationService service = new KnowledgeApplicationService(
+                new KnowledgeDomainService(), new FakeStorage(), new FakeRepository(), knowledgeBaseRepository, new FakePublisher());
+        String financeProfile = """
+                {"profileId":"finance-vouchers","rowsPath":"data.vouchers","titleField":"voucherNo","contentField":"summary","cursorField":"voucherId","method":"POST","authType":"api_key","apiKeyHeader":"X-API-Key","headers":{"X-Tenant":"finance"}}
+                """;
+        KnowledgeDataSource valid = knowledgeBaseRepository.saveDataSource(KnowledgeDataSource.enabled(
+                51L, "Finance API Valid", "api", "http://localhost:18080/finance/vouchers",
+                "finance_reader", "enc:v1:token", base.id(), null, financeProfile, "voucherId", null));
+        KnowledgeDataSource drifted = knowledgeBaseRepository.saveDataSource(KnowledgeDataSource.enabled(
+                51L, "Finance API Drifted", "api", "http://localhost:18080/finance/vouchers",
+                "finance_reader", "enc:v1:legacy-token", base.id(), null, financeProfile, "id", null));
+        knowledgeBaseRepository.saveDataSource(KnowledgeDataSource.enabled(
+                51L, "ERP Database", "postgresql", "jdbc:postgresql://localhost:5432/erp",
+                "erp_reader", "enc:v1:db-token", base.id(), null, "", "id", null));
+
+        Map<String, Object> audit = service.auditDataSourceProfileDrift(100);
+
+        assertThat(audit)
+                .containsEntry("scannedCount", 2)
+                .containsEntry("driftCount", 1);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> items = (List<Map<String, Object>>) audit.get("items");
+        assertThat(items).singleElement().satisfies(item -> assertThat(item)
+                .containsEntry("dataSourceId", drifted.id())
+                .containsEntry("name", "Finance API Drifted")
+                .containsEntry("sourceType", "api")
+                .containsEntry("profileId", "finance-vouchers")
+                .containsEntry("cursorColumn", "id")
+                .containsEntry("failureReason", "api data source profile finance-vouchers requires cursorColumn=voucherId"));
+        assertThat(items).noneMatch(item -> valid.id().equals(item.get("dataSourceId")));
+    }
+
+    @Test
     void syncsHttpApiRowsWithPostBodyCustomHeadersAndApiKey() throws Exception {
         CurrentUserHolder.set(new CurrentUser(38L, Set.of("analyst"), Set.of("knowledge:manage")));
         FakeKnowledgeBaseRepository knowledgeBaseRepository = new FakeKnowledgeBaseRepository();
@@ -1557,6 +1594,16 @@ class KnowledgeApplicationServiceTest {
         public List<KnowledgeDataSource> findDataSourcesWithCredentials(int limit) {
             return dataSources.values().stream()
                     .filter(dataSource -> dataSource.credentialSecret() != null && !dataSource.credentialSecret().isBlank())
+                    .limit(Math.max(limit, 1))
+                    .toList();
+        }
+
+        @Override
+        public List<KnowledgeDataSource> findDataSourcesForProfileAudit(int limit) {
+            return dataSources.values().stream()
+                    .filter(dataSource -> "api".equalsIgnoreCase(dataSource.sourceType()))
+                    .filter(dataSource -> dataSource.fieldMappingJson() != null
+                            && dataSource.fieldMappingJson().contains("\"profileId\""))
                     .limit(Math.max(limit, 1))
                     .toList();
         }

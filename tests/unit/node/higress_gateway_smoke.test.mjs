@@ -94,15 +94,18 @@ test('buildHigressDataSourceSecurityChecks covers presets, configuration and syn
       ['data-source-presets-missing-token-through-higress', 401, 401],
       ['data-source-presets-insufficient-permission-through-higress', 403, 403],
       ['data-source-presets-authorized-through-higress', 200, 200],
+      ['data-source-profile-drift-audit-authorized-through-higress', 200, 200],
       ['data-source-save-validation-through-higress', 400, 400],
       ['data-source-sync-not-found-through-higress', 404, 404],
     ],
   );
   assert.equal(checks[0].url, 'http://127.0.0.1:28000/api/v1/data-sources/presets');
-  assert.equal(checks[3].method, 'POST');
-  assert.equal(checks[3].url, 'http://127.0.0.1:28000/api/v1/data-sources');
-  assert.equal(checks[4].url, 'http://127.0.0.1:28000/api/v1/data-sources/999999999/sync-runs');
+  assert.equal(checks[3].url, 'http://127.0.0.1:28000/api/v1/data-sources/profile-drift?limit=10');
+  assert.equal(checks[4].method, 'POST');
+  assert.equal(checks[4].url, 'http://127.0.0.1:28000/api/v1/data-sources');
+  assert.equal(checks[5].url, 'http://127.0.0.1:28000/api/v1/data-sources/999999999/sync-runs');
   assert.match(checks[2].headers.Authorization, /^Bearer /);
   assert.match(checks[3].headers.Authorization, /^Bearer /);
   assert.match(checks[4].headers.Authorization, /^Bearer /);
+  assert.match(checks[5].headers.Authorization, /^Bearer /);
 });

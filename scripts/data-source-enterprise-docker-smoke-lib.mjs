@@ -193,6 +193,9 @@ async function runSourceSmoke({ apiBaseUrl, token, source }) {
     headers,
     body: JSON.stringify({ mode: 'manual', timeoutMs: 30000 }),
   });
+  const profileDrift = await apiJson(`${apiBaseUrl}/data-sources/profile-drift?limit=50`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
   const titleChecks = [];
   for (const title of source.expectedTitles) {
     const search = await apiJson(`${apiBaseUrl}/knowledge-items?page=1&pageSize=10&keyword=${encodeURIComponent(title)}`, {
@@ -206,6 +209,8 @@ async function runSourceSmoke({ apiBaseUrl, token, source }) {
   const passed = connection.data.success === true
     && syncRun.data.status === 'succeeded'
     && Number(syncRun.data.processedRows) === source.expectedProcessedRows
+    && Number.isInteger(profileDrift.data.driftCount)
+    && !JSON.stringify(profileDrift.data).includes('enc:v1:')
     && titleChecks.every((check) => check.found);
   return {
     key: source.key,
@@ -215,6 +220,7 @@ async function runSourceSmoke({ apiBaseUrl, token, source }) {
     syncStatus: syncRun.data.status,
     processedRows: syncRun.data.processedRows,
     lastCursor: syncRun.data.lastCursor,
+    profileDriftCount: profileDrift.data.driftCount,
     titleChecks,
     passed,
   };

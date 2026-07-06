@@ -207,6 +207,10 @@ class ContractSurfaceTest {
                 "scheduleIntervalSeconds", "maxRetryCount");
         assertResponseDataProperties(contractsByEndpoint.get("POST /api/v1/data-sources/credentials/reencrypt"),
                 "scannedCount", "migratedCount");
+        assertResponseDataProperties(contractsByEndpoint.get("GET /api/v1/data-sources/profile-drift"),
+                "scannedCount", "driftCount", "items");
+        assertArrayItemProperties(contractsByEndpoint.get("GET /api/v1/data-sources/profile-drift"),
+                "items", "dataSourceId", "name", "sourceType", "profileId", "cursorColumn", "failureReason");
         assertDataSourceSyncRunProperties(contractsByEndpoint.get("POST /api/v1/data-sources/{dataSourceId}/sync-runs"));
         assertResponseDataProperties(contractsByEndpoint.get("GET /api/v1/data-sources/{dataSourceId}/sync-runs"),
                 "items", "page", "pageSize", "total");
@@ -889,6 +893,8 @@ class ContractSurfaceTest {
 
         assertThat(knowledgeController).contains("@RequiresPermission(\"datasource:manage\")\n    @PostMapping(\"/data-sources/credentials/reencrypt\")");
         assertThat(knowledgeController).contains("reencryptStaleDataSourceCredentials");
+        assertThat(knowledgeController).contains("@RequiresPermission(\"datasource:manage\")\n    @GetMapping(\"/data-sources/profile-drift\")");
+        assertThat(knowledgeController).contains("auditDataSourceProfileDrift");
     }
 
     @Test
