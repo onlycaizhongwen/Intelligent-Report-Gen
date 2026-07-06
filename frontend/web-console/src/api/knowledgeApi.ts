@@ -28,6 +28,7 @@ export interface DataSourceSyncRun {
 }
 
 export interface DataSourceFieldMapping {
+  profileId?: 'oa-documents' | 'finance-vouchers' | string;
   rowsPath?: string;
   titleField?: string;
   contentField?: string;

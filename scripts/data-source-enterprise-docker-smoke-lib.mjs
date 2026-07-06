@@ -64,9 +64,11 @@ export function buildEnterpriseDataSourceDefinitions({
         cursorColumn: 'id',
         maxRetryCount: 2,
         fieldMapping: {
+          profileId: 'oa-documents',
           rowsPath: 'data.documents',
           titleField: 'documentNo',
           contentField: 'content',
+          cursorField: 'id',
           method: 'GET',
           authType: 'bearer',
           pageParam: 'page',
@@ -91,12 +93,14 @@ export function buildEnterpriseDataSourceDefinitions({
         endpoint: `${normalizedFixtureOrigin}/finance/vouchers`,
         username: 'finance_reader',
         password: 'finance-secret',
-        cursorColumn: 'id',
+        cursorColumn: 'voucherId',
         maxRetryCount: 2,
         fieldMapping: {
+          profileId: 'finance-vouchers',
           rowsPath: 'data.vouchers',
           titleField: 'voucherNo',
           contentField: 'summary',
+          cursorField: 'voucherId',
           method: 'POST',
           authType: 'api_key',
           apiKeyHeader: 'X-API-Key',
@@ -343,8 +347,8 @@ function fixturePayload(pathname, page) {
   }
   if (pathname === '/finance/vouchers') {
     return page === '2'
-      ? { data: { vouchers: [{ id: 2, voucherNo: 'FIN-2026-002', summary: 'Travel reimbursement exception needs review.' }] } }
-      : { data: { vouchers: [{ id: 1, voucherNo: 'FIN-2026-001', summary: 'Quarterly accrual voucher is ready.' }] } };
+      ? { data: { vouchers: [{ voucherId: 2, voucherNo: 'FIN-2026-002', summary: 'Travel reimbursement exception needs review.' }] } }
+      : { data: { vouchers: [{ voucherId: 1, voucherNo: 'FIN-2026-001', summary: 'Quarterly accrual voucher is ready.' }] } };
   }
   return { data: { items: [] } };
 }

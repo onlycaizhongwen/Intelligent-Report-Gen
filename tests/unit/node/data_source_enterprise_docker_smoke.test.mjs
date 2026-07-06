@@ -40,12 +40,17 @@ test('buildEnterpriseDataSourceDefinitions uses real JDBC and HTTP connector set
 
   assert.equal(oa.dataSource.sourceType, 'api');
   assert.equal(oa.dataSource.endpoint, 'http://host.docker.internal:29090/oa/documents');
+  assert.equal(oa.dataSource.fieldMapping.profileId, 'oa-documents');
   assert.equal(oa.dataSource.fieldMapping.authType, 'bearer');
   assert.equal(oa.dataSource.fieldMapping.rowsPath, 'data.documents');
+  assert.equal(oa.dataSource.fieldMapping.cursorField, 'id');
 
   assert.equal(finance.dataSource.sourceType, 'api');
   assert.equal(finance.dataSource.endpoint, 'http://host.docker.internal:29090/finance/vouchers');
+  assert.equal(finance.dataSource.cursorColumn, 'voucherId');
+  assert.equal(finance.dataSource.fieldMapping.profileId, 'finance-vouchers');
   assert.equal(finance.dataSource.fieldMapping.method, 'POST');
   assert.equal(finance.dataSource.fieldMapping.authType, 'api_key');
+  assert.equal(finance.dataSource.fieldMapping.cursorField, 'voucherId');
   assert.equal(finance.dataSource.fieldMapping.headers['X-Tenant'], 'finance');
 });

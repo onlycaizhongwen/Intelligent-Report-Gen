@@ -1105,3 +1105,12 @@
 - Code evidence: `KnowledgeApplicationService.validateApiAdvancedMapping`, `KnowledgeApplicationServiceTest#rejectsApiKnowledgeDataSourceWithUnsafeAdvancedMappingConfigurationOnSave`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_closure_308_api_data_source_mapping_governance.md`.
 - Verification evidence: RED first failed because unsafe API mapping was saved; GREEN passed `KnowledgeApplicationServiceTest` (`33/33`), rebuilt/restarted `ir-java-smoke`, live Docker data-source smoke passed, live Higress smoke passed, and Node smoke regression passed `9/9`.
 - Remaining gaps: customer-specific ERP/OA/finance schema profiles and production OIDC/TLS/WAF checks remain future production hardening work.
+
+### 2026-07-06 UC-07 API data-source schema profiles
+
+- Scope: `REQ-KB-003`, built-in OA/finance API schema profile governance for enterprise data-source presets.
+- Result: `oa-api` and `finance-api` presets now carry `fieldMapping.profileId`; save-time validation rejects unknown profiles and rejects mappings that do not match the selected profile's rows/title/content/cursor/method/auth/header contract.
+- Runtime path: Java report core preset/save validation -> local Docker OA/finance HTTP fixtures -> PostgreSQL knowledge items and sync-run logs; Higress keeps the same Java-routed auth boundary.
+- Code evidence: `KnowledgeApplicationService.validateApiProfileMapping`, `KnowledgeApplicationServiceTest#rejectsApiKnowledgeDataSourceWhenProfileMappingDoesNotMatchEnterpriseSchema`, `scripts/data-source-enterprise-docker-smoke-lib.mjs`, `tests/unit/node/data_source_enterprise_docker_smoke.test.mjs`, `frontend/web-console/src/api/knowledgeApi.ts`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_closure_309_api_data_source_schema_profiles.md`.
+- Verification evidence: RED first failed because preset `profileId` was null and mismatched profile mappings were saved; GREEN passed `KnowledgeApplicationServiceTest` (`34/34`), Node smoke regression passed `9/9`, frontend `npm run typecheck` passed, rebuilt/restarted `ir-java-smoke`, live Docker data-source smoke passed, and live Higress smoke passed.
+- Remaining gaps: customer-specific profile catalogs and production OIDC/TLS/WAF checks remain future production hardening work.

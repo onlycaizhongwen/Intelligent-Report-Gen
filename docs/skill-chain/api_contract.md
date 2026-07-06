@@ -2976,12 +2976,16 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 | `connectionConfig` | object | 是 | 连接配置 |
 | `syncPolicy` | object | 否 | 同步策略 |
 | `targetKnowledgeBaseId` | string | 是 | 目标知识库 |
+| `fieldMapping.profileId` | string | 否 | API 数据源 schema profile；当前支持 `oa-documents`、`finance-vouchers`，设置后保存阶段会校验对应 rows/title/content/cursor/auth/header 规则 |
 | `fieldMapping.rowsPath` | string | 条件必填 | 当 `sourceType=api` 且配置目标知识库时必填，指向响应中的列表节点 |
 | `fieldMapping.titleField` | string | 条件必填 | 当 `sourceType=api` 且配置目标知识库时必填，映射知识条目标题字段 |
 | `fieldMapping.contentField` | string | 条件必填 | 当 `sourceType=api` 且配置目标知识库时必填，映射知识条目正文/内容字段 |
+| `fieldMapping.cursorField` | string | 否 | API 响应行内增量游标字段；内置 profile 会校验固定值 |
 | `fieldMapping.method` | string | 否 | API 请求方法，仅允许 `GET` 或 `POST` |
 | `fieldMapping.authType` | string | 否 | 认证方式，仅允许 `bearer`、`api_key`、`basic`、`none` |
+| `fieldMapping.apiKeyHeader` | string | 否 | API Key Header 名称；禁止覆盖保留 Header |
 | `fieldMapping.maxPages` | integer | 否 | 分页最大页数，必须为 1-100 |
+| `fieldMapping.pageStart` | integer | 否 | 分页起始页码，必须大于等于 0 |
 | `fieldMapping.pageSize` | integer | 否 | 分页大小，必须为 1-1000 |
 | `fieldMapping.headers` | object | 否 | 自定义 Header；禁止覆盖 `Authorization`、`Content-Length`、`Host` |
 
@@ -2997,6 +3001,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 
 - `POST /api/v1/data-sources` 会在保存前校验 endpoint allowlist，未授权主机返回 `403`。
 - API 数据源会在保存前校验高级 `fieldMapping`，非法 method/authType/page/header 配置返回 `400`。
+- API 数据源设置 `fieldMapping.profileId` 后只允许内置 profile；`oa-documents` 固定 `rowsPath=data.documents/titleField=documentNo/contentField=content/cursorField=id/method=GET/authType=bearer`，`finance-vouchers` 固定 `rowsPath=data.vouchers/titleField=voucherNo/contentField=summary/cursorField=voucherId/method=POST/authType=api_key/apiKeyHeader=X-API-Key/headers.X-Tenant=finance`。
 - `POST /api/v1/data-sources/{dataSourceId}/sync-runs` 会在同步执行前复核已保存 endpoint；即使请求体提供 `sampleRows`，也不能绕过 allowlist。
 - `application-dev.yml` 默认仅放行本地 loopback 和 Docker 开发服务名；`application-prod.yml` 必须通过 `DATA_SOURCE_ENDPOINT_ALLOWLIST` 显式声明生产可访问源。
 
@@ -3023,7 +3028,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 | `endpoint` | string | 示例连接地址，保存前可按企业环境调整 |
 | `username` | string | 示例账号标识，不包含密钥 |
 | `syncQuery` | string | 数据库类同步 SQL 示例 |
-| `fieldMapping` | object | API 类行路径、标题、正文、分页和认证映射 |
+| `fieldMapping` | object | API 类 profile、行路径、标题、正文、游标、分页和认证映射 |
 | `cursorColumn` | string | 增量游标字段 |
 | `scheduleEnabled` | boolean | 默认是否启用定时同步 |
 | `scheduleIntervalSeconds` | integer | 推荐同步间隔 |
@@ -4037,7 +4042,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
             "fieldMapping": {
               "type": "object",
               "required": false,
-              "description": "API rows/title/content/pagination/auth mapping"
+              "description": "API profile, rows/title/content/cursor/pagination/auth mapping. Built-in profiles include oa-documents and finance-vouchers."
             },
             "cursorColumn": {
               "type": "string",
@@ -4129,7 +4134,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "fieldMapping": {
         "type": "object",
         "required": false,
-        "description": "API or row field mapping settings; for API sources targeting a knowledge base, rowsPath, titleField, and contentField are required"
+        "description": "API or row field mapping settings. For API sources targeting a knowledge base, rowsPath, titleField, and contentField are required. Optional profileId supports built-in schema profiles oa-documents and finance-vouchers with save-time profile validation."
       },
       "cursorColumn": {
         "type": "string",

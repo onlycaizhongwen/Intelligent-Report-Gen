@@ -144,10 +144,21 @@ class KnowledgeApplicationServiceTest {
                             .containsEntry("endpoint", "https://finance.example.com/api/v1/vouchers")
                             .containsEntry("cursorColumn", "voucherId");
                     Map<?, ?> fieldMapping = (Map<?, ?>) preset.get("fieldMapping");
+                    assertThat(fieldMapping.get("profileId")).isEqualTo("finance-vouchers");
                     assertThat(fieldMapping.get("rowsPath")).isEqualTo("data.vouchers");
                     assertThat(fieldMapping.get("titleField")).isEqualTo("voucherNo");
                     assertThat(fieldMapping.get("contentField")).isEqualTo("summary");
                     assertThat(fieldMapping.get("authType")).isEqualTo("api_key");
+                });
+        assertThat(presets)
+                .filteredOn(preset -> "oa-api".equals(preset.get("presetId")))
+                .singleElement()
+                .satisfies(preset -> {
+                    Map<?, ?> fieldMapping = (Map<?, ?>) preset.get("fieldMapping");
+                    assertThat(fieldMapping.get("profileId")).isEqualTo("oa-documents");
+                    assertThat(fieldMapping.get("rowsPath")).isEqualTo("data.documents");
+                    assertThat(fieldMapping.get("titleField")).isEqualTo("documentNo");
+                    assertThat(fieldMapping.get("contentField")).isEqualTo("content");
                 });
     }
 
@@ -792,6 +803,58 @@ class KnowledgeApplicationServiceTest {
         for (Map<String, Object> invalidMapping : invalidMappings) {
             assertThatThrownBy(() -> service.saveDataSource(Map.of(
                     "name", "Unsafe API Mapping",
+                    "sourceType", "api",
+                    "endpoint", "http://localhost:18080/items",
+                    "knowledgeBaseId", base.id(),
+                    "fieldMapping", invalidMapping.get("fieldMapping")
+            )))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining(String.valueOf(invalidMapping.get("message")));
+        }
+    }
+
+    @Test
+    void rejectsApiKnowledgeDataSourceWhenProfileMappingDoesNotMatchEnterpriseSchema() {
+        CurrentUserHolder.set(new CurrentUser(48L, Set.of("analyst"), Set.of("knowledge:manage")));
+        FakeKnowledgeBaseRepository knowledgeBaseRepository = new FakeKnowledgeBaseRepository();
+        KnowledgeBase base = knowledgeBaseRepository.save(KnowledgeBase.newBase("Profile KB", 48L));
+        KnowledgeApplicationService service = new KnowledgeApplicationService(
+                new KnowledgeDomainService(), new FakeStorage(), new FakeRepository(), knowledgeBaseRepository, new FakePublisher());
+
+        List<Map<String, Object>> invalidMappings = List.of(
+                Map.of(
+                        "fieldMapping", apiMappingWith(Map.of(
+                                "profileId", "oa-documents",
+                                "rowsPath", "data.items",
+                                "titleField", "headline",
+                                "cursorField", "rowId"
+                        )),
+                        "message", "api data source profile oa-documents requires rowsPath=data.documents"
+                ),
+                Map.of(
+                        "fieldMapping", apiMappingWith(Map.of(
+                                "profileId", "finance-vouchers",
+                                "rowsPath", "data.vouchers",
+                                "titleField", "voucherNo",
+                                "contentField", "summary",
+                                "cursorField", "voucherId",
+                                "method", "GET",
+                                "authType", "bearer",
+                                "headers", Map.of()
+                        )),
+                        "message", "api data source profile finance-vouchers requires method=POST"
+                ),
+                Map.of(
+                        "fieldMapping", apiMappingWith(Map.of(
+                                "profileId", "unknown-profile"
+                        )),
+                        "message", "api data source fieldMapping.profileId is not supported: unknown-profile"
+                )
+        );
+
+        for (Map<String, Object> invalidMapping : invalidMappings) {
+            assertThatThrownBy(() -> service.saveDataSource(Map.of(
+                    "name", "Profile API Mapping",
                     "sourceType", "api",
                     "endpoint", "http://localhost:18080/items",
                     "knowledgeBaseId", base.id(),

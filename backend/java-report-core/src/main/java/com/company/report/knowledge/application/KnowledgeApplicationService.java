@@ -379,7 +379,8 @@ public class KnowledgeApplicationService {
                         "https://oa.example.com/api/v1/documents",
                         "oa_reader",
                         null,
-                        apiFieldMapping("data.documents", "documentNo", "content", "id", "page", "pageSize", 100, "bearer"),
+                        apiFieldMapping("oa-documents", "data.documents", "documentNo", "content", "id",
+                                "GET", "page", "pageSize", 100, "bearer", null),
                         "id",
                         600,
                         3
@@ -392,7 +393,8 @@ public class KnowledgeApplicationService {
                         "https://finance.example.com/api/v1/vouchers",
                         "finance_reader",
                         null,
-                        apiFieldMapping("data.vouchers", "voucherNo", "summary", "voucherId", "page", "pageSize", 100, "api_key"),
+                        apiFieldMapping("finance-vouchers", "data.vouchers", "voucherNo", "summary", "voucherId",
+                                "POST", "page", "pageSize", 100, "api_key", Map.of("X-Tenant", "finance")),
                         "voucherId",
                         900,
                         5
@@ -653,22 +655,29 @@ public class KnowledgeApplicationService {
         return preset;
     }
 
-    private Map<String, Object> apiFieldMapping(String rowsPath,
+    private Map<String, Object> apiFieldMapping(String profileId,
+                                                String rowsPath,
                                                 String titleField,
                                                 String contentField,
                                                 String cursorField,
+                                                String method,
                                                 String pageParam,
                                                 String pageSizeParam,
                                                 int pageSize,
-                                                String authType) {
+                                                String authType,
+                                                Map<String, String> headers) {
         Map<String, Object> fieldMapping = new LinkedHashMap<>();
+        fieldMapping.put("profileId", profileId);
         fieldMapping.put("rowsPath", rowsPath);
         fieldMapping.put("titleField", titleField);
         fieldMapping.put("contentField", contentField);
         fieldMapping.put("cursorField", cursorField);
-        fieldMapping.put("method", "GET");
+        fieldMapping.put("method", method);
         fieldMapping.put("authType", authType);
         fieldMapping.put("apiKeyHeader", "X-API-Key");
+        if (headers != null && !headers.isEmpty()) {
+            fieldMapping.put("headers", new LinkedHashMap<>(headers));
+        }
         fieldMapping.put("pageParam", pageParam);
         fieldMapping.put("pageStart", 1);
         fieldMapping.put("pageSizeParam", pageSizeParam);
@@ -891,6 +900,7 @@ public class KnowledgeApplicationService {
             requireApiFieldMapping(fieldMapping, "contentField");
         }
         validateApiAdvancedMapping(fieldMapping);
+        validateApiProfileMapping(fieldMapping);
     }
 
     private void requireApiFieldMapping(Map<String, Object> fieldMapping, String fieldName) {
@@ -941,6 +951,63 @@ public class KnowledgeApplicationService {
         if (!headerName.matches("[A-Za-z0-9!#$%&'*+.^_`|~-]+")) {
             throw new IllegalArgumentException("api data source fieldMapping." + fieldName + " contains invalid header name: " + headerName);
         }
+    }
+
+    private void validateApiProfileMapping(Map<String, Object> fieldMapping) {
+        String profileId = stringValue(fieldMapping.get("profileId")).trim();
+        if (profileId.isBlank()) {
+            return;
+        }
+        switch (profileId) {
+            case "oa-documents" -> {
+                requireProfileValue(profileId, fieldMapping, "rowsPath", "data.documents");
+                requireProfileValue(profileId, fieldMapping, "titleField", "documentNo");
+                requireProfileValue(profileId, fieldMapping, "contentField", "content");
+                requireProfileValue(profileId, fieldMapping, "cursorField", "id");
+                requireProfileValue(profileId, fieldMapping, "method", "GET");
+                requireProfileValue(profileId, fieldMapping, "authType", "bearer");
+            }
+            case "finance-vouchers" -> {
+                requireProfileValue(profileId, fieldMapping, "rowsPath", "data.vouchers");
+                requireProfileValue(profileId, fieldMapping, "titleField", "voucherNo");
+                requireProfileValue(profileId, fieldMapping, "contentField", "summary");
+                requireProfileValue(profileId, fieldMapping, "cursorField", "voucherId");
+                requireProfileValue(profileId, fieldMapping, "method", "POST");
+                requireProfileValue(profileId, fieldMapping, "authType", "api_key");
+                requireProfileValue(profileId, fieldMapping, "apiKeyHeader", "X-API-Key");
+                requireProfileHeaderValue(profileId, fieldMapping, "X-Tenant", "finance");
+            }
+            default -> throw new IllegalArgumentException("api data source fieldMapping.profileId is not supported: " + profileId);
+        }
+    }
+
+    private void requireProfileValue(String profileId, Map<String, Object> fieldMapping, String fieldName, String expectedValue) {
+        String actualValue = stringValue(fieldMapping.getOrDefault(fieldName, defaultApiProfileValue(fieldName))).trim();
+        if ("method".equals(fieldName)) {
+            actualValue = actualValue.toUpperCase();
+        } else if ("authType".equals(fieldName)) {
+            actualValue = actualValue.toLowerCase();
+        }
+        if (!expectedValue.equals(actualValue)) {
+            throw new IllegalArgumentException("api data source profile " + profileId + " requires " + fieldName + "=" + expectedValue);
+        }
+    }
+
+    private void requireProfileHeaderValue(String profileId, Map<String, Object> fieldMapping, String headerName, String expectedValue) {
+        Object rawHeaders = fieldMapping.get("headers");
+        if (!(rawHeaders instanceof Map<?, ?> headers)
+                || !expectedValue.equals(stringValue(headers.get(headerName)).trim())) {
+            throw new IllegalArgumentException("api data source profile " + profileId + " requires headers." + headerName + "=" + expectedValue);
+        }
+    }
+
+    private String defaultApiProfileValue(String fieldName) {
+        return switch (fieldName) {
+            case "method" -> "GET";
+            case "authType" -> "bearer";
+            case "apiKeyHeader" -> "X-API-Key";
+            default -> "";
+        };
     }
 
     private List<Map<String, Object>> extractApiRows(KnowledgeDataSource dataSource, int timeoutMs) throws Exception {
