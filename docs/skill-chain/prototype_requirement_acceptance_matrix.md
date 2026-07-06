@@ -1114,3 +1114,11 @@
 - Code evidence: `KnowledgeApplicationService.validateApiProfileMapping`, `KnowledgeApplicationServiceTest#rejectsApiKnowledgeDataSourceWhenProfileMappingDoesNotMatchEnterpriseSchema`, `scripts/data-source-enterprise-docker-smoke-lib.mjs`, `tests/unit/node/data_source_enterprise_docker_smoke.test.mjs`, `frontend/web-console/src/api/knowledgeApi.ts`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_closure_309_api_data_source_schema_profiles.md`.
 - Verification evidence: RED first failed because preset `profileId` was null and mismatched profile mappings were saved; GREEN passed `KnowledgeApplicationServiceTest` (`34/34`), Node smoke regression passed `9/9`, frontend `npm run typecheck` passed, rebuilt/restarted `ir-java-smoke`, live Docker data-source smoke passed, and live Higress smoke passed.
 - Remaining gaps: customer-specific profile catalogs and production OIDC/TLS/WAF checks remain future production hardening work.
+
+### 2026-07-06 UC-07 API data-source profile cursor governance
+
+- Scope: `REQ-KB-003`, profile schema cursor and incremental sync cursor alignment.
+- Result: save-time validation now rejects built-in API profile configurations whose `cursorColumn` does not match the profile cursor field, preventing finance/OA sync from silently using a different incremental cursor than the governed row schema.
+- Code evidence: `KnowledgeApplicationService.validateApiProfileMapping`, `KnowledgeApplicationServiceTest#rejectsApiKnowledgeDataSourceWhenProfileCursorColumnDoesNotMatchSchemaCursor`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_closure_310_api_data_source_profile_cursor_governance.md`.
+- Verification evidence: RED first failed because `finance-vouchers` with `cursorColumn=id` saved successfully; GREEN passed `KnowledgeApplicationServiceTest` (`35/35`), rebuilt/restarted `ir-java-smoke`, live Docker data-source smoke passed, and live Higress smoke passed.
+- Remaining gaps: customer-specific profile catalogs and legacy saved data-source drift detection remain future production hardening work.

@@ -319,7 +319,7 @@ public class KnowledgeApplicationService {
         if (maxRetryCount != null && (maxRetryCount < 0 || maxRetryCount > 20)) {
             throw new IllegalArgumentException("maxRetryCount must be between 0 and 20");
         }
-        validateDataSourceMapping(sourceType, knowledgeBaseId, fieldMappingJson);
+        validateDataSourceMapping(sourceType, knowledgeBaseId, fieldMappingJson, cursorColumn);
         ensureDataSourceEndpointAllowed(sourceType, endpoint);
         KnowledgeDataSource saved = knowledgeBaseRepository.saveDataSource(KnowledgeDataSource.enabled(
                 currentUserId(),
@@ -889,7 +889,7 @@ public class KnowledgeApplicationService {
         };
     }
 
-    private void validateDataSourceMapping(String sourceType, Long knowledgeBaseId, String fieldMappingJson) {
+    private void validateDataSourceMapping(String sourceType, Long knowledgeBaseId, String fieldMappingJson, String cursorColumn) {
         if (!"api".equalsIgnoreCase(sourceType)) {
             return;
         }
@@ -900,7 +900,7 @@ public class KnowledgeApplicationService {
             requireApiFieldMapping(fieldMapping, "contentField");
         }
         validateApiAdvancedMapping(fieldMapping);
-        validateApiProfileMapping(fieldMapping);
+        validateApiProfileMapping(fieldMapping, cursorColumn);
     }
 
     private void requireApiFieldMapping(Map<String, Object> fieldMapping, String fieldName) {
@@ -953,7 +953,7 @@ public class KnowledgeApplicationService {
         }
     }
 
-    private void validateApiProfileMapping(Map<String, Object> fieldMapping) {
+    private void validateApiProfileMapping(Map<String, Object> fieldMapping, String cursorColumn) {
         String profileId = stringValue(fieldMapping.get("profileId")).trim();
         if (profileId.isBlank()) {
             return;
@@ -964,6 +964,7 @@ public class KnowledgeApplicationService {
                 requireProfileValue(profileId, fieldMapping, "titleField", "documentNo");
                 requireProfileValue(profileId, fieldMapping, "contentField", "content");
                 requireProfileValue(profileId, fieldMapping, "cursorField", "id");
+                requireProfileCursorColumn(profileId, cursorColumn, "id");
                 requireProfileValue(profileId, fieldMapping, "method", "GET");
                 requireProfileValue(profileId, fieldMapping, "authType", "bearer");
             }
@@ -972,12 +973,19 @@ public class KnowledgeApplicationService {
                 requireProfileValue(profileId, fieldMapping, "titleField", "voucherNo");
                 requireProfileValue(profileId, fieldMapping, "contentField", "summary");
                 requireProfileValue(profileId, fieldMapping, "cursorField", "voucherId");
+                requireProfileCursorColumn(profileId, cursorColumn, "voucherId");
                 requireProfileValue(profileId, fieldMapping, "method", "POST");
                 requireProfileValue(profileId, fieldMapping, "authType", "api_key");
                 requireProfileValue(profileId, fieldMapping, "apiKeyHeader", "X-API-Key");
                 requireProfileHeaderValue(profileId, fieldMapping, "X-Tenant", "finance");
             }
             default -> throw new IllegalArgumentException("api data source fieldMapping.profileId is not supported: " + profileId);
+        }
+    }
+
+    private void requireProfileCursorColumn(String profileId, String cursorColumn, String expectedValue) {
+        if (!expectedValue.equals(stringValue(cursorColumn).trim())) {
+            throw new IllegalArgumentException("api data source profile " + profileId + " requires cursorColumn=" + expectedValue);
         }
     }
 

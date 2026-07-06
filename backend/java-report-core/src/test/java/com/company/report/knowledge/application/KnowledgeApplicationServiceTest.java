@@ -842,6 +842,7 @@ class KnowledgeApplicationServiceTest {
                                 "authType", "bearer",
                                 "headers", Map.of()
                         )),
+                        "cursorColumn", "voucherId",
                         "message", "api data source profile finance-vouchers requires method=POST"
                 ),
                 Map.of(
@@ -853,16 +854,52 @@ class KnowledgeApplicationServiceTest {
         );
 
         for (Map<String, Object> invalidMapping : invalidMappings) {
-            assertThatThrownBy(() -> service.saveDataSource(Map.of(
-                    "name", "Profile API Mapping",
-                    "sourceType", "api",
-                    "endpoint", "http://localhost:18080/items",
-                    "knowledgeBaseId", base.id(),
-                    "fieldMapping", invalidMapping.get("fieldMapping")
-            )))
+            Map<String, Object> request = new LinkedHashMap<>();
+            request.put("name", "Profile API Mapping");
+            request.put("sourceType", "api");
+            request.put("endpoint", "http://localhost:18080/items");
+            request.put("knowledgeBaseId", base.id());
+            request.put("fieldMapping", invalidMapping.get("fieldMapping"));
+            if (invalidMapping.containsKey("cursorColumn")) {
+                request.put("cursorColumn", invalidMapping.get("cursorColumn"));
+            }
+
+            assertThatThrownBy(() -> service.saveDataSource(request))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining(String.valueOf(invalidMapping.get("message")));
         }
+    }
+
+    @Test
+    void rejectsApiKnowledgeDataSourceWhenProfileCursorColumnDoesNotMatchSchemaCursor() {
+        CurrentUserHolder.set(new CurrentUser(49L, Set.of("analyst"), Set.of("knowledge:manage")));
+        FakeKnowledgeBaseRepository knowledgeBaseRepository = new FakeKnowledgeBaseRepository();
+        KnowledgeBase base = knowledgeBaseRepository.save(KnowledgeBase.newBase("Profile Cursor KB", 49L));
+        KnowledgeApplicationService service = new KnowledgeApplicationService(
+                new KnowledgeDomainService(), new FakeStorage(), new FakeRepository(), knowledgeBaseRepository, new FakePublisher());
+
+        Map<String, Object> financeProfile = apiMappingWith(Map.of(
+                "profileId", "finance-vouchers",
+                "rowsPath", "data.vouchers",
+                "titleField", "voucherNo",
+                "contentField", "summary",
+                "cursorField", "voucherId",
+                "method", "POST",
+                "authType", "api_key",
+                "apiKeyHeader", "X-API-Key",
+                "headers", Map.of("X-Tenant", "finance")
+        ));
+
+        assertThatThrownBy(() -> service.saveDataSource(Map.of(
+                "name", "Finance Profile API Mapping",
+                "sourceType", "api",
+                "endpoint", "http://localhost:18080/finance/vouchers",
+                "knowledgeBaseId", base.id(),
+                "cursorColumn", "id",
+                "fieldMapping", financeProfile
+        )))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("api data source profile finance-vouchers requires cursorColumn=voucherId");
     }
 
     @Test
