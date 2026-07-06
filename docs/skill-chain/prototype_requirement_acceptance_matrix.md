@@ -3,6 +3,8 @@
 > 楠屾敹鍘熷垯锛氭帴鍙ｅ瓨鍦ㄣ€侀〉闈㈠瓨鍦ㄣ€佹祴璇曢鏋跺瓨鍦ㄩ兘涓嶇瓑浜庝氦浠樺畬鎴愶紱蹇呴』鑳芥寜鍘熷瀷鏃呯▼璺戦€氫笟鍔￠棴鐜紝骞剁暀涓嬫暟鎹簱銆佸璞″瓨鍌ㄣ€佺綉鍏炽€佸璁℃垨绔埌绔祴璇曡瘉鎹€?
 ## Recent Closure Evidence
 
+- 2026-07-06 Closure 321: UC-08 approval supplement attachment policy hardening for `REQ-RULE-001`. Java now rejects supplement uploads above 10 MiB or outside the approved evidence content types before MinIO storage, writes `rule_approval_supplement_attachment_rejected` audit evidence with `rejectionReason`, and preserves the existing successful upload path. Verification: RED targeted service tests first failed because oversized and unsupported files were accepted; GREEN passed the two policy tests and the full `RuleApplicationServiceTest` regression. See `docs/skill-chain/delivery_closure_321_uc08_approval_supplement_attachment_policy.md`.
+
 - 2026-07-06 Closure 320: Controller permission catalog drift guard for `REQ-AUTH-001`. Added `findControllerPermissionCatalogGaps(...)` and extended the controller authorization matrix test so every Java controller `@RequiresPermission(...)` value must be covered by the 16 Higress permission-catalog probe families from `buildHigressPermissionCatalogAuthorizationChecks()`. Verification: RED `node --test tests/unit/node/controller_authorization_matrix.test.mjs` failed because the drift guard export was missing; GREEN passed `4/4`; Higress regression `node --test tests/unit/node/higress_gateway_smoke.test.mjs` passed `8/8`; live `node scripts/higress-gateway-smoke.mjs` returned `passed=true`. Remaining gap: production OIDC/TLS/WAF behavior remain separate checks. See `docs/skill-chain/delivery_closure_320_controller_permission_catalog_drift.md`.
 
 - 2026-07-06 Closure 319: Java controller endpoint authorization matrix for `REQ-AUTH-001`. Added a static parser that extracts every Java `*Controller.java` Spring mapping and classifies each endpoint by `@RequiresPermission`, `@AuthenticatedEndpoint`, or `@PublicEndpoint`; generated `docs/skill-chain/java_controller_authorization_matrix.md` with 104 endpoints. Verification: RED parser guard caught class-level `@RequestMapping` being misread as constructor endpoints; RED document guard failed while the generated matrix was absent; GREEN `node --test tests/unit/node/controller_authorization_matrix.test.mjs` passed `3/3`, proving no unclassified endpoints, no duplicate `method + path` entries, and synchronized Markdown evidence; Higress regression `node --test tests/unit/node/higress_gateway_smoke.test.mjs` passed `8/8`; live `node scripts/higress-gateway-smoke.mjs` returned `passed=true`. Remaining gap: runtime OIDC/TLS/WAF behavior remains separate production hardening. See `docs/skill-chain/delivery_closure_319_controller_authorization_matrix.md`.
@@ -1005,7 +1007,7 @@
 - Result: `/rules/approvals` rejected records now support real file selection via `Supplement attachment`. The file is uploaded to the Java rule domain endpoint before supplement submission; the returned `evidenceUrl` is then submitted through the existing supplement API, preserving the Java approval task loop.
 - Code evidence: `RuleController.java`, `RuleApplicationService.java`, `ApprovalInbox.vue`, `ruleApi.ts`, `approval-inbox.spec.ts`, `apiContracts.test.ts`, `ContractSurfaceTest.java`, `RuleApplicationServiceTest.java`, and `docs/skill-chain/delivery_closure_296_uc08_approval_supplement_attachment_upload.md`.
 - Verification evidence: frontend API contract passed `30/30`; backend contract/service upload tests passed `2/2`; `npm run typecheck` passed; Playwright `approval-inbox.spec.ts -g "submits supplement"` passed `1/1`.
-- Remaining gaps: real MinIO smoke for this exact endpoint, Higress-routed upload browser acceptance, and enterprise attachment policy hardening remain open.
+- Remaining gaps: real MinIO smoke for this exact endpoint and Higress-routed upload browser acceptance were tracked by the follow-up smoke harness and P3 repair closures; enterprise attachment policy hardening is closed by Closure 321.
 
 ### 2026-07-06 UC-08 approval supplement upload smoke harness progress
 
@@ -1014,6 +1016,15 @@
 - Code evidence: `scripts/p3-local-smoke-lib.mjs`, `tests/unit/node/p3_local_smoke_bundle.test.mjs`, `frontend/web-console/tests/e2e/approval-inbox-real-backend.spec.ts`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_progress_20260706_uc08_approval_supplement_upload_smoke_harness.md`.
 - Verification evidence: P3 smoke bundle unit test passed `1/1`; frontend typecheck passed; API structured contract coverage passed `1/1`.
 - Runtime status: local Docker daemon was not running, so explicit real-backend execution failed at `ECONNREFUSED 127.0.0.1:18082`; direct Java/MinIO and Higress runtime acceptance remains pending until local services are back up.
+
+### 2026-07-06 UC-08 approval supplement attachment policy hardening closure
+
+- Scope: `REQ-RULE-001`, `UC-08`, rejected approval supplement attachment upload.
+- Result: Java now enforces an enterprise upload policy before object storage writes. Approval supplement attachments are limited to 10 MiB and common evidence material content types: PDF, JPEG, PNG, CSV, Markdown, plain text, Word, and Excel.
+- Traceability evidence: rejected files write `rule_approval_supplement_attachment_rejected` with `approvalRecordId`, `runId`, `nodeId`, `fileName`, `contentType`, `sizeBytes`, `maxSizeBytes`, and `rejectionReason`, while the existing successful `rule_approval_supplement_attachment_uploaded` audit path remains unchanged.
+- Code evidence: `RuleApplicationService.java`, `RuleApplicationServiceTest.java`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_closure_321_uc08_approval_supplement_attachment_policy.md`.
+- Verification evidence: RED targeted service tests first failed because oversized and unsupported files did not throw; GREEN policy tests passed `2/2`; full `RuleApplicationServiceTest` regression passed.
+- Remaining gaps: optional customer-specific file policy configuration, antivirus scanning, and deep content inspection remain future production hardening.
 
 ### 2026-07-06 UC-06 Data source configuration contract completion
 

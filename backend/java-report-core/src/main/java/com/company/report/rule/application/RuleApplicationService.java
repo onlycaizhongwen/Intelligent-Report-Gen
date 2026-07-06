@@ -48,6 +48,19 @@ public class RuleApplicationService {
     private static final int MAX_SUBPROCESS_STACK_DEPTH = 8;
     private static final int MAX_PRODUCTION_TRACE_NODES = 128;
     private static final long MAX_PRODUCTION_EXECUTION_MILLIS = 30_000L;
+    private static final long MAX_APPROVAL_SUPPLEMENT_ATTACHMENT_SIZE_BYTES = 10L * 1024L * 1024L;
+    private static final Set<String> ALLOWED_APPROVAL_SUPPLEMENT_ATTACHMENT_CONTENT_TYPES = Set.of(
+            "application/pdf",
+            "image/jpeg",
+            "image/png",
+            "text/csv",
+            "text/markdown",
+            "text/plain",
+            "application/msword",
+            "application/vnd.ms-excel",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    );
 
     private final RuleDomainService domainService;
     private final RuleRepository ruleRepository;
@@ -881,6 +894,7 @@ public class RuleApplicationService {
         if (!"rejected".equals(rejectedRecord.status())) {
             throw new IllegalStateException("only rejected approval records can receive supplement attachments: " + approvalRecordId);
         }
+        ensureApprovalSupplementAttachmentPolicy(rule, rejectedRecord, file);
         DocumentStorage storage = documentStorage
                 .orElseThrow(() -> new IllegalStateException("approval supplement storage is not configured"));
         String safeFileName = safeApprovalSupplementFileName(file);
@@ -916,6 +930,41 @@ public class RuleApplicationService {
                 "evidenceUrl", evidenceUrl
         ));
         return result;
+    }
+
+    private void ensureApprovalSupplementAttachmentPolicy(Rule rule, RuleApprovalRecord approvalRecord, MultipartFile file) {
+        String contentType = approvalSupplementContentType(file);
+        String fileName = safeApprovalSupplementFileName(file);
+        long sizeBytes = file.getSize();
+        if (!ALLOWED_APPROVAL_SUPPLEMENT_ATTACHMENT_CONTENT_TYPES.contains(contentType)) {
+            rejectApprovalSupplementAttachment(rule, approvalRecord, fileName, contentType, sizeBytes, "unsupported_content_type",
+                    "unsupported approval supplement attachment content type: " + contentType);
+        }
+        if (sizeBytes > MAX_APPROVAL_SUPPLEMENT_ATTACHMENT_SIZE_BYTES) {
+            rejectApprovalSupplementAttachment(rule, approvalRecord, fileName, contentType, sizeBytes, "file_too_large",
+                    "approval supplement attachment exceeds max size: " + sizeBytes + " > " + MAX_APPROVAL_SUPPLEMENT_ATTACHMENT_SIZE_BYTES);
+        }
+    }
+
+    private void rejectApprovalSupplementAttachment(Rule rule,
+                                                    RuleApprovalRecord approvalRecord,
+                                                    String fileName,
+                                                    String contentType,
+                                                    long sizeBytes,
+                                                    String rejectionReason,
+                                                    String message) {
+        writeAudit("rule_approval_supplement_attachment_rejected", rule, "failed", auditDetail(
+                "approvalRecordId", approvalRecord.id(),
+                "runId", approvalRecord.runId(),
+                "nodeId", approvalRecord.nodeId(),
+                "fileName", fileName,
+                "contentType", contentType,
+                "sizeBytes", sizeBytes,
+                "maxSizeBytes", MAX_APPROVAL_SUPPLEMENT_ATTACHMENT_SIZE_BYTES,
+                "rejectionReason", rejectionReason,
+                "allowedContentTypes", ALLOWED_APPROVAL_SUPPLEMENT_ATTACHMENT_CONTENT_TYPES
+        ));
+        throw new IllegalArgumentException(message);
     }
 
     private void closeSiblingPendingApprovalsAfterAnyApproval(Rule rule, RuleApprovalRecord approvedRecord) {
@@ -2617,6 +2666,18 @@ public class RuleApplicationService {
         }
         normalized = normalized.trim().replaceAll("\\s+", "-").replaceAll("[^A-Za-z0-9._-]", "-");
         return normalized.isBlank() ? "unknown" : normalized;
+    }
+
+    private static String approvalSupplementContentType(MultipartFile file) {
+        String contentType = file.getContentType();
+        if (contentType == null || contentType.isBlank()) {
+            return "application/octet-stream";
+        }
+        int parameterIndex = contentType.indexOf(';');
+        if (parameterIndex >= 0) {
+            contentType = contentType.substring(0, parameterIndex);
+        }
+        return contentType.trim().toLowerCase();
     }
 
     private static String hmacSha256Hex(String secret, String payload) {

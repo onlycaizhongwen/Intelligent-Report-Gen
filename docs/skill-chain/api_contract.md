@@ -6115,7 +6115,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "file": {
         "type": "binary",
         "required": true,
-        "description": "supplement attachment file"
+        "description": "supplement attachment file; max 10485760 bytes; allowed content types: application/pdf, image/jpeg, image/png, text/csv, text/markdown, text/plain, application/msword, application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.openxmlformats-officedocument.wordprocessingml.document"
       }
     },
     "responseBody": {

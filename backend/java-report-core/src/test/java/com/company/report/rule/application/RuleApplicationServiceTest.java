@@ -971,6 +971,83 @@ class RuleApplicationServiceTest {
     }
 
     @Test
+    void rejectsApprovalSupplementAttachmentWhenContentTypeIsNotAllowedAndWritesAudit() {
+        InMemoryRuleRepository ruleRepository = new InMemoryRuleRepository();
+        InMemoryAuditRepository auditRepository = new InMemoryAuditRepository();
+        FakeApprovalSupplementStorage storage = new FakeApprovalSupplementStorage();
+        RuleApplicationService approvalService = new RuleApplicationService(
+                new RuleDomainService(),
+                ruleRepository,
+                auditRepository,
+                new FakeSystemAlertRepository(),
+                storage
+        );
+        Long ruleId = publishRule(approvalService, "Supplement attachment type policy rule", approvalRuleDefinition());
+        Long approvalRecordId = rejectedApprovalRecordId(approvalService, ruleId);
+
+        assertThatThrownBy(() -> approvalService.uploadApprovalSupplementAttachment(
+                ruleId,
+                approvalRecordId,
+                new MockMultipartFile("file", "installer.exe", "application/x-msdownload", "binary".getBytes())
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("unsupported approval supplement attachment content type");
+
+        assertThat(storage.storeCallCount).isZero();
+        assertThat(auditRepository.logs)
+                .filteredOn(log -> "rule_approval_supplement_attachment_rejected".equals(log.operationType()))
+                .singleElement()
+                .satisfies(log -> {
+                    assertThat(log.result()).isEqualTo("failed");
+                    assertThat(log.detail())
+                            .containsEntry("approvalRecordId", approvalRecordId)
+                            .containsEntry("fileName", "installer.exe")
+                            .containsEntry("contentType", "application/x-msdownload")
+                            .containsEntry("rejectionReason", "unsupported_content_type");
+                });
+    }
+
+    @Test
+    void rejectsApprovalSupplementAttachmentWhenFileIsTooLargeAndWritesAudit() {
+        InMemoryRuleRepository ruleRepository = new InMemoryRuleRepository();
+        InMemoryAuditRepository auditRepository = new InMemoryAuditRepository();
+        FakeApprovalSupplementStorage storage = new FakeApprovalSupplementStorage();
+        RuleApplicationService approvalService = new RuleApplicationService(
+                new RuleDomainService(),
+                ruleRepository,
+                auditRepository,
+                new FakeSystemAlertRepository(),
+                storage
+        );
+        Long ruleId = publishRule(approvalService, "Supplement attachment size policy rule", approvalRuleDefinition());
+        Long approvalRecordId = rejectedApprovalRecordId(approvalService, ruleId);
+        byte[] tooLargePdf = new byte[(10 * 1024 * 1024) + 1];
+
+        assertThatThrownBy(() -> approvalService.uploadApprovalSupplementAttachment(
+                ruleId,
+                approvalRecordId,
+                new MockMultipartFile("file", "large-evidence.pdf", "application/pdf", tooLargePdf)
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("approval supplement attachment exceeds max size");
+
+        assertThat(storage.storeCallCount).isZero();
+        assertThat(auditRepository.logs)
+                .filteredOn(log -> "rule_approval_supplement_attachment_rejected".equals(log.operationType()))
+                .singleElement()
+                .satisfies(log -> {
+                    assertThat(log.result()).isEqualTo("failed");
+                    assertThat(log.detail())
+                            .containsEntry("approvalRecordId", approvalRecordId)
+                            .containsEntry("fileName", "large-evidence.pdf")
+                            .containsEntry("contentType", "application/pdf")
+                            .containsEntry("sizeBytes", 10_485_761L)
+                            .containsEntry("maxSizeBytes", 10_485_760L)
+                            .containsEntry("rejectionReason", "file_too_large");
+                });
+    }
+
+    @Test
     void productionRunExecutesSubprocessRuleAndWritesParentChildAudit() {
         InMemoryRuleRepository ruleRepository = new InMemoryRuleRepository();
         InMemoryAuditRepository auditRepository = new InMemoryAuditRepository();
@@ -5000,6 +5077,33 @@ class RuleApplicationServiceTest {
         return ruleId;
     }
 
+    private static Map<String, Object> approvalRuleDefinition() {
+        return Map.of(
+                "nodes", java.util.List.of(
+                        Map.of("id", "start", "type", "start"),
+                        Map.of("id", "financeApproval", "type", "approval", "assigneeRole", "finance_manager", "approvalTitle", "Finance review"),
+                        Map.of("id", "end", "type", "end")
+                ),
+                "edges", java.util.List.of(
+                        Map.of("source", "start", "target", "financeApproval"),
+                        Map.of("source", "financeApproval", "target", "end")
+                )
+        );
+    }
+
+    private static Long rejectedApprovalRecordId(RuleApplicationService service, Long ruleId) {
+        service.execute(ruleId, Map.of("sample", Map.of("riskScore", 91)));
+        Long approvalRecordId = ((Number) service.listApprovalRecords(ruleId, 1, 10)
+                .items()
+                .get(0)
+                .get("approvalRecordId")).longValue();
+        service.handleApprovalRecord(ruleId, approvalRecordId, Map.of(
+                "action", "reject",
+                "comment", "missing evidence"
+        ));
+        return approvalRecordId;
+    }
+
     private static Map<String, Object> linearDefinitionWithNodeCount(int nodeCount) {
         List<Map<String, Object>> nodes = new ArrayList<>();
         List<Map<String, Object>> edges = new ArrayList<>();
@@ -5107,9 +5211,11 @@ class RuleApplicationServiceTest {
 
     private static class FakeApprovalSupplementStorage implements DocumentStorage {
         private String objectKey;
+        private int storeCallCount = 0;
 
         @Override
         public StoredObject store(org.springframework.web.multipart.MultipartFile file, String objectKey) throws IOException {
+            storeCallCount++;
             this.objectKey = objectKey;
             return new StoredObject("approval-supplements", objectKey, file.getOriginalFilename(), file.getContentType(), file.getSize());
         }
