@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  buildHigressDataSourceSecurityChecks,
   buildGatewaySecurityJwt,
   buildHigressEndpointSecurityChecks,
   buildHigressGatewaySmokeChecks,
@@ -79,4 +80,29 @@ test('buildHigressEndpointSecurityChecks covers unauthenticated, forbidden and a
   assert.match(checks[1].headers.Authorization, /^Bearer /);
   assert.match(checks[2].headers.Authorization, /^Bearer /);
   assert.equal(checks[0].url, 'http://127.0.0.1:28000/api/v1/roles/permission-matrix');
+});
+
+test('buildHigressDataSourceSecurityChecks covers presets, configuration and sync routes', () => {
+  const checks = buildHigressDataSourceSecurityChecks({
+    gatewayBaseUrl: 'http://127.0.0.1:28000',
+    jwtSecret: 'local-dev-secret-change-me-32-bytes-minimum',
+  });
+
+  assert.deepEqual(
+    checks.map((check) => [check.name, check.expectedStatus, check.expectedCode]),
+    [
+      ['data-source-presets-missing-token-through-higress', 401, 401],
+      ['data-source-presets-insufficient-permission-through-higress', 403, 403],
+      ['data-source-presets-authorized-through-higress', 200, 200],
+      ['data-source-save-validation-through-higress', 400, 400],
+      ['data-source-sync-not-found-through-higress', 404, 404],
+    ],
+  );
+  assert.equal(checks[0].url, 'http://127.0.0.1:28000/api/v1/data-sources/presets');
+  assert.equal(checks[3].method, 'POST');
+  assert.equal(checks[3].url, 'http://127.0.0.1:28000/api/v1/data-sources');
+  assert.equal(checks[4].url, 'http://127.0.0.1:28000/api/v1/data-sources/999999999/sync-runs');
+  assert.match(checks[2].headers.Authorization, /^Bearer /);
+  assert.match(checks[3].headers.Authorization, /^Bearer /);
+  assert.match(checks[4].headers.Authorization, /^Bearer /);
 });

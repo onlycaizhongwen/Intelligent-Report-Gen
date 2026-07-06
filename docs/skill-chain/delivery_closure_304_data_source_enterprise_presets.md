@@ -37,4 +37,3 @@
 ## Remaining Gaps
 
 - Run real Docker enterprise database/ERP/OA/finance sync smoke tests.
-- Run live Higress route checks for data-source preset/configuration/sync endpoints.

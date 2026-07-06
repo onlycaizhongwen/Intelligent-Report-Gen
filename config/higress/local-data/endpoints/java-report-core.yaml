@@ -7,8 +7,8 @@ metadata:
   resourceVersion: "1"
 subsets:
 - addresses:
-  - ip: 172.30.0.2
+  - ip: 172.30.0.1
   ports:
   - name: http
-    port: 8080
+    port: 18082
     protocol: TCP

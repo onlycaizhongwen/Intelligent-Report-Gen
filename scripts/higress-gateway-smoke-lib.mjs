@@ -94,6 +94,75 @@ export function buildHigressEndpointSecurityChecks({
   ];
 }
 
+export function buildHigressDataSourceSecurityChecks({
+  gatewayBaseUrl = 'http://127.0.0.1:18000',
+  jwtSecret = 'local-dev-secret-change-me-32-bytes-minimum',
+} = {}) {
+  const baseUrl = gatewayBaseUrl.replace(/\/$/, '');
+  const insufficientToken = buildGatewaySecurityJwt({
+    secret: jwtSecret,
+    userId: 911,
+    roles: ['viewer'],
+    permissions: ['report:read'],
+  });
+  const allowedToken = buildGatewaySecurityJwt({
+    secret: jwtSecret,
+    userId: 912,
+    roles: ['data_source_admin'],
+    permissions: ['datasource:manage', 'knowledge:manage'],
+  });
+  const authHeaders = {
+    Authorization: `Bearer ${allowedToken}`,
+    'Content-Type': 'application/json',
+  };
+  const presetsUrl = `${baseUrl}/api/v1/data-sources/presets`;
+
+  return [
+    {
+      name: 'data-source-presets-missing-token-through-higress',
+      url: presetsUrl,
+      expectedStatus: 401,
+      expectedCode: 401,
+      headers: {},
+    },
+    {
+      name: 'data-source-presets-insufficient-permission-through-higress',
+      url: presetsUrl,
+      expectedStatus: 403,
+      expectedCode: 403,
+      headers: { Authorization: `Bearer ${insufficientToken}` },
+    },
+    {
+      name: 'data-source-presets-authorized-through-higress',
+      url: presetsUrl,
+      expectedStatus: 200,
+      expectedCode: 200,
+      headers: { Authorization: `Bearer ${allowedToken}` },
+      bodyIncludes: 'finance-api',
+    },
+    {
+      name: 'data-source-save-validation-through-higress',
+      url: `${baseUrl}/api/v1/data-sources`,
+      method: 'POST',
+      expectedStatus: 400,
+      expectedCode: 400,
+      headers: authHeaders,
+      body: JSON.stringify({}),
+      bodyIncludes: 'knowledge data source name is required',
+    },
+    {
+      name: 'data-source-sync-not-found-through-higress',
+      url: `${baseUrl}/api/v1/data-sources/999999999/sync-runs`,
+      method: 'POST',
+      expectedStatus: 404,
+      expectedCode: 404,
+      headers: authHeaders,
+      body: JSON.stringify({ mode: 'manual' }),
+      bodyIncludes: 'knowledge data source not found',
+    },
+  ];
+}
+
 export function classifyGatewayResponse(status, body) {
   const text = String(body ?? '');
   if (status === 401 && text.includes('"code":401')) {
@@ -129,6 +198,7 @@ export async function runHigressGatewaySmoke({
   const checks = [
     ...buildHigressGatewaySmokeChecks({ gatewayBaseUrl }),
     ...buildHigressEndpointSecurityChecks({ gatewayBaseUrl, jwtSecret }),
+    ...buildHigressDataSourceSecurityChecks({ gatewayBaseUrl, jwtSecret }),
   ];
   const results = [];
   for (const check of checks) {

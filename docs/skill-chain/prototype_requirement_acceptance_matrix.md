@@ -841,7 +841,7 @@
 - Result: `POST /api/v1/data-sources/{dataSourceId}/sync-runs` and `GET /api/v1/data-sources/{dataSourceId}/sync-runs` now declare backend-real field-level `responseBody.data` schemas instead of generic `business response data`.
 - Code evidence: `ContractSurfaceTest#dataSourceSyncRunEndpointsDeclareFieldLevelResponseContracts`, `docs/skill-chain/api_contract.md` section `13.2`, and `docs/skill-chain/delivery_closure_274_data_source_sync_contract_schema.md`.
 - Verification evidence: RED first failed because `POST /api/v1/data-sources/{dataSourceId}/sync-runs` lacked `responseBody.data.properties`; GREEN passed the targeted data-source sync contract test (`1/1`).
-- Remaining gaps: real Docker enterprise database/ERP/OA/finance sync smoke, connector credential hardening, source-specific mapping validation, and live Higress route checks remain open production hardening work.
+- Remaining gaps: real Docker enterprise database/ERP/OA/finance sync smoke, connector credential hardening, and source-specific mapping validation remain open production hardening work; representative live Higress route checks are now covered by closure 305.
 
 ### 2026-07-02 Authenticated user and batch import field-level contract closure
 
@@ -1011,7 +1011,7 @@
 - Result: `POST /api/v1/data-sources/test-connection` and `POST /api/v1/data-sources` now have backend-real field-level request and response contracts instead of generic `summary` schema.
 - Code evidence: `ContractSurfaceTest#dataSourceSyncRunEndpointsDeclareFieldLevelResponseContracts`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_closure_297_data_source_configuration_contract_schema.md`.
 - Verification evidence: RED first failed because `POST /api/v1/data-sources/test-connection` lacked `responseBody.data.dataSourceId`; GREEN passed the targeted data-source contract test (`1/1`).
-- Remaining gaps: real Docker enterprise database/ERP/OA/finance sync smoke, connector credential keyring and operational re-encryption job, source-specific field mapping validation, and live Higress route checks remain open production hardening work.
+- Remaining gaps: real Docker enterprise database/ERP/OA/finance sync smoke, connector credential keyring and operational re-encryption job, and source-specific field mapping validation remain open production hardening work; representative live Higress route checks are now covered by closure 305.
 
 ### 2026-07-06 UC-07 Data source credential rotation marker
 
@@ -1020,7 +1020,7 @@
 - Compatibility: existing `enc:v1:` AES-GCM secrets and legacy `enc:` Base64 secrets remain readable by the current codec, so the marker change does not force immediate data migration.
 - Code evidence: `DataSourceCredentialCodec`, `application-dev.yml`, `application-prod.yml`, `ReportCoreProdProfileContextTest`, `DataSourceCredentialCodecTest`, and `docs/skill-chain/delivery_closure_298_data_source_credential_key_rotation.md`.
 - Verification evidence: targeted RED/GREEN codec test passed `1/1`; credential service regression passed `26/26`; dev/prod Spring profile context tests passed `2/2`.
-- Remaining gaps: an operational stale-secret re-encryption job, real Docker enterprise database/ERP/OA/finance sync smoke, and live Higress route checks remain production hardening work.
+- Remaining gaps: an operational stale-secret re-encryption job and real Docker enterprise database/ERP/OA/finance sync smoke remain production hardening work; representative live Higress route checks are now covered by closure 305.
 
 ### 2026-07-06 UC-07 Data source credential keyring decrypt
 
@@ -1029,7 +1029,7 @@
 - Compatibility: `enc:v1:` AES-GCM and legacy `enc:` Base64 payloads remain readable; retired v2 payloads decrypt successfully but still return `isCurrent=false` so re-encryption can be scheduled later.
 - Code evidence: `DataSourceCredentialCodec`, `application-dev.yml`, `application-prod.yml`, `DataSourceCredentialCodecTest`, and `docs/skill-chain/delivery_closure_299_data_source_credential_keyring_decrypt.md`.
 - Verification evidence: targeted RED/GREEN codec test passed `2/2`.
-- Remaining gaps: production runner wiring for credential re-encryption, real Docker enterprise database/ERP/OA/finance sync smoke, and live Higress route checks remain production hardening work.
+- Remaining gaps: production runner wiring for credential re-encryption and real Docker enterprise database/ERP/OA/finance sync smoke remain production hardening work; representative live Higress route checks are now covered by closure 305.
 
 ### 2026-07-06 UC-07 Data source credential re-encryption job
 
@@ -1037,7 +1037,7 @@
 - Result: Java application service can scan stored data-source credentials, filter non-current secrets, decrypt them through the configured codec/keyring, persist active-key encrypted replacements, and write a no-secret audit log.
 - Code evidence: `KnowledgeApplicationService.reencryptStaleDataSourceCredentials`, `KnowledgeBaseRepository.findDataSourcesWithCredentials`, `JdbcKnowledgeBaseRepository`, `KnowledgeDataSource.withCredentialSecret`, `KnowledgeApplicationServiceTest`, and `docs/skill-chain/delivery_closure_300_data_source_credential_reencryption_job.md`.
 - Verification evidence: targeted RED/GREEN re-encryption test passed `1/1`; broader Java credential/data-source/profile regression passed `30/30`.
-- Remaining gaps: production runner wiring for this maintenance job, real Docker enterprise database/ERP/OA/finance sync smoke, and live Higress route checks remain production hardening work.
+- Remaining gaps: production runner wiring for this maintenance job and real Docker enterprise database/ERP/OA/finance sync smoke remain production hardening work; representative live Higress route checks are now covered by closure 305.
 
 ### 2026-07-06 UC-07 Data source credential re-encryption maintenance API
 
@@ -1045,7 +1045,7 @@
 - Result: the active-key credential re-encryption job is now exposed through `POST /api/v1/data-sources/credentials/reencrypt`, protected by `datasource:manage`, accepts optional `limit`, and returns only aggregate counts without secret values.
 - Code evidence: `KnowledgeController.reencryptDataSourceCredentials`, `ContractSurfaceTest#dataSourceCredentialMaintenanceEndpointRequiresDataSourceManagePermission`, `ContractSurfaceTest#dataSourceSyncRunEndpointsDeclareFieldLevelResponseContracts`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_closure_301_data_source_credential_reencryption_maintenance_api.md`.
 - Verification evidence: targeted endpoint permission test passed `1/1`; endpoint/API contract regression passed `4/4`; broader Java credential/data-source/profile regression passed `66/66`; `git diff --check` reported no whitespace errors.
-- Remaining gaps: scheduling/ops runbook for periodic execution, real Docker enterprise database/ERP/OA/finance sync smoke, and live Higress route checks remain production hardening work.
+- Remaining gaps: scheduling/ops runbook for periodic execution and real Docker enterprise database/ERP/OA/finance sync smoke remain production hardening work; representative live Higress route checks are now covered by closure 305.
 
 ### 2026-07-06 UC-07 Data source credential re-encryption scheduler
 
@@ -1053,7 +1053,7 @@
 - Result: Java now includes a default-off Spring managed scheduler for stale data-source credential re-encryption, controlled by `DATA_SOURCE_CREDENTIAL_REENCRYPTION_SCHEDULER_ENABLED`, `DATA_SOURCE_CREDENTIAL_REENCRYPTION_SCHEDULER_DELAY_MS`, and `DATA_SOURCE_CREDENTIAL_REENCRYPTION_SCHEDULER_LIMIT`, so operators can run periodic rotation-window migration without exposing secrets.
 - Code evidence: `DataSourceCredentialReencryptionScheduler`, `application-dev.yml`, `application-prod.yml`, `KnowledgeApplicationServiceTest#credentialReencryptionSchedulerUsesConfiguredScanLimit`, and `docs/skill-chain/delivery_closure_302_data_source_credential_reencryption_scheduler.md`.
 - Verification evidence: targeted RED/GREEN scheduler test passed `1/1`; broader Java credential/data-source/profile regression passed `31/31`; static diff evidence is recorded in closure 302.
-- Remaining gaps: real Docker enterprise database/ERP/OA/finance sync smoke and live Higress route checks remain production hardening work.
+- Remaining gaps: real Docker enterprise database/ERP/OA/finance sync smoke remains production hardening work; representative live Higress route checks are now covered by closure 305.
 
 ### 2026-07-06 UC-07 API data-source field mapping validation
 
@@ -1061,7 +1061,7 @@
 - Result: API data sources that target a knowledge base now fail fast during save unless `fieldMapping.rowsPath`, `fieldMapping.titleField`, and `fieldMapping.contentField` are explicitly configured, preventing silent imports with empty titles or content.
 - Code evidence: `KnowledgeApplicationService.validateDataSourceMapping`, `KnowledgeApplicationServiceTest#rejectsApiKnowledgeDataSourceWithoutRequiredFieldMapping`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_closure_303_api_data_source_field_mapping_validation.md`.
 - Verification evidence: targeted RED/GREEN mapping validation test passed `1/1`; API connector regression passed `5/5`; broader Java regression passed `66/66`; static diff evidence is recorded in closure 303.
-- Remaining gaps: real Docker enterprise database/ERP/OA/finance sync smoke and live Higress route checks remain production hardening work.
+- Remaining gaps: real Docker enterprise database/ERP/OA/finance sync smoke remains production hardening work; representative live Higress route checks are now covered by closure 305.
 
 ### 2026-07-06 UC-07 Enterprise data-source presets
 
@@ -1069,4 +1069,13 @@
 - Result: Java now exposes `GET /api/v1/data-sources/presets` with `datasource:manage` permission, returning editable ERP PostgreSQL, OA API, and finance API templates. API templates include rows/title/content mapping, auth, pagination, cursor, retry, and sync interval defaults. The Vue data-source configuration page reads these presets and applies a selected template into the existing save/test/sync form without pre-filling secrets.
 - Code evidence: `KnowledgeApplicationService.listDataSourcePresets`, `KnowledgeController.listDataSourcePresets`, `knowledgeApi.listDataSourcePresets`, `DataSourceConfig.vue`, `data-source-sync.spec.ts`, `api_contract.md`, `ContractSurfaceTest#dataSourceSyncRunEndpointsDeclareFieldLevelResponseContracts`, and `docs/skill-chain/delivery_closure_304_data_source_enterprise_presets.md`.
 - Verification evidence: RED/GREEN backend preset test passed `1/1`; frontend API contract passed `30/30`; browser data-source E2E passed `1/1`; backend API contract subset passed `3/3`.
-- Remaining gaps: real Docker enterprise database/ERP/OA/finance sync smoke and live Higress route checks remain production hardening work.
+- Remaining gaps: real Docker enterprise database/ERP/OA/finance sync smoke remains production hardening work; representative live Higress route checks are now covered by closure 305.
+
+### 2026-07-06 UC-07 Data source Higress route smoke
+
+- Scope: `REQ-KB-003`, enterprise data-source gateway boundary for presets, configuration save validation, and sync trigger.
+- Result: local Higress at `http://127.0.0.1:18000` now has repeatable route smoke coverage for UC-07 data-source endpoints. The smoke verifies missing token `401`, insufficient permission `403`, authorized preset read `200`, invalid save payload `400`, and missing sync target `404`. It also keeps `/api/v1/chat` behind the Java authentication boundary instead of exposing Python chat directly.
+- Runtime path: client -> Higress -> Java report core -> RBAC/data-source service.
+- Code evidence: `scripts/higress-gateway-smoke-lib.mjs`, `scripts/higress-gateway-smoke.mjs`, `tests/unit/node/higress_gateway_smoke.test.mjs`, `config/higress/local-data/endpoints/java-report-core.yaml`, and `docs/skill-chain/delivery_closure_305_data_source_higress_route_smoke.md`.
+- Verification evidence: RED unit test failed on the old `400` sync-not-found expectation; GREEN unit test passed `6/6`; live `node scripts/higress-gateway-smoke.mjs` passed with all route checks `passed=true`.
+- Remaining gaps: real Docker enterprise database/ERP/OA/finance sync smoke and production OIDC/TLS/WAF checks remain open production hardening work.
