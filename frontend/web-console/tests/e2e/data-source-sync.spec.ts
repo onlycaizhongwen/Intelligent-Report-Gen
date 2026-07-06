@@ -5,6 +5,41 @@ test.describe('数据源同步 E2E', () => {
     let savedPayload: Record<string, unknown> | null = null;
     const syncPayloads: Record<string, unknown>[] = [];
 
+    await page.route('**/api/v1/data-sources/presets', async (route) => {
+      await route.fulfill({
+        json: {
+          code: 200,
+          message: 'ok',
+          data: [
+            {
+              presetId: 'finance-api',
+              displayName: '财务凭证 HTTP API',
+              category: 'finance',
+              sourceType: 'api',
+              endpoint: 'https://finance.example.com/api/v1/vouchers',
+              username: 'finance_reader',
+              fieldMapping: {
+                rowsPath: 'data.vouchers',
+                titleField: 'voucherNo',
+                contentField: 'summary',
+                authType: 'api_key',
+                apiKeyHeader: 'X-API-Key',
+                pageParam: 'page',
+                pageStart: 1,
+                pageSizeParam: 'pageSize',
+                pageSize: 100,
+                maxPages: 3
+              },
+              cursorColumn: 'voucherId',
+              scheduleEnabled: false,
+              scheduleIntervalSeconds: 900,
+              maxRetryCount: 5
+            }
+          ]
+        }
+      });
+    });
+
     await page.route('**/api/v1/data-sources', async (route) => {
       savedPayload = await route.request().postDataJSON();
       await route.fulfill({
@@ -85,9 +120,15 @@ test.describe('数据源同步 E2E', () => {
     });
 
     await page.goto('/knowledge/data-sources');
+    await page.getByRole('combobox', { name: '配置模板' }).click({ force: true });
+    await page.getByRole('option', { name: 'finance / 财务凭证 HTTP API' }).click();
+    await expect(page.getByLabel('连接地址')).toHaveValue('https://finance.example.com/api/v1/vouchers');
+    await expect(page.getByLabel('API 行路径')).toHaveValue('data.vouchers');
+    await expect(page.getByLabel('标题字段')).toHaveValue('voucherNo');
+    await expect(page.getByLabel('内容字段')).toHaveValue('summary');
     await page.getByLabel('数据源名称').fill('ERP API');
     await page.getByRole('combobox', { name: '数据源类型' }).click({ force: true });
-    await page.getByRole('option', { name: 'HTTP API' }).click();
+    await page.getByRole('option', { name: 'HTTP API', exact: true }).click();
     await page.getByLabel('连接地址').fill('https://erp.example.com/reports');
     await page.getByLabel('用户名或 Token 标识').fill('erp_reader');
     await page.getByLabel('密码或访问密钥').fill('secret');

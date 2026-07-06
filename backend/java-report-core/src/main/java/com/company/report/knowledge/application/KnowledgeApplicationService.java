@@ -332,6 +332,50 @@ public class KnowledgeApplicationService {
         return toDataSourceResponse(saved);
     }
 
+    public List<Map<String, Object>> listDataSourcePresets() {
+        return List.of(
+                dataSourcePreset(
+                        "erp-postgresql",
+                        "ERP PostgreSQL 明细表",
+                        "ERP",
+                        "postgresql",
+                        "jdbc:postgresql://localhost:5432/erp",
+                        "erp_reader",
+                        "select id, title, content, updated_at from enterprise_reports where updated_at > ? order by updated_at asc",
+                        null,
+                        "updated_at",
+                        300,
+                        3
+                ),
+                dataSourcePreset(
+                        "oa-api",
+                        "OA 公文 HTTP API",
+                        "OA",
+                        "api",
+                        "https://oa.example.com/api/v1/documents",
+                        "oa_reader",
+                        null,
+                        apiFieldMapping("data.documents", "documentNo", "content", "id", "page", "pageSize", 100, "bearer"),
+                        "id",
+                        600,
+                        3
+                ),
+                dataSourcePreset(
+                        "finance-api",
+                        "财务凭证 HTTP API",
+                        "finance",
+                        "api",
+                        "https://finance.example.com/api/v1/vouchers",
+                        "finance_reader",
+                        null,
+                        apiFieldMapping("data.vouchers", "voucherNo", "summary", "voucherId", "page", "pageSize", 100, "api_key"),
+                        "voucherId",
+                        900,
+                        5
+                )
+        );
+    }
+
     public Map<String, Object> reencryptStaleDataSourceCredentials(int limit) {
         List<KnowledgeDataSource> candidates = knowledgeBaseRepository.findDataSourcesWithCredentials(Math.max(limit, 1));
         int migratedCount = 0;
@@ -553,6 +597,57 @@ public class KnowledgeApplicationService {
         response.put("maxRetryCount", dataSource.maxRetryCount() == null ? 3 : dataSource.maxRetryCount());
         response.put("credentialConfigured", dataSource.credentialSecret() != null && !dataSource.credentialSecret().isBlank());
         return response;
+    }
+
+    private Map<String, Object> dataSourcePreset(String presetId,
+                                                 String displayName,
+                                                 String category,
+                                                 String sourceType,
+                                                 String endpoint,
+                                                 String username,
+                                                 String syncQuery,
+                                                 Map<String, Object> fieldMapping,
+                                                 String cursorColumn,
+                                                 int scheduleIntervalSeconds,
+                                                 int maxRetryCount) {
+        Map<String, Object> preset = new LinkedHashMap<>();
+        preset.put("presetId", presetId);
+        preset.put("displayName", displayName);
+        preset.put("category", category);
+        preset.put("sourceType", sourceType);
+        preset.put("endpoint", endpoint);
+        preset.put("username", username);
+        preset.put("syncQuery", syncQuery);
+        preset.put("fieldMapping", fieldMapping);
+        preset.put("cursorColumn", cursorColumn);
+        preset.put("scheduleEnabled", false);
+        preset.put("scheduleIntervalSeconds", scheduleIntervalSeconds);
+        preset.put("maxRetryCount", maxRetryCount);
+        return preset;
+    }
+
+    private Map<String, Object> apiFieldMapping(String rowsPath,
+                                                String titleField,
+                                                String contentField,
+                                                String cursorField,
+                                                String pageParam,
+                                                String pageSizeParam,
+                                                int pageSize,
+                                                String authType) {
+        Map<String, Object> fieldMapping = new LinkedHashMap<>();
+        fieldMapping.put("rowsPath", rowsPath);
+        fieldMapping.put("titleField", titleField);
+        fieldMapping.put("contentField", contentField);
+        fieldMapping.put("cursorField", cursorField);
+        fieldMapping.put("method", "GET");
+        fieldMapping.put("authType", authType);
+        fieldMapping.put("apiKeyHeader", "X-API-Key");
+        fieldMapping.put("pageParam", pageParam);
+        fieldMapping.put("pageStart", 1);
+        fieldMapping.put("pageSizeParam", pageSizeParam);
+        fieldMapping.put("pageSize", pageSize);
+        fieldMapping.put("maxPages", 3);
+        return fieldMapping;
     }
 
     private Map<String, Object> toMetadata(StoredDocument storedDocument) {

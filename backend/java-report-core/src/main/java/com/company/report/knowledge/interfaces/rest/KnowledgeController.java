@@ -93,6 +93,13 @@ public class KnowledgeController {
         return ApiResponse.success(service.saveDataSource(request));
     }
 
+    /** OpenSpec: knowledge-base-ingestion / REQ-KB-003 / ERP, OA and finance data-source template presets. */
+    @RequiresPermission("datasource:manage")
+    @GetMapping("/data-sources/presets")
+    public ApiResponse<java.util.List<Map<String, Object>>> listDataSourcePresets() {
+        return ApiResponse.success(service.listDataSourcePresets());
+    }
+
     /** OpenSpec: knowledge-base-ingestion / REQ-KB-003 / Re-encrypt stale data-source credentials with the active key. */
     @RequiresPermission("datasource:manage")
     @PostMapping("/data-sources/credentials/reencrypt")

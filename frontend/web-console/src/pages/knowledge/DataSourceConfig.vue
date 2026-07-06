@@ -20,6 +20,23 @@
         </el-select>
       </el-form-item>
 
+      <el-form-item v-if="presets.length" label="配置模板">
+        <el-select
+          v-model="selectedPresetId"
+          aria-label="配置模板"
+          class="full-width"
+          clearable
+          @change="applySelectedPreset"
+        >
+          <el-option
+            v-for="preset in presets"
+            :key="preset.presetId"
+            :label="`${preset.category} / ${preset.displayName}`"
+            :value="preset.presetId"
+          />
+        </el-select>
+      </el-form-item>
+
       <el-form-item label="连接地址">
         <el-input v-model="form.endpoint" aria-label="连接地址" />
       </el-form-item>
@@ -179,8 +196,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import { knowledgeApi, type DataSourceFieldMapping, type DataSourceSyncRun } from '../../api/knowledgeApi';
+import { onMounted, ref } from 'vue';
+import {
+  knowledgeApi,
+  type DataSourceFieldMapping,
+  type DataSourcePreset,
+  type DataSourceSyncRun
+} from '../../api/knowledgeApi';
 
 interface DataSourceSummary {
   dataSourceId: number | string;
@@ -224,6 +246,8 @@ const form = ref({
   maxRetryCount: 3
 });
 const headersText = ref('');
+const presets = ref<DataSourcePreset[]>([]);
+const selectedPresetId = ref('');
 const savedDataSource = ref<DataSourceSummary | null>(null);
 const syncRuns = ref<DataSourceSyncRun[]>([]);
 const message = ref('');
@@ -231,6 +255,39 @@ const messageType = ref<'success' | 'error'>('success');
 const saving = ref(false);
 const testing = ref(false);
 const syncing = ref(false);
+
+onMounted(() => {
+  void loadPresets();
+});
+
+async function loadPresets() {
+  try {
+    presets.value = await knowledgeApi.listDataSourcePresets();
+  } catch {
+    presets.value = [];
+  }
+}
+
+function applySelectedPreset(value: string | number | boolean | Record<string, unknown> | undefined) {
+  const presetId = typeof value === 'string' ? value : selectedPresetId.value;
+  const preset = presets.value.find((item) => item.presetId === presetId);
+  if (!preset) return;
+  form.value.name = preset.displayName;
+  form.value.sourceType = preset.sourceType;
+  form.value.endpoint = preset.endpoint;
+  form.value.username = preset.username ?? '';
+  form.value.password = '';
+  form.value.syncQuery = preset.syncQuery ?? '';
+  form.value.fieldMapping = {
+    ...defaultFieldMapping(),
+    ...(preset.fieldMapping ?? {})
+  };
+  form.value.cursorColumn = preset.cursorColumn ?? '';
+  form.value.scheduleEnabled = preset.scheduleEnabled ?? false;
+  form.value.scheduleIntervalSeconds = preset.scheduleIntervalSeconds ?? 300;
+  form.value.maxRetryCount = preset.maxRetryCount ?? 3;
+  headersText.value = headersToText(form.value.fieldMapping.headers);
+}
 
 async function save() {
   saving.value = true;
@@ -314,6 +371,30 @@ function parseHeaders(text: string): Record<string, string> | undefined {
     }
   });
   return Object.keys(headers).length ? headers : undefined;
+}
+
+function headersToText(headers: Record<string, string> | undefined): string {
+  if (!headers) return '';
+  return Object.entries(headers)
+    .map(([key, value]) => `${key}: ${value}`)
+    .join('\n');
+}
+
+function defaultFieldMapping(): DataSourceFieldMapping {
+  return {
+    rowsPath: 'data.items',
+    titleField: 'title',
+    contentField: 'content',
+    method: 'GET',
+    authType: 'bearer',
+    apiKeyHeader: 'X-API-Key',
+    bodyTemplate: '',
+    pageParam: '',
+    pageStart: 1,
+    pageSizeParam: '',
+    pageSize: 100,
+    maxPages: 1
+  };
 }
 
 function clearMessage() {

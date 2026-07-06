@@ -201,6 +201,10 @@ class ContractSurfaceTest {
                 "knowledgeBaseId", "syncQuery", "fieldMapping", "cursorColumn", "lastCursor",
                 "scheduleEnabled", "scheduleIntervalSeconds", "nextRunAt", "failureCount",
                 "maxRetryCount", "credentialConfigured");
+        assertTopLevelArrayDataItemProperties(contractsByEndpoint.get("GET /api/v1/data-sources/presets"),
+                "presetId", "displayName", "category", "sourceType", "endpoint", "username",
+                "syncQuery", "fieldMapping", "cursorColumn", "scheduleEnabled",
+                "scheduleIntervalSeconds", "maxRetryCount");
         assertResponseDataProperties(contractsByEndpoint.get("POST /api/v1/data-sources/credentials/reencrypt"),
                 "scannedCount", "migratedCount");
         assertDataSourceSyncRunProperties(contractsByEndpoint.get("POST /api/v1/data-sources/{dataSourceId}/sync-runs"));
@@ -547,6 +551,22 @@ class ContractSurfaceTest {
         for (String propertyName : propertyNames) {
             assertThat(itemProperties.containsKey(propertyName))
                     .as(endpoint + " responseBody.data." + arrayPropertyName + ".items." + propertyName)
+                    .isTrue();
+        }
+    }
+
+    private void assertTopLevelArrayDataItemProperties(Map<String, Object> contract, String... propertyNames) {
+        String endpoint = contract.get("method") + " " + contract.get("path");
+        Map<?, ?> responseBody = (Map<?, ?>) contract.get("responseBody");
+        Map<?, ?> dataSchema = (Map<?, ?>) responseBody.get("data");
+        assertThat(dataSchema.get("type")).as(endpoint + " responseBody.data.type").isEqualTo("array");
+        assertThat(dataSchema.containsKey("items")).as(endpoint + " responseBody.data.items").isTrue();
+        Map<?, ?> itemSchema = (Map<?, ?>) dataSchema.get("items");
+        assertThat(itemSchema.containsKey("properties")).as(endpoint + " responseBody.data.items.properties").isTrue();
+        Map<?, ?> itemProperties = (Map<?, ?>) itemSchema.get("properties");
+        for (String propertyName : propertyNames) {
+            assertThat(itemProperties.containsKey(propertyName))
+                    .as(endpoint + " responseBody.data.items." + propertyName)
                     .isTrue();
         }
     }

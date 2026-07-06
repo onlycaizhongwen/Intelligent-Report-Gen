@@ -1061,4 +1061,12 @@
 - Result: API data sources that target a knowledge base now fail fast during save unless `fieldMapping.rowsPath`, `fieldMapping.titleField`, and `fieldMapping.contentField` are explicitly configured, preventing silent imports with empty titles or content.
 - Code evidence: `KnowledgeApplicationService.validateDataSourceMapping`, `KnowledgeApplicationServiceTest#rejectsApiKnowledgeDataSourceWithoutRequiredFieldMapping`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_closure_303_api_data_source_field_mapping_validation.md`.
 - Verification evidence: targeted RED/GREEN mapping validation test passed `1/1`; API connector regression passed `5/5`; broader Java regression passed `66/66`; static diff evidence is recorded in closure 303.
-- Remaining gaps: ERP/OA/finance source template presets, real Docker enterprise database/ERP/OA/finance sync smoke, and live Higress route checks remain production hardening work.
+- Remaining gaps: real Docker enterprise database/ERP/OA/finance sync smoke and live Higress route checks remain production hardening work.
+
+### 2026-07-06 UC-07 Enterprise data-source presets
+
+- Scope: `REQ-KB-003`, ERP/OA/finance data-source configuration acceleration.
+- Result: Java now exposes `GET /api/v1/data-sources/presets` with `datasource:manage` permission, returning editable ERP PostgreSQL, OA API, and finance API templates. API templates include rows/title/content mapping, auth, pagination, cursor, retry, and sync interval defaults. The Vue data-source configuration page reads these presets and applies a selected template into the existing save/test/sync form without pre-filling secrets.
+- Code evidence: `KnowledgeApplicationService.listDataSourcePresets`, `KnowledgeController.listDataSourcePresets`, `knowledgeApi.listDataSourcePresets`, `DataSourceConfig.vue`, `data-source-sync.spec.ts`, `api_contract.md`, `ContractSurfaceTest#dataSourceSyncRunEndpointsDeclareFieldLevelResponseContracts`, and `docs/skill-chain/delivery_closure_304_data_source_enterprise_presets.md`.
+- Verification evidence: RED/GREEN backend preset test passed `1/1`; frontend API contract passed `30/30`; browser data-source E2E passed `1/1`; backend API contract subset passed `3/3`.
+- Remaining gaps: real Docker enterprise database/ERP/OA/finance sync smoke and live Higress route checks remain production hardening work.

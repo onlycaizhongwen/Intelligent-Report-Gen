@@ -126,6 +126,32 @@ class KnowledgeApplicationServiceTest {
     }
 
     @Test
+    void listsEnterpriseDataSourcePresetsForErpOaAndFinanceConfiguration() {
+        KnowledgeApplicationService service = new KnowledgeApplicationService(
+                new KnowledgeDomainService(), new FakeStorage(), new FakeRepository(), new FakeKnowledgeBaseRepository(), new FakePublisher());
+
+        List<Map<String, Object>> presets = service.listDataSourcePresets();
+
+        assertThat(presets)
+                .extracting(preset -> preset.get("presetId"))
+                .contains("erp-postgresql", "oa-api", "finance-api");
+        assertThat(presets)
+                .filteredOn(preset -> "finance-api".equals(preset.get("presetId")))
+                .singleElement()
+                .satisfies(preset -> {
+                    assertThat(preset)
+                            .containsEntry("sourceType", "api")
+                            .containsEntry("endpoint", "https://finance.example.com/api/v1/vouchers")
+                            .containsEntry("cursorColumn", "voucherId");
+                    Map<?, ?> fieldMapping = (Map<?, ?>) preset.get("fieldMapping");
+                    assertThat(fieldMapping.get("rowsPath")).isEqualTo("data.vouchers");
+                    assertThat(fieldMapping.get("titleField")).isEqualTo("voucherNo");
+                    assertThat(fieldMapping.get("contentField")).isEqualTo("summary");
+                    assertThat(fieldMapping.get("authType")).isEqualTo("api_key");
+                });
+    }
+
+    @Test
     void createsAndSearchesKnowledgeItemsFromRepositoryInsteadOfFixedDemoPayload() {
         CurrentUserHolder.set(new CurrentUser(10L, Set.of("analyst"), Set.of("knowledge:manage")));
         FakeKnowledgeBaseRepository knowledgeBaseRepository = new FakeKnowledgeBaseRepository();

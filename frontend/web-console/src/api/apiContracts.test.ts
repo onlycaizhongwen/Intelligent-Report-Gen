@@ -683,6 +683,7 @@ describe('frontend API contracts', () => {
   });
 
   it('uses data source sync endpoints with explicit sync-run logs', () => {
+    knowledgeApi.listDataSourcePresets();
     knowledgeApi.saveDataSource({
       name: 'ERP PostgreSQL',
       sourceType: 'postgresql',
@@ -715,6 +716,7 @@ describe('frontend API contracts', () => {
     knowledgeApi.startDataSourceSync('12', { mode: 'manual' });
     knowledgeApi.listDataSourceSyncRuns('12', { page: 1, pageSize: 10 });
 
+    expect(apiClient.get).toHaveBeenCalledWith('/data-sources/presets');
     expect(apiClient.post).toHaveBeenCalledWith('/data-sources', {
       name: 'ERP PostgreSQL',
       sourceType: 'postgresql',

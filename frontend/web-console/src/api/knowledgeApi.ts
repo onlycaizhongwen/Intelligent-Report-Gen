@@ -31,6 +31,7 @@ export interface DataSourceFieldMapping {
   rowsPath?: string;
   titleField?: string;
   contentField?: string;
+  cursorField?: string;
   method?: 'GET' | 'POST';
   authType?: 'bearer' | 'api_key' | 'basic' | 'none';
   apiKeyHeader?: string;
@@ -52,6 +53,21 @@ export interface SaveDataSourceRequest {
   knowledgeBaseId?: number | string;
   syncQuery?: string;
   fieldMapping?: DataSourceFieldMapping;
+  cursorColumn?: string;
+  scheduleEnabled?: boolean;
+  scheduleIntervalSeconds?: number;
+  maxRetryCount?: number;
+}
+
+export interface DataSourcePreset {
+  presetId: string;
+  displayName: string;
+  category: string;
+  sourceType: string;
+  endpoint: string;
+  username?: string;
+  syncQuery?: string;
+  fieldMapping?: DataSourceFieldMapping | null;
   cursorColumn?: string;
   scheduleEnabled?: boolean;
   scheduleIntervalSeconds?: number;
@@ -115,6 +131,9 @@ export const knowledgeApi = {
   /** OpenSpec: knowledge-base-ingestion / REQ-KB-002 */
   getDocumentStatus: (documentId: string | number) =>
     apiClient.get<unknown, UploadedDocumentResult>(`/documents/${documentId}`),
+
+  /** OpenSpec: knowledge-base-ingestion / REQ-KB-003 */
+  listDataSourcePresets: () => apiClient.get<unknown, DataSourcePreset[]>('/data-sources/presets'),
 
   /** OpenSpec: knowledge-base-ingestion / REQ-KB-003 */
   saveDataSource: (payload: SaveDataSourceRequest) => apiClient.post('/data-sources', payload),

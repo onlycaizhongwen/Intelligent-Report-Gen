@@ -79,6 +79,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 | `/api/v1/embeddings` | POST | 生成文本 Embedding | JSON Body | Embedding 结果 | 200/400/401/403/503 |
 | `/api/v1/data-sources/test-connection` | POST | 测试数据源连接 | JSON Body | 测试结果 | 200/400/401/403 |
 | `/api/v1/data-sources` | POST | 保存数据源配置 | JSON Body | 数据源连接 | 200/400/401/403 |
+| `/api/v1/data-sources/presets` | GET | 查询 ERP/OA/财务数据源模板预设 | Header | 模板预设列表 | 200/401/403 |
 | `/api/v1/data-sources/credentials/reencrypt` | POST | 维护重加密数据源凭证 | JSON Body | 重加密结果 | 200/400/401/403 |
 | `/api/v1/rules` | GET | 查询规则列表 | Query | 分页规则列表 | 200/401/403 |
 | `/api/v1/rules` | POST | 创建规则草稿 | JSON Body | 规则 | 200/400/401/403 |
@@ -1526,6 +1527,59 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
     },
     {
         "method": "GET",
+        "path": "/api/v1/data-sources/presets",
+        "description": "查询 ERP/OA/财务数据源模板预设",
+        "contentType": "application/json",
+        "pathParams": {},
+        "queryParams": {},
+        "headers": {
+            "Authorization": {
+                "type": "string",
+                "required": true,
+                "description": "访问令牌"
+            }
+        },
+        "requestBody": {},
+        "responseBody": {
+            "code": {
+                "type": "integer",
+                "required": true,
+                "description": "响应码"
+            },
+            "message": {
+                "type": "string",
+                "required": true,
+                "description": "响应消息"
+            },
+            "data": {
+                "type": "array",
+                "required": true,
+                "description": "ERP/OA/财务数据源模板预设列表",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "summary": {
+                            "type": "object",
+                            "required": true,
+                            "description": "presetId,displayName,category,sourceType,endpoint,username,syncQuery,fieldMapping,cursorColumn,scheduleEnabled,scheduleIntervalSeconds,maxRetryCount"
+                        }
+                    }
+                }
+            },
+            "timestamp": {
+                "type": "string",
+                "required": true,
+                "description": "响应时间"
+            }
+        },
+        "statusCodes": [
+            200,
+            401,
+            403
+        ]
+    },
+    {
+        "method": "GET",
         "path": "/api/v1/rules",
         "description": "查询规则列表",
         "contentType": "none",
@@ -2932,7 +2986,36 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 | `status` | string | 数据源状态 |
 | `lastTestResult` | object | 最近测试结果 |
 
-### 8.11 维护重加密数据源凭证
+### 8.11 查询数据源模板预设
+
+| 接口路径 | 方法 | 描述 | 请求参数 | 响应数据 | 状态码 |
+|----------|------|------|----------|----------|--------|
+| `/api/v1/data-sources/presets` | GET | 查询 ERP/OA/财务数据源模板预设 | Header | 模板预设列表 | 200/401/403 |
+
+请求参数：
+
+| 参数名 | 类型 | 必填 | 描述 |
+|--------|------|------|------|
+| `Authorization` | string | 是 | 登录用户访问令牌 |
+
+响应数据：
+
+| 字段名 | 类型 | 描述 |
+|--------|------|------|
+| `presetId` | string | 模板 ID，例如 `erp-postgresql`、`oa-api`、`finance-api` |
+| `displayName` | string | 模板展示名称 |
+| `category` | string | 业务系统分类：ERP、OA、finance |
+| `sourceType` | string | 实际保存时使用的数据源类型，例如 `postgresql` 或 `api` |
+| `endpoint` | string | 示例连接地址，保存前可按企业环境调整 |
+| `username` | string | 示例账号标识，不包含密钥 |
+| `syncQuery` | string | 数据库类同步 SQL 示例 |
+| `fieldMapping` | object | API 类行路径、标题、正文、分页和认证映射 |
+| `cursorColumn` | string | 增量游标字段 |
+| `scheduleEnabled` | boolean | 默认是否启用定时同步 |
+| `scheduleIntervalSeconds` | integer | 推荐同步间隔 |
+| `maxRetryCount` | integer | 推荐最大失败重试次数 |
+
+### 8.12 维护重加密数据源凭证
 
 | 接口路径 | 方法 | 描述 | 请求参数 | 响应数据 | 状态码 |
 |----------|------|------|----------|----------|--------|
@@ -3470,6 +3553,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 | `POST /api/v1/embeddings` | `knowledge-base-ingestion` | 文件上传解析入库 | 扫描件解析成功 | Embedding 生成 |
 | `POST /api/v1/data-sources/test-connection` | `knowledge-base-ingestion` | 企业数据源对接 | 测试连接失败 | 测试连接 |
 | `POST /api/v1/data-sources` | `knowledge-base-ingestion` | 企业数据源对接 | 数据源同步异常 | 保存配置 |
+| `GET /api/v1/data-sources/presets` | `knowledge-base-ingestion` | 企业数据源对接 | ERP/OA/财务模板预设 | 查询模板预设 |
 | `POST /api/v1/data-sources/credentials/reencrypt` | `knowledge-base-ingestion` | 企业数据源对接 | 凭证轮换维护 | 凭证重加密 |
 | `GET /api/v1/rules` | `rule-engine` | 规则编排 | 创建规则 | 规则列表 |
 | `POST /api/v1/rules` | `rule-engine` | 规则编排 | 创建规则 | 创建草稿 |
@@ -3498,6 +3582,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 | `GET /api/v1/documents/{documentId}` | `knowledge-base-ingestion` | `knowledge:upload` | 查看文档解析状态与元数据 | 文档上传后的查询入口 |
 | `POST /api/v1/data-sources/{dataSourceId}/sync-runs` | `knowledge-base-ingestion` | `datasource:manage` | 触发企业数据源同步 | 本地/生产均由 Java 承接同步编排 |
 | `GET /api/v1/data-sources/{dataSourceId}/sync-runs` | `knowledge-base-ingestion` | `datasource:manage` | 查询企业数据源同步记录 | 用于运维排障与审计 |
+| `GET /api/v1/data-sources/presets` | `knowledge-base-ingestion` | `datasource:manage` | 查询企业数据源模板预设 | 返回 ERP/OA/财务模板，不包含密钥 |
 | `POST /api/v1/data-sources/credentials/reencrypt` | `knowledge-base-ingestion` | `datasource:manage` | 维护重加密旧密钥数据源凭证 | 不返回任何凭证明文或密文 |
 | `GET /api/v1/system-alerts` | `audit-history-dashboard` | `notification:read` | 查询系统告警与通知 | 工作台通知入口 |
 | `GET /api/v1/auth/me` | `permission-collaboration` | authenticated | 获取当前认证用户 RBAC 上下文 | Higress/OIDC 登录后读取 Java 权限上下文 |
@@ -3862,6 +3947,117 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       401,
       403,
       404
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data-sources/presets",
+    "description": "查询企业数据源模板预设",
+    "module": "knowledge-base-ingestion",
+    "securityIntent": "datasource:manage",
+    "contentType": "application/json",
+    "pathParams": {},
+    "queryParams": {},
+    "headers": {
+      "Authorization": {
+        "type": "string",
+        "required": true,
+        "description": "Bearer JWT"
+      }
+    },
+    "requestBody": {},
+    "responseBody": {
+      "code": {
+        "type": "integer",
+        "required": true,
+        "description": "response code"
+      },
+      "message": {
+        "type": "string",
+        "required": true,
+        "description": "response message"
+      },
+      "data": {
+        "type": "array",
+        "required": true,
+        "description": "ERP/OA/finance data-source presets",
+        "items": {
+          "type": "object",
+          "required": true,
+          "properties": {
+            "presetId": {
+              "type": "string",
+              "required": true,
+              "description": "stable preset identifier"
+            },
+            "displayName": {
+              "type": "string",
+              "required": true,
+              "description": "preset display name"
+            },
+            "category": {
+              "type": "string",
+              "required": true,
+              "description": "business system category"
+            },
+            "sourceType": {
+              "type": "string",
+              "required": true,
+              "description": "data source type used when saving the configuration"
+            },
+            "endpoint": {
+              "type": "string",
+              "required": true,
+              "description": "editable example endpoint"
+            },
+            "username": {
+              "type": "string",
+              "required": false,
+              "description": "example account name or token alias"
+            },
+            "syncQuery": {
+              "type": "string",
+              "required": false,
+              "description": "database sync query example"
+            },
+            "fieldMapping": {
+              "type": "object",
+              "required": false,
+              "description": "API rows/title/content/pagination/auth mapping"
+            },
+            "cursorColumn": {
+              "type": "string",
+              "required": false,
+              "description": "incremental cursor column or field"
+            },
+            "scheduleEnabled": {
+              "type": "boolean",
+              "required": true,
+              "description": "whether scheduled sync is enabled by default"
+            },
+            "scheduleIntervalSeconds": {
+              "type": "integer",
+              "required": true,
+              "description": "recommended sync interval"
+            },
+            "maxRetryCount": {
+              "type": "integer",
+              "required": true,
+              "description": "recommended maximum retry count"
+            }
+          }
+        }
+      },
+      "timestamp": {
+        "type": "string",
+        "required": true,
+        "description": "response timestamp"
+      }
+    },
+    "statusCodes": [
+      200,
+      401,
+      403
     ]
   },
   {
