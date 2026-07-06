@@ -34,6 +34,8 @@ public interface KnowledgeBaseRepository {
 
     Optional<KnowledgeDataSource> findDataSourceById(Long id);
 
+    List<KnowledgeDataSource> findDataSourcesWithCredentials(int limit);
+
     KnowledgeDataSource updateDataSourceCursor(Long dataSourceId, String lastCursor);
 
     boolean tryAcquireDataSourceSyncLease(Long dataSourceId, OffsetDateTime lockedUntil);

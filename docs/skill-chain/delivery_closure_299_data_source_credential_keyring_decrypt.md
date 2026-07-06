@@ -25,5 +25,5 @@ Data-source connector credential rotation now has a minimal keyring decrypt path
 
 ## Remaining Gaps
 
-- A stale-secret discovery and re-encryption job is still needed to migrate old `enc:v1:` and retired `enc:v2:<keyId>:` payloads to the active key.
+- Stale-secret discovery and application-layer re-encryption is covered by Closure 300; a production runner still needs to be wired.
 - Real Docker enterprise database/ERP/OA/finance sync smoke and live Higress route checks still need to be rerun when local infrastructure is available.

@@ -1029,4 +1029,12 @@
 - Compatibility: `enc:v1:` AES-GCM and legacy `enc:` Base64 payloads remain readable; retired v2 payloads decrypt successfully but still return `isCurrent=false` so re-encryption can be scheduled later.
 - Code evidence: `DataSourceCredentialCodec`, `application-dev.yml`, `application-prod.yml`, `DataSourceCredentialCodecTest`, and `docs/skill-chain/delivery_closure_299_data_source_credential_keyring_decrypt.md`.
 - Verification evidence: targeted RED/GREEN codec test passed `2/2`.
-- Remaining gaps: stale-secret discovery/re-encryption job, real Docker enterprise database/ERP/OA/finance sync smoke, and live Higress route checks remain production hardening work.
+- Remaining gaps: production runner wiring for credential re-encryption, real Docker enterprise database/ERP/OA/finance sync smoke, and live Higress route checks remain production hardening work.
+
+### 2026-07-06 UC-07 Data source credential re-encryption job
+
+- Scope: `REQ-KB-003`, stale connector credential discovery and active-key re-encryption.
+- Result: Java application service can scan stored data-source credentials, filter non-current secrets, decrypt them through the configured codec/keyring, persist active-key encrypted replacements, and write a no-secret audit log.
+- Code evidence: `KnowledgeApplicationService.reencryptStaleDataSourceCredentials`, `KnowledgeBaseRepository.findDataSourcesWithCredentials`, `JdbcKnowledgeBaseRepository`, `KnowledgeDataSource.withCredentialSecret`, `KnowledgeApplicationServiceTest`, and `docs/skill-chain/delivery_closure_300_data_source_credential_reencryption_job.md`.
+- Verification evidence: targeted RED/GREEN re-encryption test passed `1/1`; broader Java credential/data-source/profile regression passed `30/30`.
+- Remaining gaps: production runner wiring for this maintenance job, real Docker enterprise database/ERP/OA/finance sync smoke, and live Higress route checks remain production hardening work.

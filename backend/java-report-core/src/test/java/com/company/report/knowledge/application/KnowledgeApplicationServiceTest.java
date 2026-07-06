@@ -1018,6 +1018,58 @@ class KnowledgeApplicationServiceTest {
         assertThat(service.searchItems(1, 10, "Legacy").total()).isEqualTo(1L);
     }
 
+    @Test
+    void reencryptsStaleDataSourceCredentialsWithCurrentKeyAndAuditsWithoutSecrets() {
+        CurrentUserHolder.set(new CurrentUser(7L, Set.of("admin"), Set.of("knowledge:manage")));
+        FakeKnowledgeBaseRepository knowledgeBaseRepository = new FakeKnowledgeBaseRepository();
+        FakeAuditRepository auditRepository = new FakeAuditRepository();
+        DataSourceCredentialCodec retiredCodec = new DataSourceCredentialCodec(
+                "retired-2026-06",
+                "retired-data-source-key",
+                new java.security.SecureRandom(new byte[]{1, 2, 3, 4}));
+        DataSourceCredentialCodec currentCodec = new DataSourceCredentialCodec(
+                "primary-2026-07",
+                "current-data-source-key",
+                Map.of("retired-2026-06", "retired-data-source-key"),
+                new java.security.SecureRandom(new byte[]{1, 2, 3, 4}));
+        KnowledgeDataSource stale = knowledgeBaseRepository.saveDataSource(KnowledgeDataSource.enabled(
+                7L,
+                "Finance API",
+                "api",
+                "https://example.test/reports",
+                "sync_app",
+                retiredCodec.encrypt("rotated-password"),
+                null,
+                null,
+                null
+        ));
+        KnowledgeApplicationService service = new KnowledgeApplicationService(
+                new KnowledgeDomainService(),
+                new FakeStorage(),
+                new FakeRepository(),
+                knowledgeBaseRepository,
+                new FakePublisher(),
+                currentCodec,
+                auditRepository,
+                new FakeSystemAlertRepository());
+
+        Map<String, Object> result = service.reencryptStaleDataSourceCredentials(100);
+
+        KnowledgeDataSource migrated = knowledgeBaseRepository.findDataSourceById(stale.id()).orElseThrow();
+        assertThat(result)
+                .containsEntry("scannedCount", 1)
+                .containsEntry("migratedCount", 1);
+        assertThat(migrated.credentialSecret()).startsWith("enc:v2:primary-2026-07:");
+        assertThat(currentCodec.decrypt(migrated.credentialSecret())).isEqualTo("rotated-password");
+        assertThat(auditRepository.logs)
+                .singleElement()
+                .satisfies(log -> {
+                    assertThat(log.operationType()).isEqualTo("knowledge_data_source_credential_reencrypted");
+                    assertThat(log.detail()).containsEntry("dataSourceId", stale.id());
+                    assertThat(log.detail()).doesNotContainKeys("credentialSecret", "password");
+                });
+    }
+
     private static class FakeStorage implements DocumentStorage {
         private final AtomicReference<String> objectKey = new AtomicReference<>();
 
@@ -1134,6 +1186,14 @@ class KnowledgeApplicationServiceTest {
         @Override
         public Optional<KnowledgeDataSource> findDataSourceById(Long id) {
             return Optional.ofNullable(dataSources.get(id));
+        }
+
+        @Override
+        public List<KnowledgeDataSource> findDataSourcesWithCredentials(int limit) {
+            return dataSources.values().stream()
+                    .filter(dataSource -> dataSource.credentialSecret() != null && !dataSource.credentialSecret().isBlank())
+                    .limit(Math.max(limit, 1))
+                    .toList();
         }
 
         @Override

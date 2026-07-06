@@ -127,4 +127,10 @@ public record KnowledgeDataSource(
                 credentialSecret, knowledgeBaseId, syncQuery, fieldMappingJson, cursorColumn, lastCursor,
                 scheduleEnabled, scheduleIntervalSeconds, nextRunAt, failureCount, maxRetryCount, status);
     }
+
+    public KnowledgeDataSource withCredentialSecret(String newCredentialSecret) {
+        return new KnowledgeDataSource(id, ownerUserId, name, sourceType, endpoint, username,
+                newCredentialSecret, knowledgeBaseId, syncQuery, fieldMappingJson, cursorColumn, lastCursor,
+                scheduleEnabled, scheduleIntervalSeconds, nextRunAt, failureCount, maxRetryCount, status);
+    }
 }

@@ -331,6 +331,30 @@ public class KnowledgeApplicationService {
         return toDataSourceResponse(saved);
     }
 
+    public Map<String, Object> reencryptStaleDataSourceCredentials(int limit) {
+        List<KnowledgeDataSource> candidates = knowledgeBaseRepository.findDataSourcesWithCredentials(Math.max(limit, 1));
+        int migratedCount = 0;
+        for (KnowledgeDataSource dataSource : candidates) {
+            String currentSecret = dataSource.credentialSecret();
+            if (currentSecret == null || currentSecret.isBlank() || credentialCodec.isCurrent(currentSecret)) {
+                continue;
+            }
+            String plainSecret = credentialCodec.decrypt(currentSecret);
+            KnowledgeDataSource migrated = knowledgeBaseRepository.saveDataSource(
+                    dataSource.withCredentialSecret(credentialCodec.encrypt(plainSecret)));
+            migratedCount++;
+            writeDataSourceAudit("knowledge_data_source_credential_reencrypted", migrated, "succeeded", Map.of(
+                    "dataSourceId", migrated.id(),
+                    "sourceType", migrated.sourceType(),
+                    "credentialCurrent", true
+            ));
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("scannedCount", candidates.size());
+        result.put("migratedCount", migratedCount);
+        return result;
+    }
+
     public Map<String, Object> startDataSourceSync(Long dataSourceId, Map<String, Object> request) {
         KnowledgeDataSource dataSource = findOwnedDataSource(dataSourceId);
         String mode = String.valueOf(request == null ? "manual" : request.getOrDefault("mode", "manual"));

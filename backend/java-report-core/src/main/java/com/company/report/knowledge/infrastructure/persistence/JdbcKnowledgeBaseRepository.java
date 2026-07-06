@@ -294,6 +294,24 @@ public class JdbcKnowledgeBaseRepository implements KnowledgeBaseRepository {
     }
 
     @Override
+    public List<KnowledgeDataSource> findDataSourcesWithCredentials(int limit) {
+        return jdbcTemplate.query("""
+                        SELECT id, owner_user_id, name, source_type, endpoint, username, credential_secret,
+                               knowledge_base_id, sync_query, field_mapping_json, cursor_column, last_cursor, schedule_enabled,
+                               schedule_interval_seconds, next_run_at, failure_count, max_retry_count, status
+                        FROM knowledge_data_sources
+                        WHERE deleted_at IS NULL
+                          AND credential_secret IS NOT NULL
+                          AND credential_secret <> ''
+                        ORDER BY id ASC
+                        LIMIT ?
+                        """,
+                (rs, rowNum) -> mapDataSource(rs),
+                Math.max(limit, 1)
+        );
+    }
+
+    @Override
     public KnowledgeDataSource updateDataSourceCursor(Long dataSourceId, String lastCursor) {
         jdbcTemplate.update("""
                         UPDATE knowledge_data_sources
