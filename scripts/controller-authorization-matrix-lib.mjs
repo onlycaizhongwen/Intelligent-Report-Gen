@@ -32,6 +32,21 @@ export function findControllerAuthorizationGaps(matrix) {
     }));
 }
 
+export function findControllerPermissionCatalogGaps(matrix, catalogPermissions) {
+  return matrix
+    .filter((entry) => entry.boundary === 'permission')
+    .filter((entry) => !catalogPermissions.has(entry.permission))
+    .map((entry) => ({
+      method: entry.method,
+      path: entry.path,
+      permission: entry.permission,
+      controller: entry.controller,
+      handler: entry.handler,
+      filePath: entry.filePath,
+      line: entry.line,
+    }));
+}
+
 export function renderControllerAuthorizationMatrixMarkdown(matrix) {
   const rows = [
     '# Java Controller Authorization Matrix',

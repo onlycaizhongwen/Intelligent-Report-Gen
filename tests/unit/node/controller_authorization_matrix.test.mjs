@@ -5,8 +5,12 @@ import fs from 'node:fs';
 import {
   buildJavaControllerAuthorizationMatrix,
   findControllerAuthorizationGaps,
+  findControllerPermissionCatalogGaps,
   renderControllerAuthorizationMatrixMarkdown,
 } from '../../../scripts/controller-authorization-matrix-lib.mjs';
+import {
+  buildHigressPermissionCatalogAuthorizationChecks,
+} from '../../../scripts/higress-gateway-smoke-lib.mjs';
 
 const controllersRoot = 'backend/java-report-core/src/main/java/com/company/report';
 const matrixDocPath = 'docs/skill-chain/java_controller_authorization_matrix.md';
@@ -69,6 +73,18 @@ test('java controller authorization matrix document stays synchronized with sour
   assert.equal(actual, expected);
   assert.match(actual, /\| POST \| `\/api\/v1\/share-links\/\{shareToken\}\/access` \| public \|/);
   assert.doesNotMatch(actual, /unclassified/);
+});
+
+test('controller permissions stay covered by the Higress permission catalog probes', () => {
+  const matrix = buildJavaControllerAuthorizationMatrix({ controllersRoot });
+  const catalogPermissions = new Set(
+    buildHigressPermissionCatalogAuthorizationChecks()
+      .map((check) => check.permission)
+      .filter(Boolean),
+  );
+
+  assert.equal(catalogPermissions.size, 16, 'expected one Higress catalog probe family per RBAC permission');
+  assert.deepEqual(findControllerPermissionCatalogGaps(matrix, catalogPermissions), []);
 });
 
 function pick(matrix, method, path) {
