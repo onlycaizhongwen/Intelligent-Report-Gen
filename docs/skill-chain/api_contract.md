@@ -2978,11 +2978,11 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 | `connectionConfig` | object | 是 | 连接配置 |
 | `syncPolicy` | object | 否 | 同步策略 |
 | `targetKnowledgeBaseId` | string | 是 | 目标知识库 |
-| `fieldMapping.profileId` | string | 否 | API 数据源 schema profile；当前支持 `oa-documents`、`finance-vouchers`，设置后保存阶段会校验对应 rows/title/content/cursor/auth/header 和 `cursorColumn` 规则 |
+| `fieldMapping.profileId` | string | 否 | API 数据源 schema profile；默认支持 `oa-documents`、`finance-vouchers`，也可通过 `knowledge.data-source.profile-catalog-json` 配置客户 profile；设置后保存阶段会校验对应 rows/title/content/cursor/auth/header 和 `cursorColumn` 规则 |
 | `fieldMapping.rowsPath` | string | 条件必填 | 当 `sourceType=api` 且配置目标知识库时必填，指向响应中的列表节点 |
 | `fieldMapping.titleField` | string | 条件必填 | 当 `sourceType=api` 且配置目标知识库时必填，映射知识条目标题字段 |
 | `fieldMapping.contentField` | string | 条件必填 | 当 `sourceType=api` 且配置目标知识库时必填，映射知识条目正文/内容字段 |
-| `fieldMapping.cursorField` | string | 否 | API 响应行内增量游标字段；内置 profile 会校验固定值 |
+| `fieldMapping.cursorField` | string | 否 | API 响应行内增量游标字段；内置或客户 profile 会校验固定值 |
 | `fieldMapping.method` | string | 否 | API 请求方法，仅允许 `GET` 或 `POST` |
 | `fieldMapping.authType` | string | 否 | 认证方式，仅允许 `bearer`、`api_key`、`basic`、`none` |
 | `fieldMapping.apiKeyHeader` | string | 否 | API Key Header 名称；禁止覆盖保留 Header |
@@ -3003,7 +3003,8 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 
 - `POST /api/v1/data-sources` 会在保存前校验 endpoint allowlist，未授权主机返回 `403`。
 - API 数据源会在保存前校验高级 `fieldMapping`，非法 method/authType/page/header 配置返回 `400`。
-- API 数据源设置 `fieldMapping.profileId` 后只允许内置 profile；`oa-documents` 固定 `rowsPath=data.documents/titleField=documentNo/contentField=content/cursorField=id/cursorColumn=id/method=GET/authType=bearer`，`finance-vouchers` 固定 `rowsPath=data.vouchers/titleField=voucherNo/contentField=summary/cursorField=voucherId/cursorColumn=voucherId/method=POST/authType=api_key/apiKeyHeader=X-API-Key/headers.X-Tenant=finance`。
+- API 数据源设置 `fieldMapping.profileId` 后必须命中 profile catalog。默认内置 profile 包含：`oa-documents` 固定 `rowsPath=data.documents/titleField=documentNo/contentField=content/cursorField=id/cursorColumn=id/method=GET/authType=bearer`，`finance-vouchers` 固定 `rowsPath=data.vouchers/titleField=voucherNo/contentField=summary/cursorField=voucherId/cursorColumn=voucherId/method=POST/authType=api_key/apiKeyHeader=X-API-Key/headers.X-Tenant=finance`。
+- 客户 profile 可通过 `knowledge.data-source.profile-catalog-json` 注入 JSON 数组，字段包括 `profileId/rowsPath/titleField/contentField/cursorField/cursorColumn/method/authType/apiKeyHeader/headers`；后端会把内置 profile 与客户 profile 合并后统一用于保存校验、同步前复核、漂移审计和确认修复。
 - `POST /api/v1/data-sources/{dataSourceId}/sync-runs` 会在同步执行前复核已保存 endpoint 和 API `fieldMapping`/profile/cursor 配置；即使请求体提供 `sampleRows`，也不能绕过 allowlist 或历史配置漂移校验。
 - `application-dev.yml` 默认仅放行本地 loopback 和 Docker 开发服务名；`application-prod.yml` 必须通过 `DATA_SOURCE_ENDPOINT_ALLOWLIST` 显式声明生产可访问源。
 
@@ -3059,7 +3060,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 
 | 接口路径 | 方法 | 描述 | 请求参数 | 响应数据 | 状态码 |
 |----------|------|------|----------|----------|--------|
-| `/api/v1/data-sources/profile-drift` | GET | 扫描已保存 API 数据源，找出与当前内置 profile 规则不一致的历史配置 | Query | 漂移审计结果 | 200/400/401/403 |
+| `/api/v1/data-sources/profile-drift` | GET | 扫描已保存 API 数据源，找出与当前 profile catalog 规则不一致的历史配置 | Query | 漂移审计结果 | 200/400/401/403 |
 
 请求参数：
 
@@ -3077,7 +3078,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 | `items[].dataSourceId` | integer | 数据源 ID |
 | `items[].name` | string | 数据源名称 |
 | `items[].sourceType` | string | 数据源类型，当前为 `api` |
-| `items[].profileId` | string | 当前映射声明的内置 profile ID |
+| `items[].profileId` | string | 当前映射声明的 profile ID |
 | `items[].cursorColumn` | string | 已保存增量游标字段 |
 | `items[].failureReason` | string | 与当前 profile 规则不一致的具体原因 |
 
@@ -3085,7 +3086,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 
 | 接口路径 | 方法 | 描述 | 请求参数 | 响应数据 | 状态码 |
 |----------|------|------|----------|----------|--------|
-| `/api/v1/data-sources/{dataSourceId}/profile-drift/repair` | POST | 对单个已保存 API 数据源按当前内置 profile 规则生成修复预览；仅当 `confirmed=true` 时落库 | Path + JSON Body | 修复预览或结果 | 200/400/401/403/404 |
+| `/api/v1/data-sources/{dataSourceId}/profile-drift/repair` | POST | 对单个已保存 API 数据源按当前 profile catalog 规则生成修复预览；仅当 `confirmed=true` 时落库 | Path + JSON Body | 修复预览或结果 | 200/400/401/403/404 |
 
 请求参数：
 
@@ -3099,12 +3100,12 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 | 字段名 | 类型 | 描述 |
 |--------|------|------|
 | `dataSourceId` | integer | 数据源 ID |
-| `profileId` | string | 当前映射声明的内置 profile ID |
+| `profileId` | string | 当前映射声明的 profile ID |
 | `repaired` | boolean | 是否已执行落库修复 |
 | `requiresConfirmation` | boolean | 是否仍需要用户确认后才能落库 |
 | `currentFailureReason` | string | 修复前的 profile 校验失败原因；若无漂移则为空 |
 | `previousCursorColumn` | string | 修复前增量游标字段 |
-| `proposedCursorColumn` | string | 按内置 profile 计算出的目标增量游标字段 |
+| `proposedCursorColumn` | string | 按 profile catalog 计算出的目标增量游标字段 |
 | `proposedFieldMapping` | object | 修复后的规范 API fieldMapping；保留非 profile 强制字段，如分页和请求模板 |
 
 安全与审计：
@@ -4104,7 +4105,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
             "fieldMapping": {
               "type": "object",
               "required": false,
-              "description": "API profile, rows/title/content/cursor/pagination/auth mapping. Built-in profiles include oa-documents and finance-vouchers."
+              "description": "API profile, rows/title/content/cursor/pagination/auth mapping. Built-in profiles include oa-documents and finance-vouchers; customer profiles can be configured through knowledge.data-source.profile-catalog-json."
             },
             "cursorColumn": {
               "type": "string",
@@ -4196,7 +4197,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "fieldMapping": {
         "type": "object",
         "required": false,
-        "description": "API or row field mapping settings. For API sources targeting a knowledge base, rowsPath, titleField, and contentField are required. Optional profileId supports built-in schema profiles oa-documents and finance-vouchers with save-time profile validation, including cursorColumn alignment."
+        "description": "API or row field mapping settings. For API sources targeting a knowledge base, rowsPath, titleField, and contentField are required. Optional profileId supports built-in schema profiles oa-documents and finance-vouchers plus configured customer profiles, with save-time profile validation including cursorColumn alignment."
       },
       "cursorColumn": {
         "type": "string",
@@ -4407,7 +4408,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
   {
     "method": "GET",
     "path": "/api/v1/data-sources/profile-drift",
-    "description": "Audit saved API data sources whose profile mapping no longer matches current built-in profile rules",
+    "description": "Audit saved API data sources whose profile mapping no longer matches current profile catalog rules",
     "module": "knowledge-base-ingestion",
     "securityIntent": "datasource:manage",
     "contentType": "none",
@@ -4478,7 +4479,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
                 "profileId": {
                   "type": "string",
                   "required": true,
-                  "description": "built-in API profile id"
+                  "description": "API profile id from the built-in or configured catalog"
                 },
                 "cursorColumn": {
                   "type": "string",
@@ -4511,7 +4512,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
   {
     "method": "POST",
     "path": "/api/v1/data-sources/{dataSourceId}/profile-drift/repair",
-    "description": "Preview or confirm repair for one saved API data source whose profile mapping no longer matches current built-in profile rules",
+    "description": "Preview or confirm repair for one saved API data source whose profile mapping no longer matches current profile catalog rules",
     "module": "knowledge-base-ingestion",
     "securityIntent": "datasource:manage",
     "contentType": "application/json",
@@ -4561,7 +4562,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
           "profileId": {
             "type": "string",
             "required": true,
-            "description": "built-in API profile id"
+            "description": "API profile id from the built-in or configured catalog"
           },
           "repaired": {
             "type": "boolean",
@@ -4586,7 +4587,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
           "proposedCursorColumn": {
             "type": "string",
             "required": true,
-            "description": "cursor column required by the built-in profile"
+            "description": "cursor column required by the profile catalog"
           },
           "proposedFieldMapping": {
             "type": "object",
@@ -4596,7 +4597,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
               "profileId": {
                 "type": "string",
                 "required": true,
-                "description": "built-in API profile id"
+                "description": "API profile id from the built-in or configured catalog"
               },
               "rowsPath": {
                 "type": "string",

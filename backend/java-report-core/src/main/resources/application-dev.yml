@@ -28,6 +28,7 @@ rocketmq:
 knowledge:
   data-source:
     endpoint-allowlist: ${DATA_SOURCE_ENDPOINT_ALLOWLIST:localhost,127.0.0.1,::1,host.docker.internal,postgres,mysql,ir-postgres,intelligent-report-system-mysql-1}
+    profile-catalog-json: ${DATA_SOURCE_PROFILE_CATALOG_JSON:[]}
     scheduler:
       enabled: ${DATA_SOURCE_SYNC_SCHEDULER_ENABLED:false}
       fixed-delay-ms: ${DATA_SOURCE_SYNC_SCHEDULER_DELAY_MS:60000}

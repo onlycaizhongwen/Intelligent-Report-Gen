@@ -29,6 +29,7 @@ rocketmq:
 knowledge:
   data-source:
     endpoint-allowlist: ${DATA_SOURCE_ENDPOINT_ALLOWLIST}
+    profile-catalog-json: ${DATA_SOURCE_PROFILE_CATALOG_JSON:[]}
     scheduler:
       enabled: ${DATA_SOURCE_SYNC_SCHEDULER_ENABLED:false}
       fixed-delay-ms: ${DATA_SOURCE_SYNC_SCHEDULER_DELAY_MS:60000}

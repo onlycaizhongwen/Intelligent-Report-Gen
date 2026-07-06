@@ -1076,6 +1076,109 @@ class KnowledgeApplicationServiceTest {
     }
 
     @Test
+    void usesCustomerApiProfileCatalogForSaveAuditRepairAndSync() {
+        CurrentUserHolder.set(new CurrentUser(54L, Set.of("ops"), Set.of("datasource:manage", "knowledge:manage")));
+        FakeKnowledgeBaseRepository knowledgeBaseRepository = new FakeKnowledgeBaseRepository();
+        FakeAuditRepository auditRepository = new FakeAuditRepository();
+        KnowledgeBase base = knowledgeBaseRepository.save(KnowledgeBase.newBase("Customer Profile KB", 54L));
+        ApiDataSourceProfileCatalog profileCatalog = new ApiDataSourceProfileCatalog("""
+                [
+                  {
+                    "profileId": "customer-crm-tickets",
+                    "rowsPath": "data.tickets",
+                    "titleField": "ticketNo",
+                    "contentField": "description",
+                    "cursorField": "updatedAt",
+                    "cursorColumn": "updatedAt",
+                    "method": "GET",
+                    "authType": "bearer",
+                    "headers": {"X-System": "crm"}
+                  }
+                ]
+                """);
+        KnowledgeApplicationService service = new KnowledgeApplicationService(
+                new KnowledgeDomainService(),
+                new FakeStorage(),
+                new FakeRepository(),
+                knowledgeBaseRepository,
+                new FakePublisher(),
+                new DataSourceCredentialCodec("local-test-data-source-credential-key"),
+                auditRepository,
+                new FakeSystemAlertRepository(),
+                profileCatalog);
+        Map<String, Object> customerProfile = apiMappingWith(Map.of(
+                "profileId", "customer-crm-tickets",
+                "rowsPath", "data.tickets",
+                "titleField", "ticketNo",
+                "contentField", "description",
+                "cursorField", "updatedAt",
+                "method", "GET",
+                "authType", "bearer",
+                "headers", Map.of("X-System", "crm")
+        ));
+
+        Map<String, Object> saved = service.saveDataSource(Map.of(
+                "name", "Customer CRM API",
+                "sourceType", "api",
+                "endpoint", "http://localhost:18080/customer/crm/tickets",
+                "knowledgeBaseId", base.id(),
+                "credential", "customer-token",
+                "cursorColumn", "updatedAt",
+                "fieldMapping", customerProfile
+        ));
+        KnowledgeDataSource drifted = knowledgeBaseRepository.saveDataSource(KnowledgeDataSource.enabled(
+                54L,
+                "Customer CRM Drifted",
+                "api",
+                "http://localhost:18080/customer/crm/tickets",
+                "crm_reader",
+                "enc:v1:legacy-token",
+                base.id(),
+                null,
+                """
+                        {"profileId":"customer-crm-tickets","rowsPath":"data.tickets","titleField":"ticketNo","contentField":"description","cursorField":"updatedAt","method":"GET","authType":"bearer","headers":{"X-System":"legacy"}}
+                        """,
+                "id",
+                "100"
+        ));
+
+        Map<String, Object> audit = service.auditDataSourceProfileDrift(100);
+        Map<String, Object> repaired = service.repairDataSourceProfileDrift(drifted.id(), Map.of("confirmed", true));
+        assertThat(knowledgeBaseRepository.findDataSourceById(drifted.id()).orElseThrow().lastCursor()).isNull();
+        Map<String, Object> syncRun = service.startDataSourceSync(drifted.id(), Map.of(
+                "mode", "manual",
+                "sampleRows", List.of(Map.of(
+                        "ticketNo", "CRM-001",
+                        "description", "Customer escalation",
+                        "updatedAt", "2026-07-06T09:00:00Z"
+                ))
+        ));
+
+        assertThat(saved)
+                .containsEntry("sourceType", "api")
+                .containsEntry("cursorColumn", "updatedAt");
+        assertThat(audit).containsEntry("driftCount", 1);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> proposedFieldMapping = (Map<String, Object>) repaired.get("proposedFieldMapping");
+        assertThat(repaired)
+                .containsEntry("profileId", "customer-crm-tickets")
+                .containsEntry("repaired", true)
+                .containsEntry("previousCursorColumn", "id")
+                .containsEntry("proposedCursorColumn", "updatedAt");
+        assertThat(proposedFieldMapping)
+                .containsEntry("rowsPath", "data.tickets")
+                .containsEntry("titleField", "ticketNo")
+                .containsEntry("contentField", "description")
+                .containsEntry("cursorField", "updatedAt");
+        assertThat(syncRun)
+                .containsEntry("status", "succeeded")
+                .containsEntry("processedRows", 1L)
+                .containsEntry("lastCursor", "2026-07-06T09:00:00Z");
+        assertThat(auditRepository.logs)
+                .anySatisfy(log -> assertThat(log.operationType()).isEqualTo("knowledge_data_source_profile_repaired"));
+    }
+
+    @Test
     void syncsHttpApiRowsWithPostBodyCustomHeadersAndApiKey() throws Exception {
         CurrentUserHolder.set(new CurrentUser(38L, Set.of("analyst"), Set.of("knowledge:manage")));
         FakeKnowledgeBaseRepository knowledgeBaseRepository = new FakeKnowledgeBaseRepository();

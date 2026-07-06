@@ -17,7 +17,9 @@ import org.springframework.test.context.ActiveProfiles;
         "rocketmq.enabled=false",
         "security.jwt.secret=local-dev-secret-change-me-32-bytes-minimum",
         "security.data-source-credential-key=prod-profile-test-data-source-key",
-        "security.data-source-credential-key-id=prod-profile-test-key"
+        "security.data-source-credential-key-id=prod-profile-test-key",
+        "knowledge.data-source.endpoint-allowlist=localhost,127.0.0.1",
+        "knowledge.data-source.profile-catalog-json=[]"
 })
 @ActiveProfiles("prod")
 class ReportCoreProdProfileContextTest {

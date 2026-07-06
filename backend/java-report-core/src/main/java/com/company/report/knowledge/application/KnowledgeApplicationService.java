@@ -53,6 +53,7 @@ public class KnowledgeApplicationService {
     private final AuditRepository auditRepository;
     private final SystemAlertRepository systemAlertRepository;
     private final DataSourceEndpointAllowlist endpointAllowlist;
+    private final ApiDataSourceProfileCatalog apiProfileCatalog;
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
@@ -99,7 +100,8 @@ public class KnowledgeApplicationService {
                                        DataSourceCredentialCodec credentialCodec,
                                        AuditRepository auditRepository,
                                        SystemAlertRepository systemAlertRepository,
-                                       @Value("${knowledge.data-source.endpoint-allowlist:}") String endpointAllowlist) {
+                                       @Value("${knowledge.data-source.endpoint-allowlist:}") String endpointAllowlist,
+                                       @Value("${knowledge.data-source.profile-catalog-json:}") String apiProfileCatalogJson) {
         this.domainService = domainService;
         this.documentStorage = documentStorage;
         this.documentRepository = documentRepository;
@@ -109,6 +111,7 @@ public class KnowledgeApplicationService {
         this.auditRepository = auditRepository;
         this.systemAlertRepository = systemAlertRepository;
         this.endpointAllowlist = new DataSourceEndpointAllowlist(endpointAllowlist);
+        this.apiProfileCatalog = new ApiDataSourceProfileCatalog(apiProfileCatalogJson);
     }
 
     public KnowledgeApplicationService(KnowledgeDomainService domainService,
@@ -119,6 +122,19 @@ public class KnowledgeApplicationService {
                                        DataSourceCredentialCodec credentialCodec,
                                        AuditRepository auditRepository,
                                        SystemAlertRepository systemAlertRepository) {
+        this(domainService, documentStorage, documentRepository, knowledgeBaseRepository, eventPublisher,
+                credentialCodec, auditRepository, systemAlertRepository, ApiDataSourceProfileCatalog.builtIn());
+    }
+
+    public KnowledgeApplicationService(KnowledgeDomainService domainService,
+                                       DocumentStorage documentStorage,
+                                       KnowledgeDocumentRepository documentRepository,
+                                       KnowledgeBaseRepository knowledgeBaseRepository,
+                                       DomainEventPublisher eventPublisher,
+                                       DataSourceCredentialCodec credentialCodec,
+                                       AuditRepository auditRepository,
+                                       SystemAlertRepository systemAlertRepository,
+                                       ApiDataSourceProfileCatalog apiProfileCatalog) {
         this.domainService = domainService;
         this.documentStorage = documentStorage;
         this.documentRepository = documentRepository;
@@ -128,6 +144,7 @@ public class KnowledgeApplicationService {
         this.auditRepository = auditRepository;
         this.systemAlertRepository = systemAlertRepository;
         this.endpointAllowlist = DataSourceEndpointAllowlist.localDevelopmentDefault();
+        this.apiProfileCatalog = apiProfileCatalog == null ? ApiDataSourceProfileCatalog.builtIn() : apiProfileCatalog;
     }
 
     public PageResponse<Map<String, Object>> listKnowledgeBases(int page, int pageSize) {
@@ -1004,45 +1021,11 @@ public class KnowledgeApplicationService {
     }
 
     private Map<String, Object> canonicalApiProfileMapping(String profileId, Map<String, Object> originalMapping) {
-        Map<String, Object> mapping = new LinkedHashMap<>(originalMapping);
-        switch (profileId) {
-            case "oa-documents" -> {
-                mapping.put("profileId", "oa-documents");
-                mapping.put("rowsPath", "data.documents");
-                mapping.put("titleField", "documentNo");
-                mapping.put("contentField", "content");
-                mapping.put("cursorField", "id");
-                mapping.put("method", "GET");
-                mapping.put("authType", "bearer");
-            }
-            case "finance-vouchers" -> {
-                mapping.put("profileId", "finance-vouchers");
-                mapping.put("rowsPath", "data.vouchers");
-                mapping.put("titleField", "voucherNo");
-                mapping.put("contentField", "summary");
-                mapping.put("cursorField", "voucherId");
-                mapping.put("method", "POST");
-                mapping.put("authType", "api_key");
-                mapping.put("apiKeyHeader", "X-API-Key");
-                Map<String, Object> headers = new LinkedHashMap<>();
-                Object rawHeaders = mapping.get("headers");
-                if (rawHeaders instanceof Map<?, ?> existingHeaders) {
-                    existingHeaders.forEach((key, value) -> headers.put(String.valueOf(key), value));
-                }
-                headers.put("X-Tenant", "finance");
-                mapping.put("headers", headers);
-            }
-            default -> throw new IllegalArgumentException("api data source fieldMapping.profileId is not supported: " + profileId);
-        }
-        return mapping;
+        return apiProfileCatalog.require(profileId).canonicalMapping(originalMapping);
     }
 
     private String canonicalApiProfileCursorColumn(String profileId) {
-        return switch (profileId) {
-            case "oa-documents" -> "id";
-            case "finance-vouchers" -> "voucherId";
-            default -> throw new IllegalArgumentException("api data source fieldMapping.profileId is not supported: " + profileId);
-        };
+        return apiProfileCatalog.require(profileId).cursorColumn();
     }
 
     private void requireApiFieldMapping(Map<String, Object> fieldMapping, String fieldName) {
@@ -1100,29 +1083,19 @@ public class KnowledgeApplicationService {
         if (profileId.isBlank()) {
             return;
         }
-        switch (profileId) {
-            case "oa-documents" -> {
-                requireProfileValue(profileId, fieldMapping, "rowsPath", "data.documents");
-                requireProfileValue(profileId, fieldMapping, "titleField", "documentNo");
-                requireProfileValue(profileId, fieldMapping, "contentField", "content");
-                requireProfileValue(profileId, fieldMapping, "cursorField", "id");
-                requireProfileCursorColumn(profileId, cursorColumn, "id");
-                requireProfileValue(profileId, fieldMapping, "method", "GET");
-                requireProfileValue(profileId, fieldMapping, "authType", "bearer");
-            }
-            case "finance-vouchers" -> {
-                requireProfileValue(profileId, fieldMapping, "rowsPath", "data.vouchers");
-                requireProfileValue(profileId, fieldMapping, "titleField", "voucherNo");
-                requireProfileValue(profileId, fieldMapping, "contentField", "summary");
-                requireProfileValue(profileId, fieldMapping, "cursorField", "voucherId");
-                requireProfileCursorColumn(profileId, cursorColumn, "voucherId");
-                requireProfileValue(profileId, fieldMapping, "method", "POST");
-                requireProfileValue(profileId, fieldMapping, "authType", "api_key");
-                requireProfileValue(profileId, fieldMapping, "apiKeyHeader", "X-API-Key");
-                requireProfileHeaderValue(profileId, fieldMapping, "X-Tenant", "finance");
-            }
-            default -> throw new IllegalArgumentException("api data source fieldMapping.profileId is not supported: " + profileId);
+        ApiDataSourceProfileCatalog.Profile profile = apiProfileCatalog.require(profileId);
+        requireProfileValue(profileId, fieldMapping, "rowsPath", profile.rowsPath());
+        requireProfileValue(profileId, fieldMapping, "titleField", profile.titleField());
+        requireProfileValue(profileId, fieldMapping, "contentField", profile.contentField());
+        requireProfileValue(profileId, fieldMapping, "cursorField", profile.cursorField());
+        requireProfileCursorColumn(profileId, cursorColumn, profile.cursorColumn());
+        requireProfileValue(profileId, fieldMapping, "method", profile.method());
+        requireProfileValue(profileId, fieldMapping, "authType", profile.authType());
+        if (!profile.apiKeyHeader().isBlank()) {
+            requireProfileValue(profileId, fieldMapping, "apiKeyHeader", profile.apiKeyHeader());
         }
+        profile.headers().forEach((headerName, expectedValue) ->
+                requireProfileHeaderValue(profileId, fieldMapping, headerName, expectedValue));
     }
 
     private void requireProfileCursorColumn(String profileId, String cursorColumn, String expectedValue) {
