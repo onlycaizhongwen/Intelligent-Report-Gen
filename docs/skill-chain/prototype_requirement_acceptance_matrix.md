@@ -1,6 +1,10 @@
 ﻿# 鍘熷瀷闇€姹備氦浠橀獙鏀剁煩闃?
 > 鐩爣锛氫粠鍘熷瀷椤甸潰銆丼1/S2 闇€姹傛梾绋嬪拰褰撳墠宸ョ▼璇佹嵁鍑哄彂锛屾寔缁垽鏂郴缁熻窛绂烩€滃鎴峰彲浜や粯鐢熶骇鐗堟湰鈥濈殑鐪熷疄宸窛銆?>
 > 楠屾敹鍘熷垯锛氭帴鍙ｅ瓨鍦ㄣ€侀〉闈㈠瓨鍦ㄣ€佹祴璇曢鏋跺瓨鍦ㄩ兘涓嶇瓑浜庝氦浠樺畬鎴愶紱蹇呴』鑳芥寜鍘熷瀷鏃呯▼璺戦€氫笟鍔￠棴鐜紝骞剁暀涓嬫暟鎹簱銆佸璞″瓨鍌ㄣ€佺綉鍏炽€佸璁℃垨绔埌绔祴璇曡瘉鎹€?
+## Recent Closure Evidence
+
+- 2026-07-06 Closure 317: P3 approval supplement smoke repair for `REQ-RULE-001`. Root cause was `RuleApplicationService.createSupplementRequest(...)` creating `supplement_required` approval records with `assigneeRole=null`, causing PostgreSQL `rule_approval_records.assignee_role` NOT NULL failure and UI `系统繁忙，请稍后重试` after Reject. Fixed by copying assignee/delegate fields from the rejected approval record. Verification: RED targeted Java test failed on null `assigneeRole`; GREEN targeted test `1/1`, `RuleApplicationServiceTest` `89/89`, Java module `300/300`, refreshed `ir-java-smoke` health `UP`, approval supplement real-backend E2E `1/1`, approval inbox real-backend E2E `5/5`, and full `node scripts/p3-local-smoke.mjs` completed all 10 steps including real-backend and Higress approval supplement upload checks. See `docs/skill-chain/delivery_closure_317_p3_approval_supplement_smoke_repair.md`.
+
 ## 1. 鎬昏
 
 | UC | 鍘熷瀷鏃呯▼ | Requirement ID | 褰撳墠鍒ゆ柇 | 涓昏缂哄彛 |

@@ -32,6 +32,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -745,8 +746,8 @@ class RuleApplicationServiceTest {
         ));
 
         var recordsAfterRejection = approvalService.listApprovalRecords(ruleId, 1, 10);
-        Map<String, Object> rejectedFinance = approvalByRole(recordsAfterRejection.items(), "finance_manager");
-        Map<String, Object> closedLegal = approvalByRole(recordsAfterRejection.items(), "legal_manager");
+        Map<String, Object> rejectedFinance = approvalById(recordsAfterRejection.items(), financeApproval.get("approvalRecordId"));
+        Map<String, Object> closedLegal = approvalById(recordsAfterRejection.items(), legalApproval.get("approvalRecordId"));
         assertThat(rejectedFinance)
                 .containsEntry("status", "rejected")
                 .containsEntry("approvalComment", "missing evidence")
@@ -767,6 +768,12 @@ class RuleApplicationServiceTest {
                 .satisfies(record -> assertThat(record)
                         .containsEntry("approvalRecordId", legalApproval.get("approvalRecordId"))
                         .containsEntry("status", "closed"));
+        assertThat(approvalService.listApprovalRecordsByStatus("supplement_required", 1, 10).items())
+                .singleElement()
+                .satisfies(record -> assertThat(record)
+                        .containsEntry("status", "supplement_required")
+                        .containsEntry("assigneeRole", "finance_manager")
+                        .containsEntry("approvalComment", "missing evidence"));
     }
 
     @Test
@@ -2132,6 +2139,14 @@ class RuleApplicationServiceTest {
                 .containsEntry("approvalRecordId", approvalRecordId)
                 .containsEntry("status", "rejected")
                 .containsEntry("approvalComment", "missing attachment");
+        assertThat(approvalService.listApprovalRecordsByStatus("supplement_required", 1, 10).items())
+                .singleElement()
+                .satisfies(record -> assertThat(record)
+                        .containsEntry("ruleId", ruleId)
+                        .containsEntry("status", "supplement_required")
+                        .containsEntry("assigneeRole", "finance_manager")
+                        .containsEntry("approvalTitle", "Finance review")
+                        .containsEntry("approvalComment", "missing attachment"));
         assertThat(alertRepository.alerts)
                 .singleElement()
                 .satisfies(alert -> assertThat(alert.payload())
@@ -5031,6 +5046,13 @@ class RuleApplicationServiceTest {
     private static Map<String, Object> approvalByRole(List<Map<String, Object>> approvals, String assigneeRole) {
         return approvals.stream()
                 .filter(item -> assigneeRole.equals(item.get("assigneeRole")))
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private static Map<String, Object> approvalById(List<Map<String, Object>> approvals, Object approvalRecordId) {
+        return approvals.stream()
+                .filter(item -> Objects.equals(approvalRecordId, item.get("approvalRecordId")))
                 .findFirst()
                 .orElseThrow();
     }
