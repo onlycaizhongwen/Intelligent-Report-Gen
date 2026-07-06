@@ -116,6 +116,18 @@
               placeholder="Evidence URL"
               clearable
             />
+            <label class="supplement-upload">
+              <span>Supplement attachment</span>
+              <input
+                aria-label="Supplement attachment"
+                type="file"
+                :disabled="uploadingSupplementIds.includes(String(record.approvalRecordId))"
+                @change="uploadSupplementAttachment(record, $event)"
+              >
+            </label>
+            <small v-if="supplementForms[String(record.approvalRecordId)].fileName" class="supplement-file">
+              {{ supplementForms[String(record.approvalRecordId)].fileName }}
+            </small>
             <el-button
               type="primary"
               size="small"
@@ -187,7 +199,8 @@ const batchHandling = ref(false);
 type ApprovalStatusFilter = 'pending' | 'approved' | 'rejected' | 'supplement_required' | 'resubmitted' | 'closed';
 const selectedStatus = ref<ApprovalStatusFilter>('pending');
 const selectedApprovalIds = ref<string[]>([]);
-const supplementForms = ref<Record<string, { comment: string; evidenceUrl: string }>>({});
+const uploadingSupplementIds = ref<string[]>([]);
+const supplementForms = ref<Record<string, { comment: string; evidenceUrl: string; fileName: string }>>({});
 const filters = ref({
   ruleId: '',
   assigneeRole: '',
@@ -259,13 +272,13 @@ async function loadPendingApprovals() {
 }
 
 function syncSupplementForms() {
-  const nextForms: Record<string, { comment: string; evidenceUrl: string }> = {};
+  const nextForms: Record<string, { comment: string; evidenceUrl: string; fileName: string }> = {};
   for (const record of approvalRecords.value) {
     if (record.status !== 'rejected') {
       continue;
     }
     const key = String(record.approvalRecordId);
-    nextForms[key] = supplementForms.value[key] ?? { comment: '', evidenceUrl: '' };
+    nextForms[key] = supplementForms.value[key] ?? { comment: '', evidenceUrl: '', fileName: '' };
   }
   supplementForms.value = nextForms;
 }
@@ -298,7 +311,7 @@ async function submitSupplement(record: PendingApprovalRecord) {
   actionType.value = 'supplement';
   errorMessage.value = '';
   successMessage.value = '';
-  const form = supplementForms.value[String(record.approvalRecordId)] ?? { comment: '', evidenceUrl: '' };
+  const form = supplementForms.value[String(record.approvalRecordId)] ?? { comment: '', evidenceUrl: '', fileName: '' };
   try {
     await ruleApi.submitApprovalSupplement(String(record.ruleId), String(record.approvalRecordId), {
       comment: form.comment.trim() || undefined,
@@ -311,6 +324,41 @@ async function submitSupplement(record: PendingApprovalRecord) {
   } finally {
     actionRecordId.value = null;
     actionType.value = null;
+  }
+}
+
+async function uploadSupplementAttachment(record: PendingApprovalRecord, event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) {
+    return;
+  }
+  const recordId = String(record.approvalRecordId);
+  uploadingSupplementIds.value = [...uploadingSupplementIds.value, recordId];
+  errorMessage.value = '';
+  successMessage.value = '';
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    const uploaded = await ruleApi.uploadApprovalSupplementAttachment(
+      String(record.ruleId),
+      recordId,
+      formData
+    ) as unknown as {
+      evidenceUrl?: string;
+      fileName?: string;
+    };
+    const form = supplementForms.value[recordId] ?? { comment: '', evidenceUrl: '', fileName: '' };
+    supplementForms.value[recordId] = {
+      ...form,
+      evidenceUrl: uploaded.evidenceUrl ?? form.evidenceUrl,
+      fileName: uploaded.fileName ?? file.name
+    };
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Failed to upload approval supplement attachment';
+    input.value = '';
+  } finally {
+    uploadingSupplementIds.value = uploadingSupplementIds.value.filter((item) => item !== recordId);
   }
 }
 
@@ -562,6 +610,18 @@ onMounted(() => {
   display: grid;
   width: min(360px, 38vw);
   gap: 8px;
+}
+
+.supplement-upload {
+  display: grid;
+  gap: 4px;
+  color: #606266;
+  font-size: 13px;
+}
+
+.supplement-file {
+  color: #409eff;
+  overflow-wrap: anywhere;
 }
 
 .overdue-flag {

@@ -988,3 +988,11 @@
 - Code evidence: `RuleApplicationService.java`, `JdbcRuleRepository.java`, `InMemoryRuleRepository.java`, `RuleApplicationServiceTest.java`, `rule-runtime-real-backend.spec.ts`, `scripts/p3-local-smoke-lib.mjs`, and `docs/skill-chain/delivery_closure_295_uc08_higress_webhook_replay_exhaustion.md`.
 - Verification evidence: RED first failed waiting for `compensation_exhausted`; backend RED then proved repeated exhaustion rows were possible. GREEN passed direct Java browser E2E `1/1`, Higress browser E2E `1/1`, backend rule service regression `88/88`, frontend API contract tests `30/30`, and Node P3/Higress smoke contract `6/6`.
 - Remaining gaps: full P3 smoke bundle execution, broader endpoint-level Higress authorization matrix, and OIDC/TLS/WAF production hardening remain open.
+
+### 2026-07-06 UC-08 approval supplement attachment upload closure
+
+- Scope: `REQ-RULE-001`, `UC-08`, rejected approval supplement/resubmission.
+- Result: `/rules/approvals` rejected records now support real file selection via `Supplement attachment`. The file is uploaded to the Java rule domain endpoint before supplement submission; the returned `evidenceUrl` is then submitted through the existing supplement API, preserving the Java approval task loop.
+- Code evidence: `RuleController.java`, `RuleApplicationService.java`, `ApprovalInbox.vue`, `ruleApi.ts`, `approval-inbox.spec.ts`, `apiContracts.test.ts`, `ContractSurfaceTest.java`, `RuleApplicationServiceTest.java`, and `docs/skill-chain/delivery_closure_296_uc08_approval_supplement_attachment_upload.md`.
+- Verification evidence: frontend API contract passed `30/30`; backend contract/service upload tests passed `2/2`; `npm run typecheck` passed; Playwright `approval-inbox.spec.ts -g "submits supplement"` passed `1/1`.
+- Remaining gaps: real MinIO smoke for this exact endpoint, Higress-routed upload browser acceptance, and enterprise attachment policy hardening remain open.

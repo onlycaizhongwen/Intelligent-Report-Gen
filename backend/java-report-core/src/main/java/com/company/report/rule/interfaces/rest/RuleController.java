@@ -4,7 +4,9 @@ import com.company.report.rule.application.RuleApplicationService;
 import com.company.report.shared.api.ApiResponse;
 import com.company.report.shared.api.PageResponse;
 import com.company.report.shared.security.RequiresPermission;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -249,6 +251,14 @@ public class RuleController {
                                                                      @PathVariable Long approvalRecordId,
                                                                      @RequestBody Map<String, Object> request) {
         return ApiResponse.success(service.submitApprovalSupplement(ruleId, approvalRecordId, request));
+    }
+
+    @RequiresPermission("rule:debug")
+    @PostMapping(value = "/{ruleId}/approval-records/{approvalRecordId}/supplement-attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<Map<String, Object>> uploadApprovalSupplementAttachment(@PathVariable Long ruleId,
+                                                                               @PathVariable Long approvalRecordId,
+                                                                               @RequestPart("file") MultipartFile file) {
+        return ApiResponse.success(service.uploadApprovalSupplementAttachment(ruleId, approvalRecordId, file));
     }
 
     @RequiresPermission("rule:debug")

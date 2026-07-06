@@ -498,6 +498,9 @@ describe('frontend API contracts', () => {
       comment: 'uploaded corrected evidence',
       evidenceUrl: 'minio://report-evidence/finance-rework.pdf'
     });
+    const supplementAttachment = new FormData();
+    supplementAttachment.append('file', new Blob(['invoice evidence'], { type: 'application/pdf' }), 'invoice-evidence.pdf');
+    ruleApi.uploadApprovalSupplementAttachment('12', '700', supplementAttachment);
     ruleApi.remindApprovalRecord('12', '700');
     ruleApi.batchHandleApprovalRecords({
       action: 'approve',
@@ -552,6 +555,9 @@ describe('frontend API contracts', () => {
     expect(apiClient.post).toHaveBeenCalledWith('/rules/12/approval-records/700/supplements', {
       comment: 'uploaded corrected evidence',
       evidenceUrl: 'minio://report-evidence/finance-rework.pdf'
+    });
+    expect(apiClient.post).toHaveBeenCalledWith('/rules/12/approval-records/700/supplement-attachments', supplementAttachment, {
+      headers: { 'Content-Type': 'multipart/form-data' }
     });
     expect(apiClient.post).toHaveBeenCalledWith('/rules/12/approval-records/700/reminders', {});
     expect(apiClient.post).toHaveBeenCalledWith('/rules/approval-records/batch-actions', {

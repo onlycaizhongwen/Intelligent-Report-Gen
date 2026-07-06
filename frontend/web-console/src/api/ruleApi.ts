@@ -180,6 +180,12 @@ export const ruleApi = {
   }) => apiClient.post(`/rules/${ruleId}/approval-records/${approvalRecordId}/supplements`, payload),
 
   /** OpenSpec: rule-engine / REQ-RULE-001 */
+  uploadApprovalSupplementAttachment: (ruleId: string, approvalRecordId: string, formData: FormData) =>
+    apiClient.post(`/rules/${ruleId}/approval-records/${approvalRecordId}/supplement-attachments`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    }),
+
+  /** OpenSpec: rule-engine / REQ-RULE-001 */
   remindApprovalRecord: (ruleId: string, approvalRecordId: string) =>
     apiClient.post(`/rules/${ruleId}/approval-records/${approvalRecordId}/reminders`, {}),
 

@@ -3,6 +3,7 @@ package com.company.report.rule.application;
 import com.company.report.audit.domain.model.OperationLog;
 import com.company.report.audit.domain.repository.AuditRepository;
 import com.company.report.citation.application.CollaborationApplicationService;
+import com.company.report.knowledge.infrastructure.storage.DocumentStorage;
 import com.company.report.notification.domain.model.SystemAlert;
 import com.company.report.notification.domain.repository.SystemAlertRepository;
 import com.company.report.permission.domain.model.UserAccount;
@@ -22,9 +23,11 @@ import com.company.report.shared.api.PageResponse;
 import com.company.report.shared.security.CurrentUserHolder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -37,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.LongSupplier;
 
 @Service
@@ -52,6 +56,7 @@ public class RuleApplicationService {
     private final Optional<CollaborationApplicationService> collaborationApplicationService;
     private final Optional<RuleWebhookClient> ruleWebhookClient;
     private final Optional<UserRepository> userRepository;
+    private final Optional<DocumentStorage> documentStorage;
     private final LongSupplier nanoTimeSource;
 
     @Autowired
@@ -61,8 +66,9 @@ public class RuleApplicationService {
                                   SystemAlertRepository systemAlertRepository,
                                   Optional<CollaborationApplicationService> collaborationApplicationService,
                                   Optional<RuleWebhookClient> ruleWebhookClient,
-                                  Optional<UserRepository> userRepository) {
-        this(domainService, ruleRepository, auditRepository, systemAlertRepository, collaborationApplicationService, ruleWebhookClient, userRepository, System::nanoTime);
+                                  Optional<UserRepository> userRepository,
+                                  Optional<DocumentStorage> documentStorage) {
+        this(domainService, ruleRepository, auditRepository, systemAlertRepository, collaborationApplicationService, ruleWebhookClient, userRepository, documentStorage, System::nanoTime);
     }
 
     public RuleApplicationService(RuleDomainService domainService,
@@ -70,7 +76,7 @@ public class RuleApplicationService {
                                   AuditRepository auditRepository,
                                   SystemAlertRepository systemAlertRepository,
                                   LongSupplier nanoTimeSource) {
-        this(domainService, ruleRepository, auditRepository, systemAlertRepository, Optional.empty(), Optional.empty(), Optional.empty(), nanoTimeSource);
+        this(domainService, ruleRepository, auditRepository, systemAlertRepository, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), nanoTimeSource);
     }
 
     private RuleApplicationService(RuleDomainService domainService,
@@ -80,6 +86,7 @@ public class RuleApplicationService {
                                    Optional<CollaborationApplicationService> collaborationApplicationService,
                                    Optional<RuleWebhookClient> ruleWebhookClient,
                                    Optional<UserRepository> userRepository,
+                                   Optional<DocumentStorage> documentStorage,
                                    LongSupplier nanoTimeSource) {
         this.domainService = domainService;
         this.ruleRepository = ruleRepository;
@@ -88,6 +95,7 @@ public class RuleApplicationService {
         this.collaborationApplicationService = collaborationApplicationService == null ? Optional.empty() : collaborationApplicationService;
         this.ruleWebhookClient = ruleWebhookClient == null ? Optional.empty() : ruleWebhookClient;
         this.userRepository = userRepository == null ? Optional.empty() : userRepository;
+        this.documentStorage = documentStorage == null ? Optional.empty() : documentStorage;
         this.nanoTimeSource = nanoTimeSource == null ? System::nanoTime : nanoTimeSource;
     }
 
@@ -96,7 +104,7 @@ public class RuleApplicationService {
                                   AuditRepository auditRepository,
                                   SystemAlertRepository systemAlertRepository,
                                   RuleWebhookClient ruleWebhookClient) {
-        this(domainService, ruleRepository, auditRepository, systemAlertRepository, Optional.empty(), Optional.ofNullable(ruleWebhookClient), Optional.empty());
+        this(domainService, ruleRepository, auditRepository, systemAlertRepository, Optional.empty(), Optional.ofNullable(ruleWebhookClient), Optional.empty(), Optional.empty());
     }
 
     public RuleApplicationService(RuleDomainService domainService,
@@ -104,7 +112,7 @@ public class RuleApplicationService {
                                   AuditRepository auditRepository,
                                   SystemAlertRepository systemAlertRepository,
                                   CollaborationApplicationService collaborationApplicationService) {
-        this(domainService, ruleRepository, auditRepository, systemAlertRepository, Optional.ofNullable(collaborationApplicationService), Optional.empty(), Optional.empty());
+        this(domainService, ruleRepository, auditRepository, systemAlertRepository, Optional.ofNullable(collaborationApplicationService), Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     public RuleApplicationService(RuleDomainService domainService,
@@ -112,14 +120,22 @@ public class RuleApplicationService {
                                   AuditRepository auditRepository,
                                   SystemAlertRepository systemAlertRepository,
                                   UserRepository userRepository) {
-        this(domainService, ruleRepository, auditRepository, systemAlertRepository, Optional.empty(), Optional.empty(), Optional.ofNullable(userRepository));
+        this(domainService, ruleRepository, auditRepository, systemAlertRepository, Optional.empty(), Optional.empty(), Optional.ofNullable(userRepository), Optional.empty());
+    }
+
+    public RuleApplicationService(RuleDomainService domainService,
+                                  RuleRepository ruleRepository,
+                                  AuditRepository auditRepository,
+                                  SystemAlertRepository systemAlertRepository,
+                                  DocumentStorage documentStorage) {
+        this(domainService, ruleRepository, auditRepository, systemAlertRepository, Optional.empty(), Optional.empty(), Optional.empty(), Optional.ofNullable(documentStorage));
     }
 
     public RuleApplicationService(RuleDomainService domainService,
                                   RuleRepository ruleRepository,
                                   AuditRepository auditRepository,
                                   SystemAlertRepository systemAlertRepository) {
-        this(domainService, ruleRepository, auditRepository, systemAlertRepository, Optional.empty(), Optional.empty(), Optional.empty());
+        this(domainService, ruleRepository, auditRepository, systemAlertRepository, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     public RuleApplicationService(RuleDomainService domainService, RuleRepository ruleRepository, AuditRepository auditRepository) {
@@ -849,6 +865,56 @@ public class RuleApplicationService {
         if (evidenceUrl != null && !evidenceUrl.isBlank()) {
             result.put("evidenceUrl", evidenceUrl);
         }
+        return result;
+    }
+
+    public Map<String, Object> uploadApprovalSupplementAttachment(Long ruleId, Long approvalRecordId, MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("supplement attachment file is required");
+        }
+        Rule rule = findRule(ruleId);
+        RuleApprovalRecord rejectedRecord = ruleRepository.findApprovalRecordById(approvalRecordId)
+                .orElseThrow(() -> new IllegalArgumentException("approval record not found: " + approvalRecordId));
+        if (!ruleId.equals(rejectedRecord.ruleId())) {
+            throw new IllegalArgumentException("approval record does not belong to rule: " + approvalRecordId);
+        }
+        if (!"rejected".equals(rejectedRecord.status())) {
+            throw new IllegalStateException("only rejected approval records can receive supplement attachments: " + approvalRecordId);
+        }
+        DocumentStorage storage = documentStorage
+                .orElseThrow(() -> new IllegalStateException("approval supplement storage is not configured"));
+        String safeFileName = safeApprovalSupplementFileName(file);
+        String objectKey = "approval-supplements/rule-" + ruleId
+                + "/approval-" + approvalRecordId
+                + "/" + UUID.randomUUID()
+                + "/" + safeFileName;
+        DocumentStorage.StoredObject storedObject;
+        try {
+            storedObject = storage.store(file, objectKey);
+        } catch (IOException error) {
+            throw new IllegalStateException("failed to store approval supplement attachment", error);
+        }
+        String evidenceUrl = "minio://" + storedObject.bucket() + "/" + storedObject.objectKey();
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("ruleId", ruleId);
+        result.put("approvalRecordId", approvalRecordId);
+        result.put("fileName", storedObject.fileName());
+        result.put("bucket", storedObject.bucket());
+        result.put("objectKey", storedObject.objectKey());
+        result.put("contentType", storedObject.contentType());
+        result.put("sizeBytes", storedObject.sizeBytes());
+        result.put("evidenceUrl", evidenceUrl);
+        writeAudit("rule_approval_supplement_attachment_uploaded", rule, "succeeded", auditDetail(
+                "approvalRecordId", approvalRecordId,
+                "runId", rejectedRecord.runId(),
+                "nodeId", rejectedRecord.nodeId(),
+                "fileName", storedObject.fileName(),
+                "bucket", storedObject.bucket(),
+                "objectKey", storedObject.objectKey(),
+                "contentType", storedObject.contentType(),
+                "sizeBytes", storedObject.sizeBytes(),
+                "evidenceUrl", evidenceUrl
+        ));
         return result;
     }
 
@@ -2537,6 +2603,20 @@ public class RuleApplicationService {
 
     private static String string(Object value) {
         return value == null ? null : String.valueOf(value);
+    }
+
+    private static String safeApprovalSupplementFileName(MultipartFile file) {
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null || originalFilename.isBlank()) {
+            return "unknown";
+        }
+        String normalized = originalFilename.replace("\\", "/");
+        int slashIndex = normalized.lastIndexOf('/');
+        if (slashIndex >= 0) {
+            normalized = normalized.substring(slashIndex + 1);
+        }
+        normalized = normalized.trim().replaceAll("\\s+", "-").replaceAll("[^A-Za-z0-9._-]", "-");
+        return normalized.isBlank() ? "unknown" : normalized;
     }
 
     private static String hmacSha256Hex(String secret, String payload) {

@@ -314,6 +314,8 @@ test.describe('Approval inbox E2E', () => {
 
   test('submits supplement from rejected approval history and refreshes pending approval', async ({ page }) => {
     let supplementPayload: Record<string, unknown> | null = null;
+    let uploadedContentType = '';
+    let uploadedBodyLength = 0;
     let approvalRecordsByStatus: Record<string, Array<Record<string, unknown>>> = {
       pending: [],
       approved: [],
@@ -360,6 +362,25 @@ test.describe('Approval inbox E2E', () => {
             page: 1,
             pageSize: 20,
             total: items.length
+          }
+        }
+      });
+    });
+
+    await page.route('**/api/v1/rules/52/approval-records/903/supplement-attachments', async (route) => {
+      uploadedContentType = route.request().headers()['content-type'] ?? '';
+      uploadedBodyLength = (route.request().postDataBuffer() ?? Buffer.from('')).length;
+      await route.fulfill({
+        json: {
+          code: 200,
+          message: 'ok',
+          data: {
+            ruleId: 52,
+            approvalRecordId: 903,
+            fileName: 'invoice-package.pdf',
+            bucket: 'approval-supplements',
+            objectKey: 'rule-52/approval-903/invoice-package.pdf',
+            evidenceUrl: 'minio://approval-supplements/rule-52/approval-903/invoice-package.pdf'
           }
         }
       });
@@ -417,13 +438,20 @@ test.describe('Approval inbox E2E', () => {
     });
     await expect(rejectedCard).toBeVisible();
     await rejectedCard.getByLabel('Supplement comment').fill('uploaded corrected invoice package');
-    await rejectedCard.getByLabel('Supplement evidence URL').fill('minio://approval-evidence/invoice-package.pdf');
+    await rejectedCard.getByLabel('Supplement attachment').setInputFiles({
+      name: 'invoice-package.pdf',
+      mimeType: 'application/pdf',
+      buffer: Buffer.from('corrected invoice package')
+    });
+    await expect(rejectedCard.getByText('invoice-package.pdf')).toBeVisible();
     await rejectedCard.getByRole('button', { name: 'Submit supplement' }).click();
 
     await expect(page.getByText('Supplement submitted and approval returned to pending review.')).toBeVisible();
+    expect(uploadedContentType).toContain('multipart/form-data');
+    expect(uploadedBodyLength).toBeGreaterThan(0);
     expect(supplementPayload).toMatchObject({
       comment: 'uploaded corrected invoice package',
-      evidenceUrl: 'minio://approval-evidence/invoice-package.pdf'
+      evidenceUrl: 'minio://approval-supplements/rule-52/approval-903/invoice-package.pdf'
     });
 
     await page.getByRole('button', { name: 'Pending' }).click();

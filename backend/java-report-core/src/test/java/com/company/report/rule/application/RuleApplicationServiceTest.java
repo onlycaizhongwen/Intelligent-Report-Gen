@@ -4,6 +4,7 @@ import com.company.report.audit.domain.model.OperationLog;
 import com.company.report.audit.domain.repository.AuditRepository;
 import com.company.report.citation.application.CollaborationApplicationService;
 import com.company.report.citation.infrastructure.persistence.InMemoryCollaborationRepository;
+import com.company.report.knowledge.infrastructure.storage.DocumentStorage;
 import com.company.report.notification.domain.model.SystemAlert;
 import com.company.report.notification.domain.repository.SystemAlertRepository;
 import com.company.report.permission.domain.model.UserAccount;
@@ -23,7 +24,9 @@ import com.company.report.shared.security.CurrentUserHolder;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockMultipartFile;
 
+import java.io.IOException;
 import java.time.OffsetDateTime;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -895,6 +898,69 @@ class RuleApplicationServiceTest {
                         .containsEntry("sourceRejectedApprovalRecordId", firstApprovalRecordId)
                         .containsEntry("newApprovalRecordId", newApprovalRecordId)
                         .containsEntry("evidenceUrl", "minio://reports/invoice-001.pdf"));
+    }
+
+    @Test
+    void uploadsApprovalSupplementAttachmentToRuleScopedStorageAndWritesAudit() {
+        InMemoryRuleRepository ruleRepository = new InMemoryRuleRepository();
+        InMemoryAuditRepository auditRepository = new InMemoryAuditRepository();
+        FakeApprovalSupplementStorage storage = new FakeApprovalSupplementStorage();
+        RuleApplicationService approvalService = new RuleApplicationService(
+                new RuleDomainService(),
+                ruleRepository,
+                auditRepository,
+                new FakeSystemAlertRepository(),
+                storage
+        );
+        Map<String, Object> definition = Map.of(
+                "nodes", java.util.List.of(
+                        Map.of("id", "start", "type", "start"),
+                        Map.of("id", "financeApproval", "type", "approval", "assigneeRole", "finance_manager", "approvalTitle", "Finance review"),
+                        Map.of("id", "end", "type", "end")
+                ),
+                "edges", java.util.List.of(
+                        Map.of("source", "start", "target", "financeApproval"),
+                        Map.of("source", "financeApproval", "target", "end")
+                )
+        );
+        Long ruleId = publishRule(approvalService, "Supplement attachment approval rule", definition);
+        approvalService.execute(ruleId, Map.of("sample", Map.of("riskScore", 91)));
+        Long approvalRecordId = ((Number) approvalService.listApprovalRecords(ruleId, 1, 10)
+                .items()
+                .get(0)
+                .get("approvalRecordId")).longValue();
+        approvalService.handleApprovalRecord(ruleId, approvalRecordId, Map.of(
+                "action", "reject",
+                "comment", "missing invoice"
+        ));
+
+        Map<String, Object> uploaded = approvalService.uploadApprovalSupplementAttachment(
+                ruleId,
+                approvalRecordId,
+                new MockMultipartFile("file", "invoice package.pdf", "application/pdf", "invoice evidence".getBytes())
+        );
+
+        assertThat(uploaded)
+                .containsEntry("ruleId", ruleId)
+                .containsEntry("approvalRecordId", approvalRecordId)
+                .containsEntry("fileName", "invoice package.pdf")
+                .containsEntry("bucket", "approval-supplements")
+                .containsEntry("contentType", "application/pdf")
+                .containsEntry("sizeBytes", 16L);
+        assertThat(uploaded.get("objectKey").toString())
+                .startsWith("approval-supplements/rule-" + ruleId + "/approval-" + approvalRecordId + "/")
+                .endsWith("/invoice-package.pdf");
+        assertThat(uploaded)
+                .containsEntry("evidenceUrl", "minio://approval-supplements/" + uploaded.get("objectKey"));
+        assertThat(storage.objectKey)
+                .isEqualTo(uploaded.get("objectKey"));
+        assertThat(auditRepository.logs)
+                .filteredOn(log -> "rule_approval_supplement_attachment_uploaded".equals(log.operationType()))
+                .singleElement()
+                .satisfies(log -> assertThat(log.detail())
+                        .containsEntry("approvalRecordId", approvalRecordId)
+                        .containsEntry("fileName", "invoice package.pdf")
+                        .containsEntry("evidenceUrl", uploaded.get("evidenceUrl")));
     }
 
     @Test
@@ -5014,6 +5080,16 @@ class RuleApplicationServiceTest {
                     .filter(log -> operationType != null && operationType.equals(log.operationType()))
                     .filter(log -> detailValue != null && detailValue.equals(String.valueOf((log.detail() == null ? Map.of() : log.detail()).get(detailKey))))
                     .toList();
+        }
+    }
+
+    private static class FakeApprovalSupplementStorage implements DocumentStorage {
+        private String objectKey;
+
+        @Override
+        public StoredObject store(org.springframework.web.multipart.MultipartFile file, String objectKey) throws IOException {
+            this.objectKey = objectKey;
+            return new StoredObject("approval-supplements", objectKey, file.getOriginalFilename(), file.getContentType(), file.getSize());
         }
     }
 

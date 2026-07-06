@@ -729,6 +729,8 @@ class ContractSurfaceTest {
 
         assertThat(ruleController).contains("@RequiresPermission(\"rule:debug\")\n    @PostMapping(\"/{ruleId}/approval-records/{approvalRecordId}/actions\")");
         assertThat(ruleController).contains("@RequiresPermission(\"rule:debug\")\n    @PostMapping(\"/{ruleId}/approval-records/{approvalRecordId}/supplements\")");
+        assertThat(ruleController).contains("@RequiresPermission(\"rule:debug\")\n    @PostMapping(value = \"/{ruleId}/approval-records/{approvalRecordId}/supplement-attachments\", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)");
+        assertThat(ruleController).contains("uploadApprovalSupplementAttachment(ruleId, approvalRecordId, file)");
         assertThat(ruleController).contains("@RequiresPermission(\"rule:debug\")\n    @PostMapping(\"/{ruleId}/approval-records/{approvalRecordId}/reminders\")");
         assertThat(ruleController).contains("@RequiresPermission(\"rule:debug\")\n    @PostMapping(\"/approval-records/batch-actions\")");
         assertThat(ruleController).contains("submitApprovalSupplement(ruleId, approvalRecordId, request)");
