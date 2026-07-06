@@ -171,6 +171,187 @@ export function buildHigressRepresentativeAuthorizationMatrixChecks({
   });
 }
 
+export function buildHigressPermissionCatalogAuthorizationChecks({
+  gatewayBaseUrl = 'http://127.0.0.1:18000',
+  jwtSecret = 'local-dev-secret-change-me-32-bytes-minimum',
+} = {}) {
+  const baseUrl = gatewayBaseUrl.replace(/\/$/, '');
+  const surfaces = [
+    {
+      key: 'report-create',
+      path: '/api/v1/report-templates',
+      permission: 'report:create',
+      authorizedStatus: 200,
+      authorizedCode: 200,
+    },
+    {
+      key: 'report-read',
+      path: '/api/v1/reports?page=1&pageSize=1',
+      permission: 'report:read',
+      authorizedStatus: 200,
+      authorizedCode: 200,
+    },
+    {
+      key: 'report-export',
+      path: '/api/v1/files/report-exports/999999999/download-url',
+      permission: 'report:export',
+      authorizedStatus: 404,
+      authorizedCode: 404,
+      bodyIncludes: 'report export file not found',
+    },
+    {
+      key: 'report-template-manage',
+      path: '/api/v1/enterprise-export-templates?page=1&pageSize=1',
+      permission: 'report:template:manage',
+      authorizedStatus: 200,
+      authorizedCode: 200,
+    },
+    {
+      key: 'report-share',
+      path: '/api/v1/reports/999999999/share-links',
+      method: 'POST',
+      permission: 'report:share',
+      authorizedStatus: 404,
+      authorizedCode: 404,
+      body: JSON.stringify({ expiresInDays: 1 }),
+      bodyIncludes: 'report not found',
+    },
+    {
+      key: 'collaboration-write',
+      path: '/api/v1/tasks/999999999/status',
+      method: 'PUT',
+      permission: 'collaboration:write',
+      authorizedStatus: 404,
+      authorizedCode: 404,
+      body: JSON.stringify({ status: 'completed' }),
+      bodyIncludes: 'task not found',
+    },
+    {
+      key: 'knowledge-manage',
+      path: '/api/v1/knowledge-bases?page=1&pageSize=1',
+      permission: 'knowledge:manage',
+      authorizedStatus: 200,
+      authorizedCode: 200,
+    },
+    {
+      key: 'knowledge-upload',
+      path: '/api/v1/documents/999999999',
+      permission: 'knowledge:upload',
+      authorizedStatus: 404,
+      authorizedCode: 404,
+      bodyIncludes: 'document not found',
+    },
+    {
+      key: 'datasource-manage',
+      path: '/api/v1/data-sources/presets',
+      permission: 'datasource:manage',
+      authorizedStatus: 200,
+      authorizedCode: 200,
+    },
+    {
+      key: 'rule-manage',
+      path: '/api/v1/rules?page=1&pageSize=1',
+      permission: 'rule:manage',
+      authorizedStatus: 200,
+      authorizedCode: 200,
+    },
+    {
+      key: 'rule-debug',
+      path: '/api/v1/rules/999999999/runs?page=1&pageSize=1',
+      permission: 'rule:debug',
+      authorizedStatus: 404,
+      authorizedCode: 404,
+      bodyIncludes: 'rule not found',
+    },
+    {
+      key: 'audit-read',
+      path: '/api/v1/audit-logs?page=1&pageSize=1',
+      permission: 'audit:read',
+      authorizedStatus: 200,
+      authorizedCode: 200,
+    },
+    {
+      key: 'dashboard-read',
+      path: '/api/v1/dashboard/overview?range=last7days',
+      permission: 'dashboard:read',
+      authorizedStatus: 200,
+      authorizedCode: 200,
+    },
+    {
+      key: 'notification-read',
+      path: '/api/v1/system-alerts?page=1&pageSize=1',
+      permission: 'notification:read',
+      authorizedStatus: 200,
+      authorizedCode: 200,
+    },
+    {
+      key: 'permission-read',
+      path: '/api/v1/roles/permission-matrix',
+      permission: 'permission:read',
+      authorizedStatus: 200,
+      authorizedCode: 200,
+      bodyIncludes: '"permission:read"',
+    },
+    {
+      key: 'user-manage',
+      path: '/api/v1/users?page=1&pageSize=1',
+      permission: 'user:manage',
+      authorizedStatus: 200,
+      authorizedCode: 200,
+    },
+  ];
+
+  return surfaces.flatMap((surface, index) => {
+    const insufficientToken = buildGatewaySecurityJwt({
+      secret: jwtSecret,
+      userId: 960 + index,
+      roles: ['viewer'],
+      permissions: [],
+    });
+    const allowedToken = buildGatewaySecurityJwt({
+      secret: jwtSecret,
+      userId: 980 + index,
+      roles: ['permission_catalog_probe'],
+      permissions: [surface.permission],
+    });
+    const contentHeaders = surface.body == null ? {} : { 'Content-Type': 'application/json' };
+    const url = `${baseUrl}${surface.path}`;
+    return [
+      {
+        name: `catalog-${surface.key}-missing-token-through-higress`,
+        permission: surface.permission,
+        url,
+        method: surface.method,
+        expectedStatus: 401,
+        expectedCode: 401,
+        headers: contentHeaders,
+        body: surface.body,
+      },
+      {
+        name: `catalog-${surface.key}-insufficient-permission-through-higress`,
+        permission: surface.permission,
+        url,
+        method: surface.method,
+        expectedStatus: 403,
+        expectedCode: 403,
+        headers: { Authorization: `Bearer ${insufficientToken}`, ...contentHeaders },
+        body: surface.body,
+      },
+      {
+        name: `catalog-${surface.key}-authorized-through-higress`,
+        permission: surface.permission,
+        url,
+        method: surface.method,
+        expectedStatus: surface.authorizedStatus,
+        expectedCode: surface.authorizedCode,
+        headers: { Authorization: `Bearer ${allowedToken}`, ...contentHeaders },
+        body: surface.body,
+        bodyIncludes: surface.bodyIncludes,
+      },
+    ];
+  });
+}
+
 export function buildHigressDataSourceSecurityChecks({
   gatewayBaseUrl = 'http://127.0.0.1:18000',
   jwtSecret = 'local-dev-secret-change-me-32-bytes-minimum',
@@ -304,6 +485,7 @@ export async function runHigressGatewaySmoke({
     ...buildHigressGatewaySmokeChecks({ gatewayBaseUrl }),
     ...buildHigressEndpointSecurityChecks({ gatewayBaseUrl, jwtSecret }),
     ...buildHigressRepresentativeAuthorizationMatrixChecks({ gatewayBaseUrl, jwtSecret }),
+    ...buildHigressPermissionCatalogAuthorizationChecks({ gatewayBaseUrl, jwtSecret }),
     ...buildHigressDataSourceSecurityChecks({ gatewayBaseUrl, jwtSecret }),
   ];
   const results = [];

@@ -6,6 +6,7 @@ import {
   buildGatewaySecurityJwt,
   buildHigressEndpointSecurityChecks,
   buildHigressGatewaySmokeChecks,
+  buildHigressPermissionCatalogAuthorizationChecks,
   buildHigressRepresentativeAuthorizationMatrixChecks,
   classifyGatewayResponse,
 } from '../../../scripts/higress-gateway-smoke-lib.mjs';
@@ -153,4 +154,48 @@ test('buildHigressRepresentativeAuthorizationMatrixChecks covers core modules', 
   assert.equal(checks[14].url, 'http://127.0.0.1:28000/api/v1/dashboard/overview?range=last7days');
   assert.match(checks[2].headers.Authorization, /^Bearer /);
   assert.match(checks[17].headers.Authorization, /^Bearer /);
+});
+
+test('buildHigressPermissionCatalogAuthorizationChecks covers every RBAC catalog permission', () => {
+  const checks = buildHigressPermissionCatalogAuthorizationChecks({
+    gatewayBaseUrl: 'http://127.0.0.1:28000',
+    jwtSecret: 'local-dev-secret-change-me-32-bytes-minimum',
+  });
+
+  const permissions = new Set(checks.map((check) => check.permission));
+  assert.deepEqual(
+    [...permissions].sort(),
+    [
+      'audit:read',
+      'collaboration:write',
+      'dashboard:read',
+      'datasource:manage',
+      'knowledge:manage',
+      'knowledge:upload',
+      'notification:read',
+      'permission:read',
+      'report:create',
+      'report:export',
+      'report:read',
+      'report:share',
+      'report:template:manage',
+      'rule:debug',
+      'rule:manage',
+      'user:manage',
+    ],
+  );
+
+  for (const permission of permissions) {
+    const permissionChecks = checks.filter((check) => check.permission === permission);
+    assert.equal(permissionChecks.length, 3, `${permission} should have 401/403/authorized checks`);
+    assert.equal(permissionChecks[0].expectedStatus, 401);
+    assert.equal(permissionChecks[1].expectedStatus, 403);
+    assert.match(permissionChecks[1].headers.Authorization, /^Bearer /);
+    assert.match(permissionChecks[2].headers.Authorization, /^Bearer /);
+  }
+
+  assert.equal(checks.length, 48);
+  assert.equal(checks.find((check) => check.name === 'catalog-report-create-authorized-through-higress')?.url, 'http://127.0.0.1:28000/api/v1/report-templates');
+  assert.equal(checks.find((check) => check.name === 'catalog-knowledge-upload-authorized-through-higress')?.url, 'http://127.0.0.1:28000/api/v1/documents/999999999');
+  assert.equal(checks.find((check) => check.name === 'catalog-rule-debug-authorized-through-higress')?.url, 'http://127.0.0.1:28000/api/v1/rules/999999999/runs?page=1&pageSize=1');
 });
