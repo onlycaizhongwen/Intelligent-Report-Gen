@@ -245,6 +245,86 @@ test.describe('Real backend approval inbox E2E', () => {
     await expect(firstApprovedCard.getByText('Comment approved in batch')).toBeVisible();
     await expect(secondApprovedCard.getByText('Comment approved in batch')).toBeVisible();
   });
+
+  test('REQ-RULE-001: approval supplement attachment upload returns MinIO evidence URL on real backend', async ({ page }) => {
+    const token = await generateJwt({
+      sub: '9207',
+      roles: ['ADMIN'],
+      permissions: ['rule:manage', 'rule:debug'],
+      status: 'enabled',
+    });
+    const api = await request.newContext({
+      baseURL: apiBaseUrl,
+      extraHTTPHeaders: { Authorization: `Bearer ${token}` },
+    });
+
+    const uniqueSeed = Date.now();
+    const approvalTitle = `Supplement attachment upload ${uniqueSeed}`;
+    const ruleId = await createApprovedRunnableRule(
+      api,
+      `Approval supplement upload ${uniqueSeed}`,
+      createApprovalDefinition(approvalTitle, 'finance_manager'),
+    );
+
+    let uploadEvidenceUrl = '';
+    const uploadResponsePromise = page.waitForResponse(async (response) => {
+      if (!response.url().includes(`/api/v1/rules/${ruleId}/approval-records/`)
+        || !response.url().includes('/supplement-attachments')
+        || response.request().method() !== 'POST') {
+        return false;
+      }
+      const body = await response.json() as { data?: { evidenceUrl?: string } };
+      uploadEvidenceUrl = body.data?.evidenceUrl ?? '';
+      return response.ok() && uploadEvidenceUrl.startsWith('minio://');
+    });
+
+    await page.addInitScript((accessToken) => {
+      window.localStorage.setItem('accessToken', accessToken);
+    }, token);
+
+    await page.goto('/rules/approvals');
+    await expect(page.getByRole('heading', { name: 'Approval Inbox' })).toBeVisible();
+    const pendingCard = page.locator('.approval-card').filter({
+      has: page.getByText(approvalTitle),
+    });
+    await expect(pendingCard).toBeVisible();
+    await expect(pendingCard.getByText(`Rule #${ruleId}`)).toBeVisible();
+
+    await pendingCard.getByRole('button', { name: 'Reject' }).click();
+    await expect(page.getByText('Approval rejected. Submit updated materials before running again.')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Rejected' }).click();
+    const rejectedCard = page.locator('.approval-card').filter({
+      has: page.getByText(approvalTitle),
+    });
+    await expect(rejectedCard).toBeVisible();
+    await rejectedCard.getByLabel('Supplement comment').fill('uploaded real invoice evidence');
+    await rejectedCard.getByLabel('Supplement attachment').setInputFiles({
+      name: 'invoice-evidence.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from(`invoice evidence ${uniqueSeed}`),
+    });
+    await uploadResponsePromise;
+    expect(uploadEvidenceUrl).toContain(`/rule-${ruleId}/`);
+    await expect(rejectedCard.getByText('invoice-evidence.txt')).toBeVisible();
+
+    await rejectedCard.getByRole('button', { name: 'Submit supplement' }).click();
+    await expect(page.getByText('Supplement submitted and approval returned to pending review.')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Pending' }).click();
+    const resubmittedPendingCard = page.locator('.approval-card').filter({
+      has: page.getByText(approvalTitle),
+    });
+    await expect(resubmittedPendingCard).toBeVisible();
+    await expect(resubmittedPendingCard.getByText('Status pending')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Resubmitted' }).click();
+    const resubmittedHistoryCard = page.locator('.approval-card').filter({
+      has: page.getByText(approvalTitle),
+    });
+    await expect(resubmittedHistoryCard).toBeVisible();
+    await expect(resubmittedHistoryCard.getByText('Comment uploaded real invoice evidence')).toBeVisible();
+  });
 });
 
 function apiUrl(path: string) {

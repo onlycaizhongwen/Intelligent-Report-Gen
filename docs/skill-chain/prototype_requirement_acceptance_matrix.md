@@ -996,3 +996,11 @@
 - Code evidence: `RuleController.java`, `RuleApplicationService.java`, `ApprovalInbox.vue`, `ruleApi.ts`, `approval-inbox.spec.ts`, `apiContracts.test.ts`, `ContractSurfaceTest.java`, `RuleApplicationServiceTest.java`, and `docs/skill-chain/delivery_closure_296_uc08_approval_supplement_attachment_upload.md`.
 - Verification evidence: frontend API contract passed `30/30`; backend contract/service upload tests passed `2/2`; `npm run typecheck` passed; Playwright `approval-inbox.spec.ts -g "submits supplement"` passed `1/1`.
 - Remaining gaps: real MinIO smoke for this exact endpoint, Higress-routed upload browser acceptance, and enterprise attachment policy hardening remain open.
+
+### 2026-07-06 UC-08 approval supplement upload smoke harness progress
+
+- Scope: `REQ-RULE-001`, `UC-08`, direct Java/MinIO and Higress-routed approval supplement upload acceptance.
+- Result: P3 smoke now includes direct Java and Higress entries for the exact supplement attachment upload path, and the real-backend browser spec has an acceptance that verifies a `minio://` evidence URL before supplement resubmission.
+- Code evidence: `scripts/p3-local-smoke-lib.mjs`, `tests/unit/node/p3_local_smoke_bundle.test.mjs`, `frontend/web-console/tests/e2e/approval-inbox-real-backend.spec.ts`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_progress_20260706_uc08_approval_supplement_upload_smoke_harness.md`.
+- Verification evidence: P3 smoke bundle unit test passed `1/1`; frontend typecheck passed; API structured contract coverage passed `1/1`.
+- Runtime status: local Docker daemon was not running, so explicit real-backend execution failed at `ECONNREFUSED 127.0.0.1:18082`; direct Java/MinIO and Higress runtime acceptance remains pending until local services are back up.

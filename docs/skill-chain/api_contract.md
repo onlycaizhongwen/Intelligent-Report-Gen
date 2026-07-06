@@ -3524,6 +3524,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 | `GET /api/v1/rules/approval-records` | `rule-engine` | `rule:debug` | 查询全局审批记录 | 待办中心数据 |
 | `POST /api/v1/rules/{ruleId}/approval-records/{approvalRecordId}/actions` | `rule-engine` | `rule:debug` | 提交审批动作 | approve/reject 等动作 |
 | `POST /api/v1/rules/{ruleId}/approval-records/{approvalRecordId}/supplements` | `rule-engine` | `rule:debug` | 补充审批材料 | 审批补充闭环 |
+| `POST /api/v1/rules/{ruleId}/approval-records/{approvalRecordId}/supplement-attachments` | `rule-engine` | `rule:debug` | 上传审批补充附件 | MinIO 证据材料 |
 | `POST /api/v1/rules/{ruleId}/approval-records/{approvalRecordId}/reminders` | `rule-engine` | `rule:debug` | 发送审批提醒 | SLA 与提醒能力 |
 | `POST /api/v1/rules/approval-records/batch-actions` | `rule-engine` | `rule:debug` | 批量处理审批记录 | 批量审批 |
 | `GET /api/v1/rules/{ruleId}/action-executions` | `rule-engine` | `rule:debug` | 查询动作执行记录 | Webhook/动作排障 |
@@ -5038,6 +5039,118 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       401,
       403,
       404
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/rules/{ruleId}/approval-records/{approvalRecordId}/supplement-attachments",
+    "description": "上传审批补充附件",
+    "module": "rule-engine",
+    "securityIntent": "rule:debug",
+    "contentType": "multipart/form-data",
+    "pathParams": {
+      "ruleId": {
+        "type": "string",
+        "required": true,
+        "description": "ruleId path parameter"
+      },
+      "approvalRecordId": {
+        "type": "string",
+        "required": true,
+        "description": "approvalRecordId path parameter"
+      }
+    },
+    "queryParams": {},
+    "headers": {
+      "Authorization": {
+        "type": "string",
+        "required": true,
+        "description": "Bearer JWT"
+      },
+      "Content-Type": {
+        "type": "string",
+        "required": true,
+        "description": "multipart/form-data"
+      }
+    },
+    "requestBody": {
+      "file": {
+        "type": "binary",
+        "required": true,
+        "description": "supplement attachment file"
+      }
+    },
+    "responseBody": {
+      "code": {
+        "type": "integer",
+        "required": true,
+        "description": "response code"
+      },
+      "message": {
+        "type": "string",
+        "required": true,
+        "description": "response message"
+      },
+      "data": {
+        "type": "object",
+        "required": true,
+        "description": "stored supplement attachment metadata",
+        "properties": {
+          "ruleId": {
+            "type": "integer",
+            "required": true,
+            "description": "rule id"
+          },
+          "approvalRecordId": {
+            "type": "integer",
+            "required": true,
+            "description": "approval record id"
+          },
+          "fileName": {
+            "type": "string",
+            "required": true,
+            "description": "original uploaded file name"
+          },
+          "bucket": {
+            "type": "string",
+            "required": true,
+            "description": "object storage bucket"
+          },
+          "objectKey": {
+            "type": "string",
+            "required": true,
+            "description": "object storage key"
+          },
+          "contentType": {
+            "type": "string",
+            "required": true,
+            "description": "uploaded content type"
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "required": true,
+            "description": "uploaded file size"
+          },
+          "evidenceUrl": {
+            "type": "string",
+            "required": true,
+            "description": "minio evidence URL for supplement submission"
+          }
+        }
+      },
+      "timestamp": {
+        "type": "string",
+        "required": true,
+        "description": "response timestamp"
+      }
+    },
+    "statusCodes": [
+      200,
+      400,
+      401,
+      403,
+      404,
+      500
     ]
   },
   {

@@ -8,7 +8,7 @@ import {
 test('buildP3SmokeSteps returns the expected UC-13, UC-07 and UC-08 command sequence', () => {
   const steps = buildP3SmokeSteps();
 
-  assert.equal(steps.length, 7);
+  assert.equal(steps.length, 9);
 
   assert.equal(steps[0].name, 'uc13-real-backend-e2e');
   assert.equal(steps[0].command, 'npm');
@@ -105,4 +105,34 @@ test('buildP3SmokeSteps returns the expected UC-13, UC-07 and UC-08 command sequ
   assert.equal(steps[6].env.RUN_REAL_BACKEND_E2E, 'true');
   assert.equal(steps[6].env.REAL_BACKEND_API_BASE_URL, 'http://127.0.0.1:18082/api/v1');
   assert.equal(steps[6].env.REAL_BACKEND_ORIGIN, 'http://127.0.0.1:18082');
+
+  assert.equal(steps[7].name, 'uc08-approval-supplement-upload-real-backend-e2e');
+  assert.equal(steps[7].command, 'npm');
+  assert.deepEqual(steps[7].args, [
+    'run',
+    'e2e:real-backend',
+    '--',
+    'tests/e2e/approval-inbox-real-backend.spec.ts',
+    '-g',
+    'approval supplement attachment upload',
+  ]);
+  assert.equal(steps[7].workdir, 'frontend/web-console');
+  assert.equal(steps[7].env.RUN_REAL_BACKEND_E2E, 'true');
+  assert.equal(steps[7].env.REAL_BACKEND_API_BASE_URL, 'http://127.0.0.1:18082/api/v1');
+  assert.equal(steps[7].env.REAL_BACKEND_ORIGIN, 'http://127.0.0.1:18082');
+
+  assert.equal(steps[8].name, 'uc08-approval-supplement-upload-higress-e2e');
+  assert.equal(steps[8].command, 'npm');
+  assert.deepEqual(steps[8].args, [
+    'run',
+    'e2e:real-backend',
+    '--',
+    'tests/e2e/approval-inbox-real-backend.spec.ts',
+    '-g',
+    'approval supplement attachment upload',
+  ]);
+  assert.equal(steps[8].workdir, 'frontend/web-console');
+  assert.equal(steps[8].env.RUN_REAL_BACKEND_E2E, 'true');
+  assert.equal(steps[8].env.REAL_BACKEND_API_BASE_URL, 'http://127.0.0.1:18000/api/v1');
+  assert.equal(steps[8].env.REAL_BACKEND_ORIGIN, 'http://127.0.0.1:18000');
 });

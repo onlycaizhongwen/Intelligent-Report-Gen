@@ -120,5 +120,41 @@ export function buildP3SmokeSteps({
         REAL_BACKEND_ORIGIN: realBackendOrigin,
       },
     },
+    {
+      name: 'uc08-approval-supplement-upload-real-backend-e2e',
+      command: 'npm',
+      args: [
+        'run',
+        'e2e:real-backend',
+        '--',
+        'tests/e2e/approval-inbox-real-backend.spec.ts',
+        '-g',
+        'approval supplement attachment upload',
+      ],
+      workdir: 'frontend/web-console',
+      env: {
+        RUN_REAL_BACKEND_E2E: 'true',
+        REAL_BACKEND_API_BASE_URL: realBackendApiBaseUrl,
+        REAL_BACKEND_ORIGIN: realBackendOrigin,
+      },
+    },
+    {
+      name: 'uc08-approval-supplement-upload-higress-e2e',
+      command: 'npm',
+      args: [
+        'run',
+        'e2e:real-backend',
+        '--',
+        'tests/e2e/approval-inbox-real-backend.spec.ts',
+        '-g',
+        'approval supplement attachment upload',
+      ],
+      workdir: 'frontend/web-console',
+      env: {
+        RUN_REAL_BACKEND_E2E: 'true',
+        REAL_BACKEND_API_BASE_URL: 'http://127.0.0.1:18000/api/v1',
+        REAL_BACKEND_ORIGIN: 'http://127.0.0.1:18000',
+      },
+    },
   ];
 }
