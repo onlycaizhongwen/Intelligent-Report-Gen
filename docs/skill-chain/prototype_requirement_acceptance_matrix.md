@@ -3,6 +3,8 @@
 > 楠屾敹鍘熷垯锛氭帴鍙ｅ瓨鍦ㄣ€侀〉闈㈠瓨鍦ㄣ€佹祴璇曢鏋跺瓨鍦ㄩ兘涓嶇瓑浜庝氦浠樺畬鎴愶紱蹇呴』鑳芥寜鍘熷瀷鏃呯▼璺戦€氫笟鍔￠棴鐜紝骞剁暀涓嬫暟鎹簱銆佸璞″瓨鍌ㄣ€佺綉鍏炽€佸璁℃垨绔埌绔祴璇曡瘉鎹€?
 ## Recent Closure Evidence
 
+- 2026-07-06 Closure 323: UC-08 approval supplement upload runtime re-smoke for `REQ-RULE-001`. Local Docker dependencies were observed running (`ir-java-smoke`, `ir-higress`, `ir-postgres`, `ir-minio`, `ir-milvus`, `ir-opensearch`, Redis, RocketMQ); Java was repackaged from the latest source and `ir-java-smoke` was replaced with a jar-refreshed image without pulling new infrastructure. Direct Java browser upload and Higress-routed browser upload both passed `1/1`, confirming the supplement attachment path returns a MinIO evidence URL through both runtime boundaries. See `docs/skill-chain/delivery_closure_323_uc08_approval_supplement_upload_runtime_resmoke.md`.
+
 - 2026-07-06 Closure 322: UC-08 approval supplement attachment configurable policy for `REQ-RULE-001`. Java now binds the supplement upload policy from `rule.approval.supplement-attachment.*` / `RULE_APPROVAL_SUPPLEMENT_ATTACHMENT_*`, keeps the 10 MiB evidence-file defaults, and records the effective `maxSizeBytes` and allowed content-type policy in rejection audits before any MinIO write. Verification: RED targeted configurable-policy tests first failed because `RuleApprovalSupplementAttachmentPolicy` was absent from service behavior; GREEN configurable-policy tests passed `2/2`; default + configurable policy regression passed `4/4`; full `RuleApplicationServiceTest` passed `93/93`; structured contract test passed `1/1`; prod profile context passed `1/1`; P3 local smoke bundle unit passed `1/1`. See `docs/skill-chain/delivery_closure_322_uc08_approval_supplement_attachment_configurable_policy.md`.
 
 - 2026-07-06 Closure 321: UC-08 approval supplement attachment policy hardening for `REQ-RULE-001`. Java now rejects supplement uploads above 10 MiB or outside the approved evidence content types before MinIO storage, writes `rule_approval_supplement_attachment_rejected` audit evidence with `rejectionReason`, and preserves the existing successful upload path. Verification: RED targeted service tests first failed because oversized and unsupported files were accepted; GREEN passed the two policy tests and the full `RuleApplicationServiceTest` regression. See `docs/skill-chain/delivery_closure_321_uc08_approval_supplement_attachment_policy.md`.
@@ -1017,7 +1019,7 @@
 - Result: P3 smoke now includes direct Java and Higress entries for the exact supplement attachment upload path, and the real-backend browser spec has an acceptance that verifies a `minio://` evidence URL before supplement resubmission.
 - Code evidence: `scripts/p3-local-smoke-lib.mjs`, `tests/unit/node/p3_local_smoke_bundle.test.mjs`, `frontend/web-console/tests/e2e/approval-inbox-real-backend.spec.ts`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_progress_20260706_uc08_approval_supplement_upload_smoke_harness.md`.
 - Verification evidence: P3 smoke bundle unit test passed `1/1`; frontend typecheck passed; API structured contract coverage passed `1/1`.
-- Runtime status: local Docker daemon was not running, so explicit real-backend execution failed at `ECONNREFUSED 127.0.0.1:18082`; direct Java/MinIO and Higress runtime acceptance remains pending until local services are back up.
+- Runtime status: original execution failed while Docker was unavailable; Closure 323 reran the direct Java/MinIO and Higress browser upload acceptance after refreshing `ir-java-smoke` with the latest jar, and both routes passed `1/1`.
 
 ### 2026-07-06 UC-08 approval supplement attachment policy hardening closure
 
@@ -1035,6 +1037,15 @@
 - Traceability evidence: rejected uploads still stop before `DocumentStorage.store(...)` and now audit the effective deployment policy via `maxSizeBytes`, `allowedContentTypes`, `contentType`, `sizeBytes`, and `rejectionReason`.
 - Code evidence: `RuleApprovalSupplementAttachmentPolicy.java`, `RuleApplicationConfig.java`, `RuleApplicationService.java`, `RuleApplicationServiceTest.java`, `application.yml`, `application-dev.yml`, `application-prod.yml`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_closure_322_uc08_approval_supplement_attachment_configurable_policy.md`.
 - Verification evidence: RED targeted configurable-policy tests first failed because the service could not resolve/apply `RuleApprovalSupplementAttachmentPolicy`; GREEN targeted configurable tests passed `2/2`; default + configurable policy regression passed `4/4`; full `RuleApplicationServiceTest` passed `93/93`; structured contract test passed `1/1`; prod profile context passed `1/1`; P3 local smoke bundle unit passed `1/1`.
+- Remaining gaps: antivirus scanning and deep content inspection remain future production hardening.
+
+### 2026-07-06 UC-08 approval supplement upload runtime re-smoke closure
+
+- Scope: `REQ-RULE-001`, `UC-08`, direct Java/MinIO and Higress-routed approval supplement attachment upload.
+- Result: local Docker dependencies were available and reused. The Java service was repackaged from the latest source, the existing `intelligent-report-system-java-report-core:latest` runtime image was refreshed by replacing `/app/app.jar`, and `ir-java-smoke` was restarted on the existing `intelligent-report-infra_default` network and `18082` port.
+- Runtime path: browser -> Java `:18082` -> MinIO evidence URL; browser -> Higress `:18000` -> Java -> MinIO evidence URL.
+- Verification evidence: direct Java real-backend Playwright upload passed `1/1`; Higress-routed real-backend Playwright upload passed `1/1`; refreshed `ir-java-smoke` health reached `healthy`.
+- Code evidence: no product code change in this closure; evidence uses the Closure 322 code at commit `3d7a653`.
 - Remaining gaps: antivirus scanning and deep content inspection remain future production hardening.
 
 ### 2026-07-06 UC-06 Data source configuration contract completion

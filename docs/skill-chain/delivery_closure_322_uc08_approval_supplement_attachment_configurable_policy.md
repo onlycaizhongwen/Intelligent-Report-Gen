@@ -41,4 +41,4 @@ Approval supplement attachment policy is now customer-configurable without code 
 ## Remaining Risk
 
 - Antivirus scanning and deep content inspection are not implemented in this closure.
-- Live browser and Higress upload smoke are inherited from the existing P3 smoke closures and should be rerun when local Docker services are active.
+- Live browser and Higress upload smoke are rerun in Closure 323 after local Docker services are active.
