@@ -201,6 +201,8 @@ class ContractSurfaceTest {
                 "knowledgeBaseId", "syncQuery", "fieldMapping", "cursorColumn", "lastCursor",
                 "scheduleEnabled", "scheduleIntervalSeconds", "nextRunAt", "failureCount",
                 "maxRetryCount", "credentialConfigured");
+        assertResponseDataProperties(contractsByEndpoint.get("POST /api/v1/data-sources/credentials/reencrypt"),
+                "scannedCount", "migratedCount");
         assertDataSourceSyncRunProperties(contractsByEndpoint.get("POST /api/v1/data-sources/{dataSourceId}/sync-runs"));
         assertResponseDataProperties(contractsByEndpoint.get("GET /api/v1/data-sources/{dataSourceId}/sync-runs"),
                 "items", "page", "pageSize", "total");
@@ -858,6 +860,15 @@ class ContractSurfaceTest {
 
         assertThat(knowledgeController).contains("@RequiresPermission(\"knowledge:manage\")\n    @DeleteMapping(\"/knowledge-items/{itemId}\")");
         assertThat(knowledgeController).contains("deleteItem(itemId, confirmed)");
+    }
+
+    @Test
+    void dataSourceCredentialMaintenanceEndpointRequiresDataSourceManagePermission() throws IOException {
+        String knowledgeController = Files.readString(SOURCE_ROOT.resolve("com/company/report/knowledge/interfaces/rest/KnowledgeController.java"))
+                .replace("\r\n", "\n");
+
+        assertThat(knowledgeController).contains("@RequiresPermission(\"datasource:manage\")\n    @PostMapping(\"/data-sources/credentials/reencrypt\")");
+        assertThat(knowledgeController).contains("reencryptStaleDataSourceCredentials");
     }
 
     @Test

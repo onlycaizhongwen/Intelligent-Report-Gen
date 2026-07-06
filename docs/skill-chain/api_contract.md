@@ -79,6 +79,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 | `/api/v1/embeddings` | POST | 生成文本 Embedding | JSON Body | Embedding 结果 | 200/400/401/403/503 |
 | `/api/v1/data-sources/test-connection` | POST | 测试数据源连接 | JSON Body | 测试结果 | 200/400/401/403 |
 | `/api/v1/data-sources` | POST | 保存数据源配置 | JSON Body | 数据源连接 | 200/400/401/403 |
+| `/api/v1/data-sources/credentials/reencrypt` | POST | 维护重加密数据源凭证 | JSON Body | 重加密结果 | 200/400/401/403 |
 | `/api/v1/rules` | GET | 查询规则列表 | Query | 分页规则列表 | 200/401/403 |
 | `/api/v1/rules` | POST | 创建规则草稿 | JSON Body | 规则 | 200/400/401/403 |
 | `/api/v1/rules/{ruleId}` | PUT | 保存规则节点、连线和参数 | Path + JSON Body | 规则 | 200/400/401/403/404 |
@@ -2928,6 +2929,25 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 | `status` | string | 数据源状态 |
 | `lastTestResult` | object | 最近测试结果 |
 
+### 8.11 维护重加密数据源凭证
+
+| 接口路径 | 方法 | 描述 | 请求参数 | 响应数据 | 状态码 |
+|----------|------|------|----------|----------|--------|
+| `/api/v1/data-sources/credentials/reencrypt` | POST | 扫描并将旧密钥或旧格式数据源凭证重加密为当前活动密钥 | JSON Body | 重加密结果 | 200/400/401/403 |
+
+请求参数：
+
+| 参数名 | 类型 | 必填 | 描述 |
+|--------|------|------|------|
+| `limit` | integer | 否 | 单次扫描上限，默认 100，后端最小钳制为 1 |
+
+响应数据：
+
+| 字段名 | 类型 | 描述 |
+|--------|------|------|
+| `scannedCount` | integer | 本次扫描到的带凭证数据源数量 |
+| `migratedCount` | integer | 本次完成重加密的数据源凭证数量 |
+
 ## 9. 规则引擎 API
 
 ### 9.1 查询规则列表
@@ -3447,6 +3467,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 | `POST /api/v1/embeddings` | `knowledge-base-ingestion` | 文件上传解析入库 | 扫描件解析成功 | Embedding 生成 |
 | `POST /api/v1/data-sources/test-connection` | `knowledge-base-ingestion` | 企业数据源对接 | 测试连接失败 | 测试连接 |
 | `POST /api/v1/data-sources` | `knowledge-base-ingestion` | 企业数据源对接 | 数据源同步异常 | 保存配置 |
+| `POST /api/v1/data-sources/credentials/reencrypt` | `knowledge-base-ingestion` | 企业数据源对接 | 凭证轮换维护 | 凭证重加密 |
 | `GET /api/v1/rules` | `rule-engine` | 规则编排 | 创建规则 | 规则列表 |
 | `POST /api/v1/rules` | `rule-engine` | 规则编排 | 创建规则 | 创建草稿 |
 | `PUT /api/v1/rules/{ruleId}` | `rule-engine` | 节点配置与连线、规则节点契约 | 非法连线被拒绝、查看节点配置 | 保存规则 |
@@ -3474,6 +3495,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
 | `GET /api/v1/documents/{documentId}` | `knowledge-base-ingestion` | `knowledge:upload` | 查看文档解析状态与元数据 | 文档上传后的查询入口 |
 | `POST /api/v1/data-sources/{dataSourceId}/sync-runs` | `knowledge-base-ingestion` | `datasource:manage` | 触发企业数据源同步 | 本地/生产均由 Java 承接同步编排 |
 | `GET /api/v1/data-sources/{dataSourceId}/sync-runs` | `knowledge-base-ingestion` | `datasource:manage` | 查询企业数据源同步记录 | 用于运维排障与审计 |
+| `POST /api/v1/data-sources/credentials/reencrypt` | `knowledge-base-ingestion` | `datasource:manage` | 维护重加密旧密钥数据源凭证 | 不返回任何凭证明文或密文 |
 | `GET /api/v1/system-alerts` | `audit-history-dashboard` | `notification:read` | 查询系统告警与通知 | 工作台通知入口 |
 | `GET /api/v1/auth/me` | `permission-collaboration` | authenticated | 获取当前认证用户 RBAC 上下文 | Higress/OIDC 登录后读取 Java 权限上下文 |
 | `POST /api/v1/users/batch-import` | `permission-collaboration` | `user:manage` | 批量导入用户 | 支持组织与角色初始化 |
@@ -4022,6 +4044,70 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
             "type": "boolean",
             "required": true,
             "description": "whether a credential secret is configured"
+          }
+        }
+      },
+      "timestamp": {
+        "type": "string",
+        "required": true,
+        "description": "response timestamp"
+      }
+    },
+    "statusCodes": [
+      200,
+      400,
+      401,
+      403
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/data-sources/credentials/reencrypt",
+    "description": "维护重加密旧密钥数据源凭证",
+    "module": "knowledge-base-ingestion",
+    "securityIntent": "datasource:manage",
+    "contentType": "application/json",
+    "pathParams": {},
+    "queryParams": {},
+    "headers": {
+      "Authorization": {
+        "type": "string",
+        "required": true,
+        "description": "Bearer JWT"
+      }
+    },
+    "requestBody": {
+      "limit": {
+        "type": "integer",
+        "required": false,
+        "description": "maximum number of credentialed data sources to scan; defaults to 100 and is clamped to at least 1"
+      }
+    },
+    "responseBody": {
+      "code": {
+        "type": "integer",
+        "required": true,
+        "description": "response code"
+      },
+      "message": {
+        "type": "string",
+        "required": true,
+        "description": "response message"
+      },
+      "data": {
+        "type": "object",
+        "required": true,
+        "description": "data source credential re-encryption result without secret values",
+        "properties": {
+          "scannedCount": {
+            "type": "integer",
+            "required": true,
+            "description": "number of credentialed data sources scanned"
+          },
+          "migratedCount": {
+            "type": "integer",
+            "required": true,
+            "description": "number of credentials re-encrypted onto the active key"
           }
         }
       },

@@ -1038,3 +1038,11 @@
 - Code evidence: `KnowledgeApplicationService.reencryptStaleDataSourceCredentials`, `KnowledgeBaseRepository.findDataSourcesWithCredentials`, `JdbcKnowledgeBaseRepository`, `KnowledgeDataSource.withCredentialSecret`, `KnowledgeApplicationServiceTest`, and `docs/skill-chain/delivery_closure_300_data_source_credential_reencryption_job.md`.
 - Verification evidence: targeted RED/GREEN re-encryption test passed `1/1`; broader Java credential/data-source/profile regression passed `30/30`.
 - Remaining gaps: production runner wiring for this maintenance job, real Docker enterprise database/ERP/OA/finance sync smoke, and live Higress route checks remain production hardening work.
+
+### 2026-07-06 UC-07 Data source credential re-encryption maintenance API
+
+- Scope: `REQ-KB-003`, stale connector credential operational maintenance and S4 API contract alignment.
+- Result: the active-key credential re-encryption job is now exposed through `POST /api/v1/data-sources/credentials/reencrypt`, protected by `datasource:manage`, accepts optional `limit`, and returns only aggregate counts without secret values.
+- Code evidence: `KnowledgeController.reencryptDataSourceCredentials`, `ContractSurfaceTest#dataSourceCredentialMaintenanceEndpointRequiresDataSourceManagePermission`, `ContractSurfaceTest#dataSourceSyncRunEndpointsDeclareFieldLevelResponseContracts`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_closure_301_data_source_credential_reencryption_maintenance_api.md`.
+- Verification evidence: targeted endpoint permission test passed `1/1`; endpoint/API contract regression passed `4/4`; broader Java credential/data-source/profile regression passed `66/66`; `git diff --check` reported no whitespace errors.
+- Remaining gaps: scheduling/ops runbook for periodic execution, real Docker enterprise database/ERP/OA/finance sync smoke, and live Higress route checks remain production hardening work.

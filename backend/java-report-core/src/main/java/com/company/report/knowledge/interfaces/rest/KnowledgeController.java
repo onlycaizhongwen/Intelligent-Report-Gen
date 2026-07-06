@@ -93,6 +93,13 @@ public class KnowledgeController {
         return ApiResponse.success(service.saveDataSource(request));
     }
 
+    /** OpenSpec: knowledge-base-ingestion / REQ-KB-003 / Re-encrypt stale data-source credentials with the active key. */
+    @RequiresPermission("datasource:manage")
+    @PostMapping("/data-sources/credentials/reencrypt")
+    public ApiResponse<Map<String, Object>> reencryptDataSourceCredentials(@RequestBody(required = false) Map<String, Object> request) {
+        return ApiResponse.success(service.reencryptStaleDataSourceCredentials(requestLimit(request)));
+    }
+
     /** OpenSpec: knowledge-base-ingestion / REQ-KB-003 / 启动数据源同步 */
     @RequiresPermission("datasource:manage")
     @PostMapping("/data-sources/{dataSourceId}/sync-runs")
@@ -108,5 +115,16 @@ public class KnowledgeController {
                                                                                  @RequestParam(defaultValue = "1") int page,
                                                                                  @RequestParam(defaultValue = "10") int pageSize) {
         return ApiResponse.success(service.listDataSourceSyncRuns(dataSourceId, page, pageSize));
+    }
+
+    private int requestLimit(Map<String, Object> request) {
+        Object value = request == null ? null : request.get("limit");
+        if (value instanceof Number number) {
+            return Math.max(number.intValue(), 1);
+        }
+        if (value == null || String.valueOf(value).isBlank()) {
+            return 100;
+        }
+        return Math.max(Integer.parseInt(String.valueOf(value)), 1);
     }
 }
