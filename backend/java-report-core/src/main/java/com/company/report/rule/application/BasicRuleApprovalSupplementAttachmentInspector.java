@@ -3,9 +3,13 @@ package com.company.report.rule.application;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 @Component
 public class BasicRuleApprovalSupplementAttachmentInspector implements RuleApprovalSupplementAttachmentInspector {
@@ -26,6 +30,12 @@ public class BasicRuleApprovalSupplementAttachmentInspector implements RuleAppro
                     "content_signature_mismatch",
                     "file content does not match declared content type"
             );
+        }
+        if (isOfficeOpenXmlContentType(contentType)) {
+            InspectionResult archiveInspection = inspectOfficeArchive(bytes);
+            if (!archiveInspection.accepted()) {
+                return archiveInspection;
+            }
         }
         return InspectionResult.passed();
     }
@@ -58,6 +68,46 @@ public class BasicRuleApprovalSupplementAttachmentInspector implements RuleAppro
                     startsWith(bytes, "PK".getBytes(StandardCharsets.US_ASCII));
             default -> true;
         };
+    }
+
+    private static boolean isOfficeOpenXmlContentType(String contentType) {
+        String normalized = contentType == null ? "" : contentType.toLowerCase(Locale.ROOT);
+        return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet".equals(normalized)
+                || "application/vnd.openxmlformats-officedocument.wordprocessingml.document".equals(normalized);
+    }
+
+    private static InspectionResult inspectOfficeArchive(byte[] bytes) throws IOException {
+        try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(bytes))) {
+            ZipEntry entry;
+            while ((entry = zip.getNextEntry()) != null) {
+                String entryName = entry.getName() == null ? "" : entry.getName().toLowerCase(Locale.ROOT);
+                if (entryName.endsWith("vbaproject.bin")) {
+                    return InspectionResult.rejected(
+                            "macro_payload_detected",
+                            "office archive contains a macro payload"
+                    );
+                }
+                byte[] entryBytes = readEntry(zip);
+                if (containsAscii(entryBytes, EICAR_SIGNATURE)) {
+                    return InspectionResult.rejected(
+                            "malware_signature_detected",
+                            "known antivirus test signature detected inside office archive"
+                    );
+                }
+                zip.closeEntry();
+            }
+        }
+        return InspectionResult.passed();
+    }
+
+    private static byte[] readEntry(ZipInputStream zip) throws IOException {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        byte[] buffer = new byte[4096];
+        int read;
+        while ((read = zip.read(buffer)) != -1) {
+            output.write(buffer, 0, read);
+        }
+        return output.toByteArray();
     }
 
     private static boolean startsWith(byte[] bytes, byte[] prefix) {

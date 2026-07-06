@@ -26,7 +26,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -35,6 +37,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -1186,6 +1190,89 @@ class RuleApplicationServiceTest {
                         .containsEntry("fileName", "fake.pdf")
                         .containsEntry("contentType", "application/pdf")
                         .containsEntry("rejectionReason", "content_signature_mismatch")
+                        .containsEntry("inspectionEngine", "basic_attachment_content_inspector"));
+    }
+
+    @Test
+    void rejectsApprovalSupplementAttachmentWhenOfficeArchiveContainsMalwareSignatureBeforeStorageWrite() throws IOException {
+        InMemoryRuleRepository ruleRepository = new InMemoryRuleRepository();
+        InMemoryAuditRepository auditRepository = new InMemoryAuditRepository();
+        FakeApprovalSupplementStorage storage = new FakeApprovalSupplementStorage();
+        RuleApplicationService approvalService = new RuleApplicationService(
+                new RuleDomainService(),
+                ruleRepository,
+                auditRepository,
+                new FakeSystemAlertRepository(),
+                storage
+        );
+        Long ruleId = publishRule(approvalService, "Supplement attachment archive inspection rule", approvalRuleDefinition());
+        Long approvalRecordId = rejectedApprovalRecordId(approvalService, ruleId);
+        byte[] docx = officeArchiveWithEntry(
+                "word/document.xml",
+                "<w:t>EICAR-STANDARD-ANTIVIRUS-TEST-FILE</w:t>"
+        );
+
+        assertThatThrownBy(() -> approvalService.uploadApprovalSupplementAttachment(
+                ruleId,
+                approvalRecordId,
+                new MockMultipartFile(
+                        "file",
+                        "evidence.docx",
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        docx
+                )
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("approval supplement attachment failed content inspection: malware_signature_detected");
+
+        assertThat(storage.storeCallCount).isZero();
+        assertThat(auditRepository.logs)
+                .filteredOn(log -> "rule_approval_supplement_attachment_rejected".equals(log.operationType()))
+                .singleElement()
+                .satisfies(log -> assertThat(log.detail())
+                        .containsEntry("approvalRecordId", approvalRecordId)
+                        .containsEntry("fileName", "evidence.docx")
+                        .containsEntry("rejectionReason", "malware_signature_detected")
+                        .containsEntry("inspectionEngine", "basic_attachment_content_inspector"));
+    }
+
+    @Test
+    void rejectsApprovalSupplementAttachmentWhenOfficeArchiveContainsMacroPayloadBeforeStorageWrite() throws IOException {
+        InMemoryRuleRepository ruleRepository = new InMemoryRuleRepository();
+        InMemoryAuditRepository auditRepository = new InMemoryAuditRepository();
+        FakeApprovalSupplementStorage storage = new FakeApprovalSupplementStorage();
+        RuleApplicationService approvalService = new RuleApplicationService(
+                new RuleDomainService(),
+                ruleRepository,
+                auditRepository,
+                new FakeSystemAlertRepository(),
+                storage
+        );
+        Long ruleId = publishRule(approvalService, "Supplement attachment macro inspection rule", approvalRuleDefinition());
+        Long approvalRecordId = rejectedApprovalRecordId(approvalService, ruleId);
+        byte[] docx = officeArchiveWithEntry("word/vbaProject.bin", "macro payload");
+
+        assertThatThrownBy(() -> approvalService.uploadApprovalSupplementAttachment(
+                ruleId,
+                approvalRecordId,
+                new MockMultipartFile(
+                        "file",
+                        "macro.docx",
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        docx
+                )
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("approval supplement attachment failed content inspection: macro_payload_detected");
+
+        assertThat(storage.storeCallCount).isZero();
+        assertThat(auditRepository.logs)
+                .filteredOn(log -> "rule_approval_supplement_attachment_rejected".equals(log.operationType()))
+                .singleElement()
+                .satisfies(log -> assertThat(log.detail())
+                        .containsEntry("approvalRecordId", approvalRecordId)
+                        .containsEntry("fileName", "macro.docx")
+                        .containsEntry("rejectionReason", "macro_payload_detected")
                         .containsEntry("inspectionEngine", "basic_attachment_content_inspector"));
     }
 
@@ -5244,6 +5331,16 @@ class RuleApplicationServiceTest {
                 "comment", "missing evidence"
         ));
         return approvalRecordId;
+    }
+
+    private static byte[] officeArchiveWithEntry(String entryName, String content) throws IOException {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (ZipOutputStream zip = new ZipOutputStream(output)) {
+            zip.putNextEntry(new ZipEntry(entryName));
+            zip.write(content.getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+        }
+        return output.toByteArray();
     }
 
     private static Map<String, Object> linearDefinitionWithNodeCount(int nodeCount) {

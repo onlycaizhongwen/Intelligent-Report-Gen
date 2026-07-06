@@ -39,4 +39,4 @@ Approval supplement attachment uploads now run a backend content inspection step
 ## Remaining Risk
 
 - This closure is not a full external antivirus deployment.
-- Archive unpacking, macro inspection, OCR/image malware inspection, and sandbox/deep parser analysis remain future production hardening.
+- Office archive malware/macro inspection is added in Closure 325; external AV engine integration, encrypted archive handling, ZIP-bomb throttling, OCR/image malware inspection, and sandbox/deep parser analysis remain future production hardening.
