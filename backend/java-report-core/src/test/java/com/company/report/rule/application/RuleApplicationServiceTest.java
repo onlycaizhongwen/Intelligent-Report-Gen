@@ -941,10 +941,11 @@ class RuleApplicationServiceTest {
                 "comment", "missing invoice"
         ));
 
+        byte[] invoicePdf = "%PDF-1.4\ninvoice evidence".getBytes();
         Map<String, Object> uploaded = approvalService.uploadApprovalSupplementAttachment(
                 ruleId,
                 approvalRecordId,
-                new MockMultipartFile("file", "invoice package.pdf", "application/pdf", "invoice evidence".getBytes())
+                new MockMultipartFile("file", "invoice package.pdf", "application/pdf", invoicePdf)
         );
 
         assertThat(uploaded)
@@ -953,7 +954,7 @@ class RuleApplicationServiceTest {
                 .containsEntry("fileName", "invoice package.pdf")
                 .containsEntry("bucket", "approval-supplements")
                 .containsEntry("contentType", "application/pdf")
-                .containsEntry("sizeBytes", 16L);
+                .containsEntry("sizeBytes", (long) invoicePdf.length);
         assertThat(uploaded.get("objectKey").toString())
                 .startsWith("approval-supplements/rule-" + ruleId + "/approval-" + approvalRecordId + "/")
                 .endsWith("/invoice-package.pdf");
@@ -1115,6 +1116,77 @@ class RuleApplicationServiceTest {
                         .containsEntry("sizeBytes", 2L)
                         .containsEntry("maxSizeBytes", 10L)
                         .containsEntry("rejectionReason", "unsupported_content_type"));
+    }
+
+    @Test
+    void rejectsApprovalSupplementAttachmentWhenMalwareSignatureIsDetectedBeforeStorageWrite() {
+        InMemoryRuleRepository ruleRepository = new InMemoryRuleRepository();
+        InMemoryAuditRepository auditRepository = new InMemoryAuditRepository();
+        FakeApprovalSupplementStorage storage = new FakeApprovalSupplementStorage();
+        RuleApplicationService approvalService = new RuleApplicationService(
+                new RuleDomainService(),
+                ruleRepository,
+                auditRepository,
+                new FakeSystemAlertRepository(),
+                storage
+        );
+        Long ruleId = publishRule(approvalService, "Supplement attachment malware inspection rule", approvalRuleDefinition());
+        Long approvalRecordId = rejectedApprovalRecordId(approvalService, ruleId);
+        byte[] eicar = "X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*".getBytes();
+
+        assertThatThrownBy(() -> approvalService.uploadApprovalSupplementAttachment(
+                ruleId,
+                approvalRecordId,
+                new MockMultipartFile("file", "eicar.txt", "text/plain", eicar)
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("approval supplement attachment failed content inspection: malware_signature_detected");
+
+        assertThat(storage.storeCallCount).isZero();
+        assertThat(auditRepository.logs)
+                .filteredOn(log -> "rule_approval_supplement_attachment_rejected".equals(log.operationType()))
+                .singleElement()
+                .satisfies(log -> assertThat(log.detail())
+                        .containsEntry("approvalRecordId", approvalRecordId)
+                        .containsEntry("fileName", "eicar.txt")
+                        .containsEntry("contentType", "text/plain")
+                        .containsEntry("rejectionReason", "malware_signature_detected")
+                        .containsEntry("inspectionEngine", "basic_attachment_content_inspector"));
+    }
+
+    @Test
+    void rejectsApprovalSupplementAttachmentWhenDeclaredPdfDoesNotMatchFileSignatureBeforeStorageWrite() {
+        InMemoryRuleRepository ruleRepository = new InMemoryRuleRepository();
+        InMemoryAuditRepository auditRepository = new InMemoryAuditRepository();
+        FakeApprovalSupplementStorage storage = new FakeApprovalSupplementStorage();
+        RuleApplicationService approvalService = new RuleApplicationService(
+                new RuleDomainService(),
+                ruleRepository,
+                auditRepository,
+                new FakeSystemAlertRepository(),
+                storage
+        );
+        Long ruleId = publishRule(approvalService, "Supplement attachment signature inspection rule", approvalRuleDefinition());
+        Long approvalRecordId = rejectedApprovalRecordId(approvalService, ruleId);
+
+        assertThatThrownBy(() -> approvalService.uploadApprovalSupplementAttachment(
+                ruleId,
+                approvalRecordId,
+                new MockMultipartFile("file", "fake.pdf", "application/pdf", "not a pdf".getBytes())
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("approval supplement attachment failed content inspection: content_signature_mismatch");
+
+        assertThat(storage.storeCallCount).isZero();
+        assertThat(auditRepository.logs)
+                .filteredOn(log -> "rule_approval_supplement_attachment_rejected".equals(log.operationType()))
+                .singleElement()
+                .satisfies(log -> assertThat(log.detail())
+                        .containsEntry("approvalRecordId", approvalRecordId)
+                        .containsEntry("fileName", "fake.pdf")
+                        .containsEntry("contentType", "application/pdf")
+                        .containsEntry("rejectionReason", "content_signature_mismatch")
+                        .containsEntry("inspectionEngine", "basic_attachment_content_inspector"));
     }
 
     @Test

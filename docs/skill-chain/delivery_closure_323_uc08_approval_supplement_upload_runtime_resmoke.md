@@ -37,5 +37,5 @@ The approval supplement attachment upload runtime path was revalidated after loc
 
 ## Remaining Risk
 
-- Antivirus scanning and deep content inspection remain future production hardening.
+- Basic antivirus-signature and content-signature inspection is added in Closure 324; external AV engine integration, archive unpacking, and sandbox/deep parser inspection remain future production hardening.
 - The full P3 bundle was not rerun in this closure; this closure targeted the previously pending direct Java and Higress supplement upload runtime acceptance.

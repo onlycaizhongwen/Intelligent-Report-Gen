@@ -58,6 +58,7 @@ public class RuleApplicationService {
     private final Optional<UserRepository> userRepository;
     private final Optional<DocumentStorage> documentStorage;
     private final RuleApprovalSupplementAttachmentPolicy approvalSupplementAttachmentPolicy;
+    private final RuleApprovalSupplementAttachmentInspector approvalSupplementAttachmentInspector;
     private final LongSupplier nanoTimeSource;
 
     @Autowired
@@ -69,8 +70,9 @@ public class RuleApplicationService {
                                   Optional<RuleWebhookClient> ruleWebhookClient,
                                   Optional<UserRepository> userRepository,
                                   Optional<DocumentStorage> documentStorage,
-                                  RuleApprovalSupplementAttachmentPolicy approvalSupplementAttachmentPolicy) {
-        this(domainService, ruleRepository, auditRepository, systemAlertRepository, collaborationApplicationService, ruleWebhookClient, userRepository, documentStorage, approvalSupplementAttachmentPolicy, System::nanoTime);
+                                  RuleApprovalSupplementAttachmentPolicy approvalSupplementAttachmentPolicy,
+                                  RuleApprovalSupplementAttachmentInspector approvalSupplementAttachmentInspector) {
+        this(domainService, ruleRepository, auditRepository, systemAlertRepository, collaborationApplicationService, ruleWebhookClient, userRepository, documentStorage, approvalSupplementAttachmentPolicy, approvalSupplementAttachmentInspector, System::nanoTime);
     }
 
     public RuleApplicationService(RuleDomainService domainService,
@@ -78,7 +80,7 @@ public class RuleApplicationService {
                                   AuditRepository auditRepository,
                                   SystemAlertRepository systemAlertRepository,
                                   LongSupplier nanoTimeSource) {
-        this(domainService, ruleRepository, auditRepository, systemAlertRepository, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), RuleApprovalSupplementAttachmentPolicy.defaults(), nanoTimeSource);
+        this(domainService, ruleRepository, auditRepository, systemAlertRepository, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), RuleApprovalSupplementAttachmentPolicy.defaults(), new BasicRuleApprovalSupplementAttachmentInspector(), nanoTimeSource);
     }
 
     private RuleApplicationService(RuleDomainService domainService,
@@ -90,6 +92,7 @@ public class RuleApplicationService {
                                    Optional<UserRepository> userRepository,
                                    Optional<DocumentStorage> documentStorage,
                                    RuleApprovalSupplementAttachmentPolicy approvalSupplementAttachmentPolicy,
+                                   RuleApprovalSupplementAttachmentInspector approvalSupplementAttachmentInspector,
                                    LongSupplier nanoTimeSource) {
         this.domainService = domainService;
         this.ruleRepository = ruleRepository;
@@ -102,6 +105,9 @@ public class RuleApplicationService {
         this.approvalSupplementAttachmentPolicy = approvalSupplementAttachmentPolicy == null
                 ? RuleApprovalSupplementAttachmentPolicy.defaults()
                 : approvalSupplementAttachmentPolicy;
+        this.approvalSupplementAttachmentInspector = approvalSupplementAttachmentInspector == null
+                ? new BasicRuleApprovalSupplementAttachmentInspector()
+                : approvalSupplementAttachmentInspector;
         this.nanoTimeSource = nanoTimeSource == null ? System::nanoTime : nanoTimeSource;
     }
 
@@ -110,7 +116,7 @@ public class RuleApplicationService {
                                   AuditRepository auditRepository,
                                   SystemAlertRepository systemAlertRepository,
                                   RuleWebhookClient ruleWebhookClient) {
-        this(domainService, ruleRepository, auditRepository, systemAlertRepository, Optional.empty(), Optional.ofNullable(ruleWebhookClient), Optional.empty(), Optional.empty(), RuleApprovalSupplementAttachmentPolicy.defaults());
+        this(domainService, ruleRepository, auditRepository, systemAlertRepository, Optional.empty(), Optional.ofNullable(ruleWebhookClient), Optional.empty(), Optional.empty(), RuleApprovalSupplementAttachmentPolicy.defaults(), new BasicRuleApprovalSupplementAttachmentInspector());
     }
 
     public RuleApplicationService(RuleDomainService domainService,
@@ -118,7 +124,7 @@ public class RuleApplicationService {
                                   AuditRepository auditRepository,
                                   SystemAlertRepository systemAlertRepository,
                                   CollaborationApplicationService collaborationApplicationService) {
-        this(domainService, ruleRepository, auditRepository, systemAlertRepository, Optional.ofNullable(collaborationApplicationService), Optional.empty(), Optional.empty(), Optional.empty(), RuleApprovalSupplementAttachmentPolicy.defaults());
+        this(domainService, ruleRepository, auditRepository, systemAlertRepository, Optional.ofNullable(collaborationApplicationService), Optional.empty(), Optional.empty(), Optional.empty(), RuleApprovalSupplementAttachmentPolicy.defaults(), new BasicRuleApprovalSupplementAttachmentInspector());
     }
 
     public RuleApplicationService(RuleDomainService domainService,
@@ -126,7 +132,7 @@ public class RuleApplicationService {
                                   AuditRepository auditRepository,
                                   SystemAlertRepository systemAlertRepository,
                                   UserRepository userRepository) {
-        this(domainService, ruleRepository, auditRepository, systemAlertRepository, Optional.empty(), Optional.empty(), Optional.ofNullable(userRepository), Optional.empty(), RuleApprovalSupplementAttachmentPolicy.defaults());
+        this(domainService, ruleRepository, auditRepository, systemAlertRepository, Optional.empty(), Optional.empty(), Optional.ofNullable(userRepository), Optional.empty(), RuleApprovalSupplementAttachmentPolicy.defaults(), new BasicRuleApprovalSupplementAttachmentInspector());
     }
 
     public RuleApplicationService(RuleDomainService domainService,
@@ -134,7 +140,7 @@ public class RuleApplicationService {
                                   AuditRepository auditRepository,
                                   SystemAlertRepository systemAlertRepository,
                                   DocumentStorage documentStorage) {
-        this(domainService, ruleRepository, auditRepository, systemAlertRepository, Optional.empty(), Optional.empty(), Optional.empty(), Optional.ofNullable(documentStorage), RuleApprovalSupplementAttachmentPolicy.defaults());
+        this(domainService, ruleRepository, auditRepository, systemAlertRepository, Optional.empty(), Optional.empty(), Optional.empty(), Optional.ofNullable(documentStorage), RuleApprovalSupplementAttachmentPolicy.defaults(), new BasicRuleApprovalSupplementAttachmentInspector());
     }
 
     public RuleApplicationService(RuleDomainService domainService,
@@ -143,14 +149,24 @@ public class RuleApplicationService {
                                   SystemAlertRepository systemAlertRepository,
                                   DocumentStorage documentStorage,
                                   RuleApprovalSupplementAttachmentPolicy approvalSupplementAttachmentPolicy) {
-        this(domainService, ruleRepository, auditRepository, systemAlertRepository, Optional.empty(), Optional.empty(), Optional.empty(), Optional.ofNullable(documentStorage), approvalSupplementAttachmentPolicy);
+        this(domainService, ruleRepository, auditRepository, systemAlertRepository, Optional.empty(), Optional.empty(), Optional.empty(), Optional.ofNullable(documentStorage), approvalSupplementAttachmentPolicy, new BasicRuleApprovalSupplementAttachmentInspector());
+    }
+
+    public RuleApplicationService(RuleDomainService domainService,
+                                  RuleRepository ruleRepository,
+                                  AuditRepository auditRepository,
+                                  SystemAlertRepository systemAlertRepository,
+                                  DocumentStorage documentStorage,
+                                  RuleApprovalSupplementAttachmentPolicy approvalSupplementAttachmentPolicy,
+                                  RuleApprovalSupplementAttachmentInspector approvalSupplementAttachmentInspector) {
+        this(domainService, ruleRepository, auditRepository, systemAlertRepository, Optional.empty(), Optional.empty(), Optional.empty(), Optional.ofNullable(documentStorage), approvalSupplementAttachmentPolicy, approvalSupplementAttachmentInspector);
     }
 
     public RuleApplicationService(RuleDomainService domainService,
                                   RuleRepository ruleRepository,
                                   AuditRepository auditRepository,
                                   SystemAlertRepository systemAlertRepository) {
-        this(domainService, ruleRepository, auditRepository, systemAlertRepository, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), RuleApprovalSupplementAttachmentPolicy.defaults());
+        this(domainService, ruleRepository, auditRepository, systemAlertRepository, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), RuleApprovalSupplementAttachmentPolicy.defaults(), new BasicRuleApprovalSupplementAttachmentInspector());
     }
 
     public RuleApplicationService(RuleDomainService domainService, RuleRepository ruleRepository, AuditRepository auditRepository) {
@@ -948,6 +964,44 @@ public class RuleApplicationService {
             rejectApprovalSupplementAttachment(rule, approvalRecord, fileName, contentType, sizeBytes, maxSizeBytes, allowedContentTypes, "file_too_large",
                     "approval supplement attachment exceeds max size: " + sizeBytes + " > " + maxSizeBytes);
         }
+        RuleApprovalSupplementAttachmentInspector.InspectionResult inspectionResult;
+        try {
+            inspectionResult = approvalSupplementAttachmentInspector.inspect(file, contentType, fileName);
+        } catch (IOException error) {
+            rejectApprovalSupplementAttachment(
+                    rule,
+                    approvalRecord,
+                    fileName,
+                    contentType,
+                    sizeBytes,
+                    maxSizeBytes,
+                    allowedContentTypes,
+                    "content_inspection_unavailable",
+                    "approval supplement attachment content inspection failed",
+                    Map.of(
+                            "inspectionEngine", approvalSupplementAttachmentInspector.engineName(),
+                            "inspectionMessage", error.getMessage()
+                    )
+            );
+            return;
+        }
+        if (!inspectionResult.accepted()) {
+            rejectApprovalSupplementAttachment(
+                    rule,
+                    approvalRecord,
+                    fileName,
+                    contentType,
+                    sizeBytes,
+                    maxSizeBytes,
+                    allowedContentTypes,
+                    inspectionResult.rejectionReason(),
+                    "approval supplement attachment failed content inspection: " + inspectionResult.rejectionReason(),
+                    Map.of(
+                            "inspectionEngine", approvalSupplementAttachmentInspector.engineName(),
+                            "inspectionMessage", inspectionResult.message()
+                    )
+            );
+        }
     }
 
     private void rejectApprovalSupplementAttachment(Rule rule,
@@ -959,7 +1013,20 @@ public class RuleApplicationService {
                                                     Set<String> allowedContentTypes,
                                                     String rejectionReason,
                                                     String message) {
-        writeAudit("rule_approval_supplement_attachment_rejected", rule, "failed", auditDetail(
+        rejectApprovalSupplementAttachment(rule, approvalRecord, fileName, contentType, sizeBytes, maxSizeBytes, allowedContentTypes, rejectionReason, message, Map.of());
+    }
+
+    private void rejectApprovalSupplementAttachment(Rule rule,
+                                                    RuleApprovalRecord approvalRecord,
+                                                    String fileName,
+                                                    String contentType,
+                                                    long sizeBytes,
+                                                    long maxSizeBytes,
+                                                    Set<String> allowedContentTypes,
+                                                    String rejectionReason,
+                                                    String message,
+                                                    Map<String, Object> additionalDetails) {
+        Map<String, Object> detail = auditDetail(
                 "approvalRecordId", approvalRecord.id(),
                 "runId", approvalRecord.runId(),
                 "nodeId", approvalRecord.nodeId(),
@@ -969,7 +1036,11 @@ public class RuleApplicationService {
                 "maxSizeBytes", maxSizeBytes,
                 "rejectionReason", rejectionReason,
                 "allowedContentTypes", allowedContentTypes
-        ));
+        );
+        if (additionalDetails != null && !additionalDetails.isEmpty()) {
+            detail.putAll(additionalDetails);
+        }
+        writeAudit("rule_approval_supplement_attachment_rejected", rule, "failed", detail);
         throw new IllegalArgumentException(message);
     }
 

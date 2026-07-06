@@ -3,6 +3,8 @@
 > 楠屾敹鍘熷垯锛氭帴鍙ｅ瓨鍦ㄣ€侀〉闈㈠瓨鍦ㄣ€佹祴璇曢鏋跺瓨鍦ㄩ兘涓嶇瓑浜庝氦浠樺畬鎴愶紱蹇呴』鑳芥寜鍘熷瀷鏃呯▼璺戦€氫笟鍔￠棴鐜紝骞剁暀涓嬫暟鎹簱銆佸璞″瓨鍌ㄣ€佺綉鍏炽€佸璁℃垨绔埌绔祴璇曡瘉鎹€?
 ## Recent Closure Evidence
 
+- 2026-07-06 Closure 324: UC-08 approval supplement attachment basic content inspection for `REQ-RULE-001`. Java now runs a storage-before-write content inspector after size/type policy checks and before MinIO storage. The default inspector rejects EICAR antivirus test signatures and declared PDF/JPEG/PNG/Office content whose magic signature does not match, writes `rule_approval_supplement_attachment_rejected` with `inspectionEngine` and `inspectionMessage`, and preserves the existing upload path for valid evidence files. Verification: RED targeted tests first failed because EICAR and fake PDF uploads were accepted; GREEN content-inspection tests passed `2/2`; upload policy regression passed `7/7`; full `RuleApplicationServiceTest` passed `95/95`; structured contract test passed `1/1`; prod profile context passed `1/1`. See `docs/skill-chain/delivery_closure_324_uc08_approval_supplement_attachment_content_inspection.md`.
+
 - 2026-07-06 Closure 323: UC-08 approval supplement upload runtime re-smoke for `REQ-RULE-001`. Local Docker dependencies were observed running (`ir-java-smoke`, `ir-higress`, `ir-postgres`, `ir-minio`, `ir-milvus`, `ir-opensearch`, Redis, RocketMQ); Java was repackaged from the latest source and `ir-java-smoke` was replaced with a jar-refreshed image without pulling new infrastructure. Direct Java browser upload and Higress-routed browser upload both passed `1/1`, confirming the supplement attachment path returns a MinIO evidence URL through both runtime boundaries. See `docs/skill-chain/delivery_closure_323_uc08_approval_supplement_upload_runtime_resmoke.md`.
 
 - 2026-07-06 Closure 322: UC-08 approval supplement attachment configurable policy for `REQ-RULE-001`. Java now binds the supplement upload policy from `rule.approval.supplement-attachment.*` / `RULE_APPROVAL_SUPPLEMENT_ATTACHMENT_*`, keeps the 10 MiB evidence-file defaults, and records the effective `maxSizeBytes` and allowed content-type policy in rejection audits before any MinIO write. Verification: RED targeted configurable-policy tests first failed because `RuleApprovalSupplementAttachmentPolicy` was absent from service behavior; GREEN configurable-policy tests passed `2/2`; default + configurable policy regression passed `4/4`; full `RuleApplicationServiceTest` passed `93/93`; structured contract test passed `1/1`; prod profile context passed `1/1`; P3 local smoke bundle unit passed `1/1`. See `docs/skill-chain/delivery_closure_322_uc08_approval_supplement_attachment_configurable_policy.md`.
@@ -1028,7 +1030,7 @@
 - Traceability evidence: rejected files write `rule_approval_supplement_attachment_rejected` with `approvalRecordId`, `runId`, `nodeId`, `fileName`, `contentType`, `sizeBytes`, `maxSizeBytes`, and `rejectionReason`, while the existing successful `rule_approval_supplement_attachment_uploaded` audit path remains unchanged.
 - Code evidence: `RuleApplicationService.java`, `RuleApplicationServiceTest.java`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_closure_321_uc08_approval_supplement_attachment_policy.md`.
 - Verification evidence: RED targeted service tests first failed because oversized and unsupported files did not throw; GREEN policy tests passed `2/2`; full `RuleApplicationServiceTest` regression passed.
-- Remaining gaps: customer-specific file policy configuration is closed by Closure 322; antivirus scanning and deep content inspection remain future production hardening.
+- Remaining gaps: customer-specific file policy configuration is closed by Closure 322; basic antivirus-signature and content-signature inspection is closed by Closure 324; external AV engine integration, archive unpacking, and sandbox/deep parser inspection remain future production hardening.
 
 ### 2026-07-06 UC-08 approval supplement attachment configurable policy closure
 
@@ -1037,7 +1039,7 @@
 - Traceability evidence: rejected uploads still stop before `DocumentStorage.store(...)` and now audit the effective deployment policy via `maxSizeBytes`, `allowedContentTypes`, `contentType`, `sizeBytes`, and `rejectionReason`.
 - Code evidence: `RuleApprovalSupplementAttachmentPolicy.java`, `RuleApplicationConfig.java`, `RuleApplicationService.java`, `RuleApplicationServiceTest.java`, `application.yml`, `application-dev.yml`, `application-prod.yml`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_closure_322_uc08_approval_supplement_attachment_configurable_policy.md`.
 - Verification evidence: RED targeted configurable-policy tests first failed because the service could not resolve/apply `RuleApprovalSupplementAttachmentPolicy`; GREEN targeted configurable tests passed `2/2`; default + configurable policy regression passed `4/4`; full `RuleApplicationServiceTest` passed `93/93`; structured contract test passed `1/1`; prod profile context passed `1/1`; P3 local smoke bundle unit passed `1/1`.
-- Remaining gaps: antivirus scanning and deep content inspection remain future production hardening.
+- Remaining gaps: basic antivirus-signature and content-signature inspection is closed by Closure 324; external AV engine integration, archive unpacking, and sandbox/deep parser inspection remain future production hardening.
 
 ### 2026-07-06 UC-08 approval supplement upload runtime re-smoke closure
 
@@ -1046,7 +1048,16 @@
 - Runtime path: browser -> Java `:18082` -> MinIO evidence URL; browser -> Higress `:18000` -> Java -> MinIO evidence URL.
 - Verification evidence: direct Java real-backend Playwright upload passed `1/1`; Higress-routed real-backend Playwright upload passed `1/1`; refreshed `ir-java-smoke` health reached `healthy`.
 - Code evidence: no product code change in this closure; evidence uses the Closure 322 code at commit `3d7a653`.
-- Remaining gaps: antivirus scanning and deep content inspection remain future production hardening.
+- Remaining gaps: basic antivirus-signature and content-signature inspection is closed by Closure 324; external AV engine integration, archive unpacking, and sandbox/deep parser inspection remain future production hardening.
+
+### 2026-07-06 UC-08 approval supplement attachment basic content inspection closure
+
+- Scope: `REQ-RULE-001`, `UC-08`, rejected approval supplement attachment upload.
+- Result: Java now applies `RuleApprovalSupplementAttachmentInspector` before object storage writes. The default `BasicRuleApprovalSupplementAttachmentInspector` rejects known EICAR antivirus test signatures and binary content-type spoofing for PDF, JPEG, PNG, OLE Office, and OOXML Office files.
+- Traceability evidence: rejected uploads still use `rule_approval_supplement_attachment_rejected` and now include `inspectionEngine=basic_attachment_content_inspector`, `inspectionMessage`, `contentType`, `sizeBytes`, and `rejectionReason` values such as `malware_signature_detected` and `content_signature_mismatch`.
+- Code evidence: `RuleApprovalSupplementAttachmentInspector.java`, `BasicRuleApprovalSupplementAttachmentInspector.java`, `RuleApplicationService.java`, `RuleApplicationServiceTest.java`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_closure_324_uc08_approval_supplement_attachment_content_inspection.md`.
+- Verification evidence: RED content-inspection tests first failed because EICAR and fake PDF uploads were accepted; GREEN targeted content-inspection tests passed `2/2`; upload policy regression passed `7/7`; full `RuleApplicationServiceTest` passed `95/95`; structured contract test passed `1/1`; prod profile context passed `1/1`.
+- Remaining gaps: external AV engine integration, archive unpacking, and sandbox/deep parser inspection remain future production hardening.
 
 ### 2026-07-06 UC-06 Data source configuration contract completion
 
