@@ -9,13 +9,17 @@ public interface RuleApprovalSupplementAttachmentInspector {
 
     String engineName();
 
-    record InspectionResult(boolean accepted, String rejectionReason, String message) {
+    record InspectionResult(boolean accepted, String rejectionReason, String message, String engineName) {
         public static InspectionResult passed() {
-            return new InspectionResult(true, null, null);
+            return new InspectionResult(true, null, null, null);
         }
 
         public static InspectionResult rejected(String rejectionReason, String message) {
-            return new InspectionResult(false, rejectionReason, message);
+            return new InspectionResult(false, rejectionReason, message, null);
+        }
+
+        public static InspectionResult rejected(String rejectionReason, String message, String engineName) {
+            return new InspectionResult(false, rejectionReason, message, engineName);
         }
     }
 }

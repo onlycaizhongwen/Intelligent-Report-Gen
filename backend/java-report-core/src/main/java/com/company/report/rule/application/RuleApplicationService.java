@@ -997,7 +997,9 @@ public class RuleApplicationService {
                     inspectionResult.rejectionReason(),
                     "approval supplement attachment failed content inspection: " + inspectionResult.rejectionReason(),
                     Map.of(
-                            "inspectionEngine", approvalSupplementAttachmentInspector.engineName(),
+                            "inspectionEngine", inspectionResult.engineName() == null
+                                    ? approvalSupplementAttachmentInspector.engineName()
+                                    : inspectionResult.engineName(),
                             "inspectionMessage", inspectionResult.message()
                     )
             );

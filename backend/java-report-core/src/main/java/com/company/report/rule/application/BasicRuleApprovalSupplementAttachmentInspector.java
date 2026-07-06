@@ -1,13 +1,15 @@
 package com.company.report.rule.application;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -16,6 +18,20 @@ public class BasicRuleApprovalSupplementAttachmentInspector implements RuleAppro
     private static final String ENGINE_NAME = "basic_attachment_content_inspector";
     private static final String EICAR_SIGNATURE = "EICAR-STANDARD-ANTIVIRUS-TEST-FILE";
     private static final long MAX_ARCHIVE_INSPECTION_BYTES = 10L * 1024 * 1024;
+    private final Optional<RuleApprovalSupplementAttachmentAntivirusScanner> antivirusScanner;
+
+    public BasicRuleApprovalSupplementAttachmentInspector() {
+        this(Optional.empty());
+    }
+
+    public BasicRuleApprovalSupplementAttachmentInspector(RuleApprovalSupplementAttachmentAntivirusScanner antivirusScanner) {
+        this(Optional.ofNullable(antivirusScanner));
+    }
+
+    @Autowired
+    public BasicRuleApprovalSupplementAttachmentInspector(Optional<RuleApprovalSupplementAttachmentAntivirusScanner> antivirusScanner) {
+        this.antivirusScanner = antivirusScanner == null ? Optional.empty() : antivirusScanner;
+    }
 
     @Override
     public InspectionResult inspect(MultipartFile file, String contentType, String fileName) throws IOException {
@@ -36,6 +52,12 @@ public class BasicRuleApprovalSupplementAttachmentInspector implements RuleAppro
             InspectionResult archiveInspection = inspectOfficeArchive(bytes);
             if (!archiveInspection.accepted()) {
                 return archiveInspection;
+            }
+        }
+        if (antivirusScanner.isPresent()) {
+            InspectionResult antivirusInspection = antivirusScanner.get().scan(bytes, contentType, fileName);
+            if (!antivirusInspection.accepted()) {
+                return antivirusInspection;
             }
         }
         return InspectionResult.passed();

@@ -3,6 +3,8 @@
 > 楠屾敹鍘熷垯锛氭帴鍙ｅ瓨鍦ㄣ€侀〉闈㈠瓨鍦ㄣ€佹祴璇曢鏋跺瓨鍦ㄩ兘涓嶇瓑浜庝氦浠樺畬鎴愶紱蹇呴』鑳芥寜鍘熷瀷鏃呯▼璺戦€氫笟鍔￠棴鐜紝骞剁暀涓嬫暟鎹簱銆佸璞″瓨鍌ㄣ€佺綉鍏炽€佸璁℃垨绔埌绔祴璇曡瘉鎹€?
 ## Recent Closure Evidence
 
+- 2026-07-06 Closure 327: UC-08 approval supplement external AV boundary for `REQ-RULE-001`. Java now supports an optional pre-storage external antivirus scanner for approval supplement attachments. The default ClamAV INSTREAM adapter is disabled by default for local development, can be enabled through `RULE_APPROVAL_SUPPLEMENT_ATTACHMENT_EXTERNAL_AV_ENABLED=true`, rejects external malware responses with `malware_detected_by_external_av`, preserves `inspectionEngine=clamav_instream` audit evidence, and stops before MinIO storage writes. Verification: RED service test first failed because the attachment inspector had no external AV injection point; GREEN targeted external AV rejection test passed `1/1`; ClamAV scanner test passed `2/2`; upload security regression passed `11/11`; full `RuleApplicationServiceTest` passed `99/99`; structured contract test passed `1/1`; prod profile context passed `1/1`. See `docs/skill-chain/delivery_closure_327_uc08_approval_supplement_external_av.md`.
+
 - 2026-07-06 Closure 326: UC-08 approval supplement Office archive expansion limit for `REQ-RULE-001`. Java now streams allowed OOXML archive entries with a 10 MiB expanded-content inspection ceiling, rejects over-expanded archives with `archive_expansion_limit_exceeded`, preserves rejection audit evidence, and stops before MinIO storage writes. Verification: RED archive expansion test first failed because an over-expanded Office archive was accepted; GREEN targeted expansion test passed `1/1`; upload security regression passed `10/10`. See `docs/skill-chain/delivery_closure_326_uc08_approval_supplement_archive_expansion_limit.md`.
 
 - 2026-07-06 Closure 325: UC-08 approval supplement Office archive inspection for `REQ-RULE-001`. Java now opens allowed OOXML Office evidence archives before MinIO storage, rejects EICAR signatures inside archive entries, and rejects macro payload entries such as `vbaProject.bin` with `macro_payload_detected`. Rejections preserve `rule_approval_supplement_attachment_rejected` audit evidence and stop before storage writes. Verification: RED archive-inspection tests first failed `2/2` because malicious Office archives were accepted; GREEN targeted archive-inspection tests passed `2/2`; upload security regression passed `9/9`; full `RuleApplicationServiceTest` passed `97/97`; structured contract test passed `1/1`; prod profile context passed `1/1`. See `docs/skill-chain/delivery_closure_325_uc08_approval_supplement_office_archive_inspection.md`.
@@ -1034,7 +1036,7 @@
 - Traceability evidence: rejected files write `rule_approval_supplement_attachment_rejected` with `approvalRecordId`, `runId`, `nodeId`, `fileName`, `contentType`, `sizeBytes`, `maxSizeBytes`, and `rejectionReason`, while the existing successful `rule_approval_supplement_attachment_uploaded` audit path remains unchanged.
 - Code evidence: `RuleApplicationService.java`, `RuleApplicationServiceTest.java`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_closure_321_uc08_approval_supplement_attachment_policy.md`.
 - Verification evidence: RED targeted service tests first failed because oversized and unsupported files did not throw; GREEN policy tests passed `2/2`; full `RuleApplicationServiceTest` regression passed.
-- Remaining gaps: customer-specific file policy configuration is closed by Closure 322; basic antivirus-signature and content-signature inspection is closed by Closure 324; external AV engine integration, archive unpacking, and sandbox/deep parser inspection remain future production hardening.
+- Remaining gaps: customer-specific file policy configuration is closed by Closure 322; basic antivirus-signature and content-signature inspection is closed by Closure 324; external AV engine integration is closed by Closure 327; archive unpacking and sandbox/deep parser inspection remain future production hardening.
 
 ### 2026-07-06 UC-08 approval supplement attachment configurable policy closure
 
@@ -1043,7 +1045,7 @@
 - Traceability evidence: rejected uploads still stop before `DocumentStorage.store(...)` and now audit the effective deployment policy via `maxSizeBytes`, `allowedContentTypes`, `contentType`, `sizeBytes`, and `rejectionReason`.
 - Code evidence: `RuleApprovalSupplementAttachmentPolicy.java`, `RuleApplicationConfig.java`, `RuleApplicationService.java`, `RuleApplicationServiceTest.java`, `application.yml`, `application-dev.yml`, `application-prod.yml`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_closure_322_uc08_approval_supplement_attachment_configurable_policy.md`.
 - Verification evidence: RED targeted configurable-policy tests first failed because the service could not resolve/apply `RuleApprovalSupplementAttachmentPolicy`; GREEN targeted configurable tests passed `2/2`; default + configurable policy regression passed `4/4`; full `RuleApplicationServiceTest` passed `93/93`; structured contract test passed `1/1`; prod profile context passed `1/1`; P3 local smoke bundle unit passed `1/1`.
-- Remaining gaps: basic antivirus-signature and content-signature inspection is closed by Closure 324; external AV engine integration, archive unpacking, and sandbox/deep parser inspection remain future production hardening.
+- Remaining gaps: basic antivirus-signature and content-signature inspection is closed by Closure 324; external AV engine integration is closed by Closure 327; archive unpacking and sandbox/deep parser inspection remain future production hardening.
 
 ### 2026-07-06 UC-08 approval supplement upload runtime re-smoke closure
 
@@ -1052,7 +1054,7 @@
 - Runtime path: browser -> Java `:18082` -> MinIO evidence URL; browser -> Higress `:18000` -> Java -> MinIO evidence URL.
 - Verification evidence: direct Java real-backend Playwright upload passed `1/1`; Higress-routed real-backend Playwright upload passed `1/1`; refreshed `ir-java-smoke` health reached `healthy`.
 - Code evidence: no product code change in this closure; evidence uses the Closure 322 code at commit `3d7a653`.
-- Remaining gaps: basic antivirus-signature and content-signature inspection is closed by Closure 324; external AV engine integration, archive unpacking, and sandbox/deep parser inspection remain future production hardening.
+- Remaining gaps: basic antivirus-signature and content-signature inspection is closed by Closure 324; external AV engine integration is closed by Closure 327; archive unpacking and sandbox/deep parser inspection remain future production hardening.
 
 ### 2026-07-06 UC-08 approval supplement attachment basic content inspection closure
 
@@ -1061,7 +1063,7 @@
 - Traceability evidence: rejected uploads still use `rule_approval_supplement_attachment_rejected` and now include `inspectionEngine=basic_attachment_content_inspector`, `inspectionMessage`, `contentType`, `sizeBytes`, and `rejectionReason` values such as `malware_signature_detected` and `content_signature_mismatch`.
 - Code evidence: `RuleApprovalSupplementAttachmentInspector.java`, `BasicRuleApprovalSupplementAttachmentInspector.java`, `RuleApplicationService.java`, `RuleApplicationServiceTest.java`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_closure_324_uc08_approval_supplement_attachment_content_inspection.md`.
 - Verification evidence: RED content-inspection tests first failed because EICAR and fake PDF uploads were accepted; GREEN targeted content-inspection tests passed `2/2`; upload policy regression passed `7/7`; full `RuleApplicationServiceTest` passed `95/95`; structured contract test passed `1/1`; prod profile context passed `1/1`.
-- Remaining gaps: Office archive malware/macro inspection is closed by Closure 325; Office archive expansion throttling is closed by Closure 326; external AV engine integration, encrypted archive handling, OCR/image malware inspection, and sandbox/deep parser inspection remain future production hardening.
+- Remaining gaps: Office archive malware/macro inspection is closed by Closure 325; Office archive expansion throttling is closed by Closure 326; external AV engine integration is closed by Closure 327; encrypted archive handling, OCR/image malware inspection, and sandbox/deep parser inspection remain future production hardening.
 
 ### 2026-07-06 UC-08 approval supplement Office archive inspection closure
 
@@ -1070,7 +1072,7 @@
 - Traceability evidence: rejected uploads still use `rule_approval_supplement_attachment_rejected` and include `inspectionEngine=basic_attachment_content_inspector`, `inspectionMessage`, `fileName`, `contentType`, and `rejectionReason` values such as `malware_signature_detected` and `macro_payload_detected`.
 - Code evidence: `BasicRuleApprovalSupplementAttachmentInspector.java`, `RuleApplicationServiceTest.java`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_closure_325_uc08_approval_supplement_office_archive_inspection.md`.
 - Verification evidence: RED archive-inspection tests first failed `2/2` because malicious Office archives were accepted; GREEN targeted archive-inspection tests passed `2/2`; upload security regression passed `9/9`; full `RuleApplicationServiceTest` passed `97/97`; structured contract test passed `1/1`; prod profile context passed `1/1`.
-- Remaining gaps: Office archive expansion throttling is closed by Closure 326; external AV engine integration, encrypted archive handling, OCR/image malware inspection, and sandbox/deep parser inspection remain future production hardening.
+- Remaining gaps: Office archive expansion throttling is closed by Closure 326; external AV engine integration is closed by Closure 327; encrypted archive handling, OCR/image malware inspection, and sandbox/deep parser inspection remain future production hardening.
 
 ### 2026-07-06 UC-08 approval supplement Office archive expansion limit closure
 
@@ -1079,7 +1081,16 @@
 - Traceability evidence: rejected uploads still use `rule_approval_supplement_attachment_rejected` and include `inspectionEngine=basic_attachment_content_inspector`, `inspectionMessage`, `fileName`, `contentType`, and `rejectionReason=archive_expansion_limit_exceeded`.
 - Code evidence: `BasicRuleApprovalSupplementAttachmentInspector.java`, `RuleApplicationServiceTest.java`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_closure_326_uc08_approval_supplement_archive_expansion_limit.md`.
 - Verification evidence: RED archive expansion test first failed because an over-expanded Office archive was accepted; GREEN targeted expansion test passed `1/1`; upload security regression passed `10/10`.
-- Remaining gaps: external AV engine integration, encrypted archive handling, OCR/image malware inspection, and sandbox/deep parser inspection remain future production hardening.
+- Remaining gaps: external AV engine integration is closed by Closure 327; encrypted archive handling, OCR/image malware inspection, and sandbox/deep parser inspection remain future production hardening.
+
+### 2026-07-06 UC-08 approval supplement external AV boundary closure
+
+- Scope: `REQ-RULE-001`, `UC-08`, rejected approval supplement attachment upload.
+- Result: Java now supports an optional external antivirus scan after local size/type/content/archive checks and before object storage writes. The default adapter speaks ClamAV INSTREAM over TCP and is disabled unless `RULE_APPROVAL_SUPPLEMENT_ATTACHMENT_EXTERNAL_AV_ENABLED=true`.
+- Traceability evidence: rejected uploads still use `rule_approval_supplement_attachment_rejected` and may now include `inspectionEngine=clamav_instream`, `inspectionMessage`, `fileName`, `contentType`, and `rejectionReason=malware_detected_by_external_av`.
+- Code evidence: `ClamAvRuleApprovalSupplementAttachmentScanner.java`, `RuleApprovalSupplementAttachmentExternalAvProperties.java`, `BasicRuleApprovalSupplementAttachmentInspector.java`, `RuleApplicationService.java`, `RuleApplicationServiceTest.java`, `ClamAvRuleApprovalSupplementAttachmentScannerTest.java`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_closure_327_uc08_approval_supplement_external_av.md`.
+- Verification evidence: RED service test first failed because the attachment inspector had no external AV injection point; GREEN targeted external AV rejection test passed `1/1`; ClamAV scanner test passed `2/2`; upload security regression passed `11/11`; full `RuleApplicationServiceTest` passed `99/99`; structured contract test passed `1/1`; prod profile context passed `1/1`.
+- Remaining gaps: encrypted archive handling, OCR/image malware inspection, sandbox/deep parser analysis, and live ClamAV container smoke remain future production hardening.
 
 ### 2026-07-06 UC-06 Data source configuration contract completion
 

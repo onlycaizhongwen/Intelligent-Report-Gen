@@ -1194,6 +1194,48 @@ class RuleApplicationServiceTest {
     }
 
     @Test
+    void rejectsApprovalSupplementAttachmentWhenExternalAntivirusReportsMalwareBeforeStorageWrite() {
+        InMemoryRuleRepository ruleRepository = new InMemoryRuleRepository();
+        InMemoryAuditRepository auditRepository = new InMemoryAuditRepository();
+        FakeApprovalSupplementStorage storage = new FakeApprovalSupplementStorage();
+        RuleApplicationService approvalService = new RuleApplicationService(
+                new RuleDomainService(),
+                ruleRepository,
+                auditRepository,
+                new FakeSystemAlertRepository(),
+                storage,
+                RuleApprovalSupplementAttachmentPolicy.defaults(),
+                new BasicRuleApprovalSupplementAttachmentInspector((fileBytes, contentType, fileName) ->
+                        RuleApprovalSupplementAttachmentInspector.InspectionResult.rejected(
+                                "malware_detected_by_external_av",
+                                "external antivirus engine reported malware",
+                                "clamav_instream"
+                        ))
+        );
+        Long ruleId = publishRule(approvalService, "Supplement attachment external AV inspection rule", approvalRuleDefinition());
+        Long approvalRecordId = rejectedApprovalRecordId(approvalService, ruleId);
+
+        assertThatThrownBy(() -> approvalService.uploadApprovalSupplementAttachment(
+                ruleId,
+                approvalRecordId,
+                new MockMultipartFile("file", "invoice.txt", "text/plain", "plain evidence".getBytes())
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("approval supplement attachment failed content inspection: malware_detected_by_external_av");
+
+        assertThat(storage.storeCallCount).isZero();
+        assertThat(auditRepository.logs)
+                .filteredOn(log -> "rule_approval_supplement_attachment_rejected".equals(log.operationType()))
+                .singleElement()
+                .satisfies(log -> assertThat(log.detail())
+                        .containsEntry("approvalRecordId", approvalRecordId)
+                        .containsEntry("fileName", "invoice.txt")
+                        .containsEntry("contentType", "text/plain")
+                        .containsEntry("rejectionReason", "malware_detected_by_external_av")
+                        .containsEntry("inspectionEngine", "clamav_instream"));
+    }
+
+    @Test
     void rejectsApprovalSupplementAttachmentWhenOfficeArchiveContainsMalwareSignatureBeforeStorageWrite() throws IOException {
         InMemoryRuleRepository ruleRepository = new InMemoryRuleRepository();
         InMemoryAuditRepository auditRepository = new InMemoryAuditRepository();
