@@ -2,6 +2,8 @@ export function buildDeliverySmokeSteps({
   dashscopeApiKey,
   realBackendApiBaseUrl = 'http://127.0.0.1:18082/api/v1',
   realBackendOrigin = 'http://127.0.0.1:18082',
+  gatewayApiBaseUrl = 'http://127.0.0.1:18000/api/v1',
+  gatewayOrigin = 'http://127.0.0.1:18000',
   postgresContainer = 'ir-postgres',
 } = {}) {
   if (!dashscopeApiKey) {
@@ -17,6 +19,8 @@ export function buildDeliverySmokeSteps({
         P0_SMOKE_DASHSCOPE_API_KEY: dashscopeApiKey,
         P0_SMOKE_REAL_BACKEND_API_BASE_URL: realBackendApiBaseUrl,
         P0_SMOKE_REAL_BACKEND_ORIGIN: realBackendOrigin,
+        P0_SMOKE_GATEWAY_API_BASE_URL: gatewayApiBaseUrl,
+        P0_SMOKE_GATEWAY_ORIGIN: gatewayOrigin,
         P0_SMOKE_POSTGRES_CONTAINER: postgresContainer,
       },
     },
