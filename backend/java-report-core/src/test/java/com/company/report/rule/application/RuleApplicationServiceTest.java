@@ -1194,6 +1194,45 @@ class RuleApplicationServiceTest {
     }
 
     @Test
+    void rejectsApprovalSupplementAttachmentWhenImageContainsActiveContentBeforeStorageWrite() {
+        InMemoryRuleRepository ruleRepository = new InMemoryRuleRepository();
+        InMemoryAuditRepository auditRepository = new InMemoryAuditRepository();
+        FakeApprovalSupplementStorage storage = new FakeApprovalSupplementStorage();
+        RuleApplicationService approvalService = new RuleApplicationService(
+                new RuleDomainService(),
+                ruleRepository,
+                auditRepository,
+                new FakeSystemAlertRepository(),
+                storage
+        );
+        Long ruleId = publishRule(approvalService, "Supplement attachment image inspection rule", approvalRuleDefinition());
+        Long approvalRecordId = rejectedApprovalRecordId(approvalService, ruleId);
+        byte[] pngWithScript = new byte[] {
+                (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+                0x00, 0x00, 0x00, 0x00, '<', 's', 'c', 'r', 'i', 'p', 't', '>'
+        };
+
+        assertThatThrownBy(() -> approvalService.uploadApprovalSupplementAttachment(
+                ruleId,
+                approvalRecordId,
+                new MockMultipartFile("file", "scanned-evidence.png", "image/png", pngWithScript)
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("approval supplement attachment failed content inspection: image_active_content_detected");
+
+        assertThat(storage.storeCallCount).isZero();
+        assertThat(auditRepository.logs)
+                .filteredOn(log -> "rule_approval_supplement_attachment_rejected".equals(log.operationType()))
+                .singleElement()
+                .satisfies(log -> assertThat(log.detail())
+                        .containsEntry("approvalRecordId", approvalRecordId)
+                        .containsEntry("fileName", "scanned-evidence.png")
+                        .containsEntry("contentType", "image/png")
+                        .containsEntry("rejectionReason", "image_active_content_detected")
+                        .containsEntry("inspectionEngine", "basic_attachment_content_inspector"));
+    }
+
+    @Test
     void rejectsApprovalSupplementAttachmentWhenExternalAntivirusReportsMalwareBeforeStorageWrite() {
         InMemoryRuleRepository ruleRepository = new InMemoryRuleRepository();
         InMemoryAuditRepository auditRepository = new InMemoryAuditRepository();

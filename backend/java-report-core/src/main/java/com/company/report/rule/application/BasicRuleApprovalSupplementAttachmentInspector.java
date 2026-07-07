@@ -48,6 +48,12 @@ public class BasicRuleApprovalSupplementAttachmentInspector implements RuleAppro
                     "file content does not match declared content type"
             );
         }
+        if (isImageContentType(contentType) && containsImageActiveContentMarker(bytes)) {
+            return InspectionResult.rejected(
+                    "image_active_content_detected",
+                    "image evidence contains active content markers"
+            );
+        }
         if (isOfficeOpenXmlContentType(contentType)) {
             InspectionResult archiveInspection = inspectOfficeArchive(bytes);
             if (!archiveInspection.accepted()) {
@@ -97,6 +103,21 @@ public class BasicRuleApprovalSupplementAttachmentInspector implements RuleAppro
         String normalized = contentType == null ? "" : contentType.toLowerCase(Locale.ROOT);
         return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet".equals(normalized)
                 || "application/vnd.openxmlformats-officedocument.wordprocessingml.document".equals(normalized);
+    }
+
+    private static boolean isImageContentType(String contentType) {
+        String normalized = contentType == null ? "" : contentType.toLowerCase(Locale.ROOT);
+        return "image/jpeg".equals(normalized) || "image/png".equals(normalized);
+    }
+
+    private static boolean containsImageActiveContentMarker(byte[] bytes) {
+        String content = new String(bytes, StandardCharsets.US_ASCII).toLowerCase(Locale.ROOT);
+        return content.contains("<script")
+                || content.contains("<svg")
+                || content.contains("<html")
+                || content.contains("javascript:")
+                || content.contains("onload=")
+                || content.contains("<?php");
     }
 
     private static InspectionResult inspectOfficeArchive(byte[] bytes) throws IOException {
