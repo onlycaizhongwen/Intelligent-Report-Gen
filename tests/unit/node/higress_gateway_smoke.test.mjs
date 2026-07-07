@@ -12,6 +12,7 @@ import {
   buildHigressRepresentativeAuthorizationMatrixChecks,
   classifyGatewayResponse,
   renderHigressControllerEndpointAuthorizationMatrixMarkdown,
+  runHigressGatewaySmoke,
 } from '../../../scripts/higress-gateway-smoke-lib.mjs';
 import {
   buildJavaControllerAuthorizationMatrix,
@@ -250,4 +251,49 @@ test('Higress controller endpoint authorization matrix document stays synchroniz
 
   assert.equal(actual, expected);
   assert.match(actual, /\| POST \/api\/v1\/rules\/\{ruleId\}\/approval-records\/\{approvalRecordId\}\/supplement-attachments \| rule:debug \| 3 \|/);
+});
+
+test('runHigressGatewaySmoke can append live 401 and 403 samples from controller endpoints', async () => {
+  const controllerMatrix = [
+    {
+      boundary: 'permission',
+      method: 'GET',
+      path: '/api/v1/audit-logs',
+      permission: 'audit:read',
+      controller: 'AuditController',
+      handler: 'listAuditLogs',
+    },
+    {
+      boundary: 'permission',
+      method: 'POST',
+      path: '/api/v1/rules/{ruleId}/runs',
+      permission: 'rule:debug',
+      controller: 'RuleController',
+      handler: 'runRule',
+    },
+  ];
+  const calls = [];
+  const result = await runHigressGatewaySmoke({
+    gatewayBaseUrl: 'http://127.0.0.1:28000',
+    controllerMatrix,
+    controllerEndpointAuthorizationSampleLimit: 1,
+    fetchImpl: async (url, options) => {
+      const authorization = options.headers?.Authorization;
+      calls.push({ url, method: options.method, authorization });
+      const status = authorization ? 403 : 401;
+      return {
+        status,
+        text: async () => JSON.stringify({ code: status }),
+      };
+    },
+  });
+
+  const names = result.results.map((entry) => entry.name);
+  assert.ok(names.includes('controller-endpoint-0-missing-token-through-higress'));
+  assert.ok(names.includes('controller-endpoint-0-insufficient-permission-through-higress'));
+  assert.ok(!names.includes('controller-endpoint-0-authorized-through-higress'));
+  assert.equal(
+    calls.filter((entry) => entry.url === 'http://127.0.0.1:28000/api/v1/audit-logs').length,
+    2,
+  );
 });

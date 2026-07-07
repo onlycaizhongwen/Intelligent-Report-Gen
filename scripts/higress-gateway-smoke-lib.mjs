@@ -446,6 +446,30 @@ export function renderHigressControllerEndpointAuthorizationMatrixMarkdown(check
   return rows.join('\n');
 }
 
+export function buildHigressControllerEndpointAuthorizationSampleChecks({
+  controllerMatrix = [],
+  gatewayBaseUrl = 'http://127.0.0.1:18000',
+  jwtSecret = 'local-dev-secret-change-me-32-bytes-minimum',
+  sampleLimit = 0,
+} = {}) {
+  const limit = Number.isFinite(Number(sampleLimit))
+    ? Math.max(0, Math.floor(Number(sampleLimit)))
+    : 0;
+  if (limit === 0) {
+    return [];
+  }
+
+  const sampledMatrix = controllerMatrix
+    .filter((endpoint) => endpoint.boundary === 'permission')
+    .slice(0, limit);
+
+  return buildHigressControllerEndpointAuthorizationChecks({
+    controllerMatrix: sampledMatrix,
+    gatewayBaseUrl,
+    jwtSecret,
+  }).filter((check) => check.expectedBoundary !== 'authorized');
+}
+
 export function buildHigressDataSourceSecurityChecks({
   gatewayBaseUrl = 'http://127.0.0.1:18000',
   jwtSecret = 'local-dev-secret-change-me-32-bytes-minimum',
@@ -577,6 +601,8 @@ function evaluateEndpointSecurityCheck(check, status, body) {
 export async function runHigressGatewaySmoke({
   gatewayBaseUrl = 'http://127.0.0.1:18000',
   jwtSecret = 'local-dev-secret-change-me-32-bytes-minimum',
+  controllerMatrix = [],
+  controllerEndpointAuthorizationSampleLimit = 0,
   fetchImpl = fetch,
 } = {}) {
   const checks = [
@@ -585,6 +611,12 @@ export async function runHigressGatewaySmoke({
     ...buildHigressRepresentativeAuthorizationMatrixChecks({ gatewayBaseUrl, jwtSecret }),
     ...buildHigressPermissionCatalogAuthorizationChecks({ gatewayBaseUrl, jwtSecret }),
     ...buildHigressDataSourceSecurityChecks({ gatewayBaseUrl, jwtSecret }),
+    ...buildHigressControllerEndpointAuthorizationSampleChecks({
+      controllerMatrix,
+      gatewayBaseUrl,
+      jwtSecret,
+      sampleLimit: controllerEndpointAuthorizationSampleLimit,
+    }),
   ];
   const results = [];
   for (const check of checks) {
