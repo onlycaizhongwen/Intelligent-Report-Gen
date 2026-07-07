@@ -19,6 +19,8 @@ services:
       MINIO_ENDPOINT: http://minio:9000
       AI_SERVICE_URL: http://python-ai-service:8000
       JWT_SECRET: ${JWT_SECRET:-local-dev-secret-change-me-32-bytes-minimum}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      OIDC_JWKS_URL: ${OIDC_JWKS_URL:-}
       RULE_WEBHOOK_REPLAY_WORKER_ENABLED: ${RULE_WEBHOOK_REPLAY_WORKER_ENABLED:-false}
       RULE_WEBHOOK_REPLAY_WORKER_DELAY_MS: ${RULE_WEBHOOK_REPLAY_WORKER_DELAY_MS:-2000}
     depends_on:
