@@ -3,16 +3,16 @@ import { promisify } from 'node:util';
 
 import {
   buildDockerRunArgs,
-  buildWorkerConfig,
+  buildProviderPreflightConfig,
   collectProxyEnv,
 } from './uc01-real-provider-worker-lib.mjs';
 
 const execFileAsync = promisify(execFile);
 
 const apiKey =
-  process.env.UC01_REAL_PROVIDER_API_KEY ?? process.env.DASHSCOPE_API_KEY ?? '';
+  process.env.UC01_PROVIDER_PREFLIGHT_API_KEY ?? process.env.DASHSCOPE_API_KEY ?? '';
 const containerName =
-  process.env.UC01_REAL_PROVIDER_CONTAINER ?? 'ir-report-generation-worker-smoke';
+  process.env.UC01_PROVIDER_PREFLIGHT_CONTAINER ?? 'ir-uc01-provider-preflight';
 
 async function removeExistingContainer(name) {
   try {
@@ -28,22 +28,13 @@ async function removeExistingContainer(name) {
 }
 
 async function main() {
-  const config = buildWorkerConfig({
+  const config = buildProviderPreflightConfig({
     apiKey,
     containerName,
-    network: process.env.UC01_REAL_PROVIDER_NETWORK,
-    consumerGroup: process.env.UC01_REAL_PROVIDER_CONSUMER_GROUP,
-    javaServiceUrl: process.env.UC01_REAL_PROVIDER_JAVA_SERVICE_URL,
-    databaseUrl: process.env.UC01_REAL_PROVIDER_DATABASE_URL,
-    opensearchUrl: process.env.UC01_REAL_PROVIDER_OPENSEARCH_URL,
-    milvusHost: process.env.UC01_REAL_PROVIDER_MILVUS_HOST,
-    milvusPort: process.env.UC01_REAL_PROVIDER_MILVUS_PORT,
-    rocketmqEndpoint: process.env.UC01_REAL_PROVIDER_ROCKETMQ_ENDPOINT,
-    topic: process.env.UC01_REAL_PROVIDER_TOPIC,
-    jwtSecret: process.env.UC01_REAL_PROVIDER_JWT_SECRET,
-    llmProvider: process.env.UC01_REAL_PROVIDER_LLM_PROVIDER,
-    llmModel: process.env.UC01_REAL_PROVIDER_LLM_MODEL,
-    llmBaseUrl: process.env.UC01_REAL_PROVIDER_LLM_BASE_URL,
+    network: process.env.UC01_PROVIDER_PREFLIGHT_NETWORK,
+    image: process.env.UC01_PROVIDER_PREFLIGHT_IMAGE,
+    llmBaseUrl: process.env.UC01_PROVIDER_PREFLIGHT_LLM_BASE_URL,
+    timeoutSeconds: process.env.UC01_PROVIDER_PREFLIGHT_TIMEOUT_SECONDS,
     proxyEnv: collectProxyEnv(process.env),
   });
 
@@ -51,35 +42,54 @@ async function main() {
   const args = buildDockerRunArgs(config, {
     referenceEnvKeys: ['LLM_API_KEY'],
   });
-  const { stdout } = await execFileAsync('docker', args, {
+  const execOptions = {
     env: {
       ...process.env,
       LLM_API_KEY: config.env.LLM_API_KEY,
     },
     windowsHide: true,
-  });
+    maxBuffer: 1024 * 1024,
+  };
+
+  let stdout = '';
+  let stderr = '';
+  let exitCode = 0;
+  try {
+    const result = await execFileAsync('docker', args, execOptions);
+    stdout = result.stdout;
+    stderr = result.stderr;
+  } catch (error) {
+    stdout = error.stdout ?? '';
+    stderr = error.stderr ?? '';
+    exitCode = typeof error.code === 'number' ? error.code : 1;
+  }
 
   console.log(
     JSON.stringify(
       {
+        ok: exitCode === 0,
         removedExistingContainer: removed,
         containerName: config.containerName,
-        containerId: stdout.trim(),
         network: config.network,
-        llmProvider: config.env.LLM_PROVIDER,
-        llmModel: config.env.LLM_MODEL,
+        image: config.image,
         llmBaseUrl: config.env.LLM_BASE_URL,
         proxy: {
           https: Boolean(config.env.HTTPS_PROXY),
           http: Boolean(config.env.HTTP_PROXY),
           noProxy: config.env.NO_PROXY ?? '',
         },
-        consumerGroup: config.env.ROCKETMQ_REPORT_GENERATION_CONSUMER_GROUP,
+        stdout: stdout.trim(),
+        stderr: stderr.trim(),
+        exitCode,
       },
       null,
       2,
     ),
   );
+
+  if (exitCode !== 0) {
+    process.exit(exitCode);
+  }
 }
 
 await main();

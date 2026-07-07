@@ -15,6 +15,10 @@ test('buildDeliverySmokeSteps returns the expected P0-P3 command sequence', () =
     gatewayApiBaseUrl: 'http://127.0.0.1:28000/api/v1',
     gatewayOrigin: 'http://127.0.0.1:28000',
     postgresContainer: 'bundle-postgres',
+    proxyEnv: {
+      HTTPS_PROXY: 'http://host.docker.internal:7890',
+      NO_PROXY: 'localhost,127.0.0.1',
+    },
   });
 
   assert.equal(steps.length, 4);
@@ -32,6 +36,8 @@ test('buildDeliverySmokeSteps returns the expected P0-P3 command sequence', () =
   assert.equal(steps[0].env.P0_SMOKE_GATEWAY_API_BASE_URL, 'http://127.0.0.1:28000/api/v1');
   assert.equal(steps[0].env.P0_SMOKE_GATEWAY_ORIGIN, 'http://127.0.0.1:28000');
   assert.equal(steps[0].env.P0_SMOKE_POSTGRES_CONTAINER, 'bundle-postgres');
+  assert.equal(steps[0].env.HTTPS_PROXY, 'http://host.docker.internal:7890');
+  assert.equal(steps[0].env.NO_PROXY, 'localhost,127.0.0.1');
 
   assert.equal(steps[1].command, 'node');
   assert.deepEqual(steps[1].args, ['scripts/p1-local-smoke.mjs']);

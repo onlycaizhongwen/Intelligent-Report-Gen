@@ -4,6 +4,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 
 import { buildP0SmokeSteps } from './p0-local-smoke-lib.mjs';
+import { collectProxyEnv } from './uc01-real-provider-worker-lib.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -46,6 +47,7 @@ async function main() {
     gatewayOrigin:
       process.env.P0_SMOKE_GATEWAY_ORIGIN ?? 'http://127.0.0.1:18000',
     postgresContainer: process.env.P0_SMOKE_POSTGRES_CONTAINER ?? 'ir-postgres',
+    proxyEnv: collectProxyEnv(process.env),
   });
 
   const results = [];

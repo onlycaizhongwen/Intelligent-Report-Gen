@@ -7,6 +7,7 @@ export function buildDeliverySmokeSteps({
   gatewayApiBaseUrl = 'http://127.0.0.1:18000/api/v1',
   gatewayOrigin = 'http://127.0.0.1:18000',
   postgresContainer = 'ir-postgres',
+  proxyEnv = {},
 } = {}) {
   if (!dashscopeApiKey) {
     throw new Error('Delivery local smoke bundle requires dashscopeApiKey');
@@ -24,6 +25,7 @@ export function buildDeliverySmokeSteps({
         P0_SMOKE_GATEWAY_API_BASE_URL: gatewayApiBaseUrl,
         P0_SMOKE_GATEWAY_ORIGIN: gatewayOrigin,
         P0_SMOKE_POSTGRES_CONTAINER: postgresContainer,
+        ...proxyEnv,
       },
     },
     {

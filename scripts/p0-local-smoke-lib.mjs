@@ -5,6 +5,7 @@ export function buildP0SmokeSteps({
   gatewayApiBaseUrl = 'http://127.0.0.1:18000/api/v1',
   gatewayOrigin = 'http://127.0.0.1:18000',
   postgresContainer = 'ir-postgres',
+  proxyEnv = {},
 } = {}) {
   if (!dashscopeApiKey) {
     throw new Error('P0 local smoke bundle requires dashscopeApiKey');
@@ -12,11 +13,21 @@ export function buildP0SmokeSteps({
 
   return [
     {
+      name: 'uc01-provider-preflight',
+      command: 'node',
+      args: ['scripts/uc01-provider-connectivity-preflight.mjs'],
+      env: {
+        UC01_PROVIDER_PREFLIGHT_API_KEY: dashscopeApiKey,
+        ...proxyEnv,
+      },
+    },
+    {
       name: 'uc01-worker',
       command: 'node',
       args: ['scripts/uc01-real-provider-worker.mjs'],
       env: {
         UC01_REAL_PROVIDER_API_KEY: dashscopeApiKey,
+        ...proxyEnv,
       },
     },
     {
