@@ -22,6 +22,7 @@
 | API 鉴权 | Java Spring Security 校验 JWT 和权限项 |
 | JWT 算法边界 | 本地默认 `HS256 + JWT_SECRET`；生产 `RS256` 必须配置 `OIDC_JWKS_URL + OIDC_ISSUER + OIDC_AUDIENCE`，任一缺失或 token `iss/aud` 不匹配必须 fail closed；JWKS 按 `kid` 缓存并在 kid 缺失时刷新 |
 | Higress OIDC smoke | Local gateway smoke can opt into `RS256` `/api/v1/auth/me` probes for accepted, wrong-issuer, and wrong-audience tokens without changing default `HS256` local development behavior. |
+| Higress WAF smoke | Default local smoke verifies Java fallback for malformed attack-shaped input; `HIGRESS_WAF_BLOCKING_COVERAGE=true` enables an explicit SQLi/XSS/path-traversal/prompt-injection blocking contract that must return `403`, `406`, or `429` after a real WAF policy is installed. |
 | RBAC | 当前包含管理员、高级分析师、分析师、查看者，并保留扩展 |
 | 分享访问 | 分享 Token + 可选密码 + 有效期 + 撤销状态 + 报告授权范围 |
 | 前端控制 | 前端隐藏按钮只作为体验优化，后端必须强校验 |

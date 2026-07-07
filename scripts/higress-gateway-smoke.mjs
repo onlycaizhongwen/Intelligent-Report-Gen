@@ -55,6 +55,7 @@ const controllerEndpointAuthorizationNegativeCoverage = isTruthy(
 const controllerEndpointAuthorizationReadOnlyAuthorizedCoverage = isTruthy(
   process.env.HIGRESS_CONTROLLER_ENDPOINT_AUTH_READONLY_AUTHORIZED_COVERAGE,
 );
+const wafBlockingCoverage = isTruthy(process.env.HIGRESS_WAF_BLOCKING_COVERAGE);
 const needsControllerMatrix = controllerEndpointAuthorizationSampleLimit > 0
   || controllerEndpointAuthorizationNegativeCoverage
   || controllerEndpointAuthorizationReadOnlyAuthorizedCoverage;
@@ -65,6 +66,7 @@ const result = await runHigressGatewaySmoke({
   controllerEndpointAuthorizationSampleLimit,
   controllerEndpointAuthorizationNegativeCoverage,
   controllerEndpointAuthorizationReadOnlyAuthorizedCoverage,
+  wafBlockingCoverage,
   oidcEndpointSecurityConfig,
   controllerMatrix: needsControllerMatrix
     ? buildJavaControllerAuthorizationMatrix({

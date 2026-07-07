@@ -9,6 +9,7 @@ import {
   buildHigressControllerEndpointAuthorizationReadOnlyAuthorizedChecks,
   buildHigressApplicationLayerAttackFallbackChecks,
   buildHigressDataSourceSecurityChecks,
+  buildHigressWafBlockingChecks,
   buildGatewayOidcSecurityJwt,
   buildGatewaySecurityJwt,
   buildHigressEndpointSecurityChecks,
@@ -231,6 +232,71 @@ test('buildHigressApplicationLayerAttackFallbackChecks rejects malformed paginat
     "http://127.0.0.1:28000/api/v1/reports?page=1'%20or%20'1'%3D'1&pageSize=1",
   );
   assert.match(checks[0].headers.Authorization, /^Bearer /);
+});
+
+test('buildHigressWafBlockingChecks defines opt-in gateway-blocked attack probes', () => {
+  const checks = buildHigressWafBlockingChecks({
+    gatewayBaseUrl: 'http://127.0.0.1:28000',
+    jwtSecret: 'local-dev-secret-change-me-32-bytes-minimum',
+  });
+
+  assert.deepEqual(
+    checks.map((check) => [check.name, check.expectedBoundary]),
+    [
+      ['report-list-sqli-waf-block-through-higress', 'waf-blocked'],
+      ['report-search-xss-waf-block-through-higress', 'waf-blocked'],
+      ['document-path-traversal-waf-block-through-higress', 'waf-blocked'],
+      ['report-generation-task-prompt-injection-waf-block-through-higress', 'waf-blocked'],
+    ],
+  );
+  assert.equal(
+    checks[0].url,
+    "http://127.0.0.1:28000/api/v1/reports?page=1'%20or%20'1'%3D'1&pageSize=1",
+  );
+  assert.match(checks[1].url, /keyword=%3Cscript%3Ealert/);
+  assert.match(checks[2].url, /%2e%2e%2f%2e%2e%2fetc%2fpasswd/i);
+  assert.equal(checks[3].method, 'POST');
+  assert.equal(checks[3].url, 'http://127.0.0.1:28000/api/v1/reports/generation-tasks');
+  assert.match(checks[3].body, /ignore previous instructions/i);
+  assert.match(checks[3].body, /"topic":""/);
+  for (const check of checks) {
+    assert.match(check.headers.Authorization, /^Bearer /);
+    assert.deepEqual(check.blockedStatuses, [403, 406, 429]);
+  }
+});
+
+test('runHigressGatewaySmoke can append opt-in WAF blocking probes', async () => {
+  const result = await runHigressGatewaySmoke({
+    gatewayBaseUrl: 'http://127.0.0.1:28000',
+    wafBlockingCoverage: true,
+    fetchImpl: async (url) => {
+      const normalizedUrl = url.toLowerCase();
+      const status = normalizedUrl.includes("page=1'%20or%20'1'%3d'1")
+        || normalizedUrl.includes('keyword=%3cscript%3e')
+        || normalizedUrl.includes('%2e%2e%2f%2e%2e%2fetc%2fpasswd')
+        || url.endsWith('/api/v1/reports/generation-tasks')
+        ? 403
+        : 401;
+      return {
+        status,
+        text: async () => status === 403
+          ? 'blocked by higress waf'
+          : JSON.stringify({ code: 401 }),
+      };
+    },
+  });
+
+  const wafResults = result.results.filter((entry) => entry.classification === 'waf-blocked');
+  assert.equal(wafResults.length, 4);
+  assert.deepEqual(
+    wafResults.map((entry) => [entry.name, entry.status, entry.passed]),
+    [
+      ['report-list-sqli-waf-block-through-higress', 403, true],
+      ['report-search-xss-waf-block-through-higress', 403, true],
+      ['document-path-traversal-waf-block-through-higress', 403, true],
+      ['report-generation-task-prompt-injection-waf-block-through-higress', 403, true],
+    ],
+  );
 });
 
 test('buildHigressRepresentativeAuthorizationMatrixChecks covers core modules', () => {
