@@ -41,6 +41,10 @@ async function main() {
       process.env.P0_SMOKE_REAL_BACKEND_API_BASE_URL ?? 'http://127.0.0.1:18082/api/v1',
     realBackendOrigin:
       process.env.P0_SMOKE_REAL_BACKEND_ORIGIN ?? 'http://127.0.0.1:18082',
+    gatewayApiBaseUrl:
+      process.env.P0_SMOKE_GATEWAY_API_BASE_URL ?? 'http://127.0.0.1:18000/api/v1',
+    gatewayOrigin:
+      process.env.P0_SMOKE_GATEWAY_ORIGIN ?? 'http://127.0.0.1:18000',
     postgresContainer: process.env.P0_SMOKE_POSTGRES_CONTAINER ?? 'ir-postgres',
   });
 

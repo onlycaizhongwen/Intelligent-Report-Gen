@@ -70,6 +70,15 @@ export function buildP0SmokeSteps({
       },
     },
     {
+      name: 'uc02-template-completion-higress-smoke',
+      command: 'node',
+      args: ['scripts/uc02-template-completion-smoke.mjs'],
+      env: {
+        UC02_TEMPLATE_COMPLETION_BASE_URL: gatewayApiBaseUrl,
+        UC02_TEMPLATE_COMPLETION_POSTGRES_CONTAINER: postgresContainer,
+      },
+    },
+    {
       name: 'uc02-report-template-higress-e2e',
       command: 'npm',
       args: [
