@@ -537,6 +537,30 @@ export function buildHigressControllerEndpointAuthorizationSampleChecks({
   }).filter((check) => check.expectedBoundary !== 'authorized');
 }
 
+export function buildHigressControllerEndpointAuthorizationReadOnlyAuthorizedChecks({
+  controllerMatrix = [],
+  gatewayBaseUrl = 'http://127.0.0.1:18000',
+  jwtSecret = 'local-dev-secret-change-me-32-bytes-minimum',
+} = {}) {
+  const readOnlyMatrix = controllerMatrix
+    .filter((endpoint) =>
+      endpoint.boundary === 'permission'
+      && String(endpoint.method ?? '').toUpperCase() === 'GET'
+    );
+
+  return buildHigressControllerEndpointAuthorizationChecks({
+    controllerMatrix: readOnlyMatrix,
+    gatewayBaseUrl,
+    jwtSecret,
+  })
+    .filter((check) => check.expectedBoundary === 'authorized')
+    .map((check) => ({
+      ...check,
+      name: check.name.replace('-authorized-through-higress', '-authorized-readonly-through-higress'),
+      expectedBoundary: 'authorized-readonly',
+    }));
+}
+
 export function buildHigressDataSourceSecurityChecks({
   gatewayBaseUrl = 'http://127.0.0.1:18000',
   jwtSecret = 'local-dev-secret-change-me-32-bytes-minimum',
@@ -635,7 +659,14 @@ export function buildHigressDataSourceSecurityChecks({
 }
 
 function toProbePath(path) {
-  return path.replace(/\{[^}]+}/g, '999999999');
+  const probePath = path.replace(/\{[^}]+}/g, '999999999');
+  if (path === '/api/v1/reports/{reportId}/versions/diff') {
+    return `${probePath}?baseVersionId=999999998&targetVersionId=999999999`;
+  }
+  if (path === '/api/v1/rules/approval-templates/{templateId}/versions/diff') {
+    return `${probePath}?baseVersion=999999998&targetVersion=999999999`;
+  }
+  return probePath;
 }
 
 export function classifyGatewayResponse(status, body) {
@@ -656,6 +687,14 @@ function evaluateEndpointSecurityCheck(check, status, body) {
   } catch {
     code = null;
   }
+  if (check.expectedBoundary === 'authorized-readonly') {
+    const passed = status < 500 && status !== 401 && status !== 403 && code !== 401 && code !== 403;
+    return {
+      code,
+      classification: passed ? 'endpoint-authorized-readonly-accepted' : 'endpoint-authorized-readonly-rejected',
+      passed,
+    };
+  }
   const bodyMatched = !check.bodyIncludes || String(body ?? '').includes(check.bodyIncludes);
   const passed = status === check.expectedStatus && code === check.expectedCode && bodyMatched;
   return {
@@ -671,6 +710,7 @@ export async function runHigressGatewaySmoke({
   controllerMatrix = [],
   controllerEndpointAuthorizationSampleLimit = 0,
   controllerEndpointAuthorizationNegativeCoverage = false,
+  controllerEndpointAuthorizationReadOnlyAuthorizedCoverage = false,
   fetchImpl = fetch,
 } = {}) {
   const checks = [
@@ -692,6 +732,13 @@ export async function runHigressGatewaySmoke({
         jwtSecret,
         sampleLimit: controllerEndpointAuthorizationSampleLimit,
       })),
+    ...(controllerEndpointAuthorizationReadOnlyAuthorizedCoverage
+      ? buildHigressControllerEndpointAuthorizationReadOnlyAuthorizedChecks({
+        controllerMatrix,
+        gatewayBaseUrl,
+        jwtSecret,
+      })
+      : []),
   ];
   const results = [];
   for (const check of checks) {
@@ -701,7 +748,8 @@ export async function runHigressGatewaySmoke({
       body: check.body,
     });
     const body = await response.text();
-    const endpointSecurityResult = Number.isInteger(check.expectedStatus)
+    const endpointSecurityResult = (Number.isInteger(check.expectedStatus)
+      || check.expectedBoundary === 'authorized-readonly')
       ? evaluateEndpointSecurityCheck(check, response.status, body)
       : null;
     const classification = endpointSecurityResult?.classification

@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import {
   buildHigressControllerEndpointAuthorizationChecks,
   buildHigressControllerEndpointAuthorizationNegativeChecks,
+  buildHigressControllerEndpointAuthorizationReadOnlyAuthorizedChecks,
   buildHigressApplicationLayerAttackFallbackChecks,
   buildHigressDataSourceSecurityChecks,
   buildGatewaySecurityJwt,
@@ -300,6 +301,53 @@ test('buildHigressControllerEndpointAuthorizationNegativeChecks covers every per
   }
 });
 
+test('buildHigressControllerEndpointAuthorizationReadOnlyAuthorizedChecks keeps only safe GET authorized probes', () => {
+  const controllerMatrix = [
+    {
+      boundary: 'permission',
+      method: 'GET',
+      path: '/api/v1/audit-logs',
+      permission: 'audit:read',
+      controller: 'AuditController',
+      handler: 'listAuditLogs',
+    },
+    {
+      boundary: 'permission',
+      method: 'POST',
+      path: '/api/v1/rules/{ruleId}/runs',
+      permission: 'rule:debug',
+      controller: 'RuleController',
+      handler: 'runRule',
+    },
+    {
+      boundary: 'permission',
+      method: 'GET',
+      path: '/api/v1/reports/{reportId}/versions/diff',
+      permission: 'report:read',
+      controller: 'ReportController',
+      handler: 'compareVersions',
+    },
+  ];
+  const checks = buildHigressControllerEndpointAuthorizationReadOnlyAuthorizedChecks({
+    controllerMatrix,
+    gatewayBaseUrl: 'http://127.0.0.1:28000',
+    jwtSecret: 'local-dev-secret-change-me-32-bytes-minimum',
+  });
+
+  assert.deepEqual(checks.map((check) => check.name), [
+    'controller-endpoint-0-authorized-readonly-through-higress',
+    'controller-endpoint-1-authorized-readonly-through-higress',
+  ]);
+  assert.equal(checks[0].method, 'GET');
+  assert.equal(checks[0].expectedBoundary, 'authorized-readonly');
+  assert.equal(checks[0].url, 'http://127.0.0.1:28000/api/v1/audit-logs');
+  assert.match(checks[0].headers.Authorization, /^Bearer /);
+  assert.equal(
+    checks[1].url,
+    'http://127.0.0.1:28000/api/v1/reports/999999999/versions/diff?baseVersionId=999999998&targetVersionId=999999999',
+  );
+});
+
 test('Higress controller endpoint authorization matrix document stays synchronized', () => {
   const matrix = buildJavaControllerAuthorizationMatrix({ controllersRoot });
   const checks = buildHigressControllerEndpointAuthorizationChecks({
@@ -311,6 +359,80 @@ test('Higress controller endpoint authorization matrix document stays synchroniz
 
   assert.equal(actual, expected);
   assert.match(actual, /\| POST \/api\/v1\/rules\/\{ruleId\}\/approval-records\/\{approvalRecordId\}\/supplement-attachments \| rule:debug \| 3 \|/);
+});
+
+test('runHigressGatewaySmoke can append authorized read-only controller endpoint probes', async () => {
+  const controllerMatrix = [
+    {
+      boundary: 'permission',
+      method: 'GET',
+      path: '/api/v1/audit-logs',
+      permission: 'audit:read',
+      controller: 'AuditController',
+      handler: 'listAuditLogs',
+    },
+    {
+      boundary: 'permission',
+      method: 'POST',
+      path: '/api/v1/rules/{ruleId}/runs',
+      permission: 'rule:debug',
+      controller: 'RuleController',
+      handler: 'runRule',
+    },
+  ];
+  const calls = [];
+  const result = await runHigressGatewaySmoke({
+    gatewayBaseUrl: 'http://127.0.0.1:28000',
+    controllerMatrix,
+    controllerEndpointAuthorizationReadOnlyAuthorizedCoverage: true,
+    fetchImpl: async (url, options) => {
+      const authorization = options.headers?.Authorization;
+      calls.push({ url, method: options.method, authorization });
+      return {
+        status: url.endsWith('/audit-logs') && authorization ? 200 : 404,
+        text: async () => JSON.stringify({ code: url.endsWith('/audit-logs') && authorization ? 200 : 404 }),
+      };
+    },
+  });
+
+  const names = result.results.map((entry) => entry.name);
+  assert.ok(names.includes('controller-endpoint-0-authorized-readonly-through-higress'));
+  assert.ok(!names.includes('controller-endpoint-1-authorized-readonly-through-higress'));
+  assert.equal(result.results.find((entry) => entry.name === 'controller-endpoint-0-authorized-readonly-through-higress')?.passed, true);
+  assert.equal(
+    calls.filter((entry) => entry.url === 'http://127.0.0.1:28000/api/v1/audit-logs' && entry.authorization).length,
+    1,
+  );
+  assert.equal(
+    calls.filter((entry) => entry.url === 'http://127.0.0.1:28000/api/v1/rules/999999999/runs' && entry.authorization).length,
+    0,
+  );
+});
+
+test('runHigressGatewaySmoke fails authorized read-only probes on 5xx responses', async () => {
+  const result = await runHigressGatewaySmoke({
+    gatewayBaseUrl: 'http://127.0.0.1:28000',
+    controllerMatrix: [
+      {
+        boundary: 'permission',
+        method: 'GET',
+        path: '/api/v1/reports/{reportId}/versions/diff',
+        permission: 'report:read',
+        controller: 'ReportController',
+        handler: 'compareVersions',
+      },
+    ],
+    controllerEndpointAuthorizationReadOnlyAuthorizedCoverage: true,
+    fetchImpl: async () => ({
+      status: 500,
+      text: async () => JSON.stringify({ code: 500 }),
+    }),
+  });
+
+  const probe = result.results.find((entry) =>
+    entry.name === 'controller-endpoint-0-authorized-readonly-through-higress'
+  );
+  assert.equal(probe?.passed, false);
 });
 
 test('runHigressGatewaySmoke can append full generated endpoint 401 and 403 coverage', async () => {

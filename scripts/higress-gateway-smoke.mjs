@@ -8,13 +8,18 @@ const controllerEndpointAuthorizationSampleLimit = Number.parseInt(
 const controllerEndpointAuthorizationNegativeCoverage = ['1', 'true', 'all', 'yes'].includes(
   (process.env.HIGRESS_CONTROLLER_ENDPOINT_AUTH_NEGATIVE_COVERAGE ?? '').toLowerCase(),
 );
+const controllerEndpointAuthorizationReadOnlyAuthorizedCoverage = ['1', 'true', 'all', 'yes'].includes(
+  (process.env.HIGRESS_CONTROLLER_ENDPOINT_AUTH_READONLY_AUTHORIZED_COVERAGE ?? '').toLowerCase(),
+);
 const needsControllerMatrix = controllerEndpointAuthorizationSampleLimit > 0
-  || controllerEndpointAuthorizationNegativeCoverage;
+  || controllerEndpointAuthorizationNegativeCoverage
+  || controllerEndpointAuthorizationReadOnlyAuthorizedCoverage;
 
 const result = await runHigressGatewaySmoke({
   gatewayBaseUrl: process.env.HIGRESS_GATEWAY_BASE_URL ?? 'http://127.0.0.1:18000',
   controllerEndpointAuthorizationSampleLimit,
   controllerEndpointAuthorizationNegativeCoverage,
+  controllerEndpointAuthorizationReadOnlyAuthorizedCoverage,
   controllerMatrix: needsControllerMatrix
     ? buildJavaControllerAuthorizationMatrix({
       controllersRoot: 'backend/java-report-core/src/main/java/com/company/report',
