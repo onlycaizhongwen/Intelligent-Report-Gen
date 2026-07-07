@@ -18,6 +18,8 @@ security:
     secret: ${JWT_SECRET:local-dev-secret-change-me-32-bytes-minimum}
     algorithm: ${JWT_ALGORITHM:HS256}
     oidc-jwks-url: ${OIDC_JWKS_URL:}
+    oidc-issuer: ${OIDC_ISSUER:}
+    oidc-audience: ${OIDC_AUDIENCE:}
     access-token-ttl-seconds: 7200
 storage:
   minio:

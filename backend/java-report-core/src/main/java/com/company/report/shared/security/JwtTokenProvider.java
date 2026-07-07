@@ -38,25 +38,43 @@ public class JwtTokenProvider {
     private final long accessTokenTtlSeconds;
     private final String algorithm;
     private final String oidcJwksUrl;
+    private final String oidcIssuer;
+    private final String oidcAudience;
 
     @Autowired
     public JwtTokenProvider(
             @Value("${security.jwt.secret}") String secret,
             @Value("${security.jwt.access-token-ttl-seconds:7200}") long accessTokenTtlSeconds,
             @Value("${security.jwt.algorithm:HS256}") String algorithm,
-            @Value("${security.jwt.oidc-jwks-url:}") String oidcJwksUrl
+            @Value("${security.jwt.oidc-jwks-url:}") String oidcJwksUrl,
+            @Value("${security.jwt.oidc-issuer:}") String oidcIssuer,
+            @Value("${security.jwt.oidc-audience:}") String oidcAudience
     ) {
         this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.accessTokenTtlSeconds = accessTokenTtlSeconds;
         this.algorithm = normalizeAlgorithm(algorithm);
         this.oidcJwksUrl = oidcJwksUrl == null ? "" : oidcJwksUrl.trim();
-        if ("RS256".equals(this.algorithm) && this.oidcJwksUrl.isBlank()) {
-            throw new IllegalArgumentException("OIDC JWKS URL is required when security.jwt.algorithm=RS256");
+        this.oidcIssuer = oidcIssuer == null ? "" : oidcIssuer.trim();
+        this.oidcAudience = oidcAudience == null ? "" : oidcAudience.trim();
+        if ("RS256".equals(this.algorithm)) {
+            if (this.oidcJwksUrl.isBlank()) {
+                throw new IllegalArgumentException("OIDC JWKS URL is required when security.jwt.algorithm=RS256");
+            }
+            if (this.oidcIssuer.isBlank()) {
+                throw new IllegalArgumentException("OIDC issuer is required when security.jwt.algorithm=RS256");
+            }
+            if (this.oidcAudience.isBlank()) {
+                throw new IllegalArgumentException("OIDC audience is required when security.jwt.algorithm=RS256");
+            }
         }
     }
 
     public JwtTokenProvider(String secret, long accessTokenTtlSeconds) {
-        this(secret, accessTokenTtlSeconds, "HS256", "");
+        this(secret, accessTokenTtlSeconds, "HS256", "", "", "");
+    }
+
+    public JwtTokenProvider(String secret, long accessTokenTtlSeconds, String algorithm, String oidcJwksUrl) {
+        this(secret, accessTokenTtlSeconds, algorithm, oidcJwksUrl, "", "");
     }
 
     /** OpenSpec: permission-collaboration / REQ-AUTH-001 / JWT Access Token 两小时有效 */
@@ -114,6 +132,8 @@ public class JwtTokenProvider {
             if (exp instanceof Number number && number.longValue() < Instant.now().getEpochSecond()) {
                 throw new IllegalArgumentException("JWT expired");
             }
+            validateIssuer(payload);
+            validateAudience(payload);
             Long userId = Long.parseLong(String.valueOf(payload.get("sub")));
             Set<String> roles = Set.copyOf(stringList(payload.get("roles")));
             Set<String> permissions = Set.copyOf(stringList(payload.get("permissions")));
@@ -122,6 +142,26 @@ public class JwtTokenProvider {
         } catch (Exception ex) {
             throw new IllegalArgumentException("invalid RS256 JWT", ex);
         }
+    }
+
+    private void validateIssuer(Map<String, Object> payload) {
+        String tokenIssuer = String.valueOf(payload.getOrDefault("iss", ""));
+        if (!oidcIssuer.equals(tokenIssuer)) {
+            throw new IllegalArgumentException("JWT issuer mismatch");
+        }
+    }
+
+    private void validateAudience(Map<String, Object> payload) {
+        Object audience = payload.get("aud");
+        if (audience instanceof List<?> list) {
+            boolean matched = list.stream().map(String::valueOf).anyMatch(oidcAudience::equals);
+            if (matched) {
+                return;
+            }
+        } else if (oidcAudience.equals(String.valueOf(audience))) {
+            return;
+        }
+        throw new IllegalArgumentException("JWT audience mismatch");
     }
 
     @SuppressWarnings("unchecked")

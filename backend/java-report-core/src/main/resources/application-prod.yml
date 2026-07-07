@@ -17,6 +17,8 @@ security:
   jwt:
     algorithm: ${JWT_ALGORITHM:RS256}
     oidc-jwks-url: ${OIDC_JWKS_URL:}
+    oidc-issuer: ${OIDC_ISSUER:}
+    oidc-audience: ${OIDC_AUDIENCE:}
   data-source-credential-key: ${DATA_SOURCE_CREDENTIAL_KEY}
   data-source-credential-key-id: ${DATA_SOURCE_CREDENTIAL_KEY_ID}
   data-source-credential-previous-keys: ${DATA_SOURCE_CREDENTIAL_PREVIOUS_KEYS:}

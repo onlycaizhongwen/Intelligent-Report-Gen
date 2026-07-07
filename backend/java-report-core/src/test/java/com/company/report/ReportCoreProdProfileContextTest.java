@@ -17,6 +17,8 @@ import org.springframework.test.context.ActiveProfiles;
         "rocketmq.enabled=false",
         "security.jwt.secret=local-dev-secret-change-me-32-bytes-minimum",
         "security.jwt.oidc-jwks-url=http://127.0.0.1/.well-known/jwks.json",
+        "security.jwt.oidc-issuer=https://idp.example.com",
+        "security.jwt.oidc-audience=intelligent-report-api",
         "security.data-source-credential-key=prod-profile-test-data-source-key",
         "security.data-source-credential-key-id=prod-profile-test-key",
         "knowledge.data-source.endpoint-allowlist=localhost,127.0.0.1",

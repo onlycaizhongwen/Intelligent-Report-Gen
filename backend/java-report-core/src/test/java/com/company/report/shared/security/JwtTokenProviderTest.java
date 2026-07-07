@@ -59,9 +59,11 @@ class JwtTokenProviderTest {
                     "0123456789abcdef0123456789abcdef",
                     7200,
                     "RS256",
-                    jwksUrl
+                    jwksUrl,
+                    "https://idp.example.com",
+                    "intelligent-report-api"
             );
-            String token = rs256Token(keyPair, kid);
+            String token = rs256Token(keyPair, kid, "https://idp.example.com", "intelligent-report-api");
 
             CurrentUser currentUser = rs256Provider.parse(token);
 
@@ -85,10 +87,106 @@ class JwtTokenProviderTest {
                 .hasMessageContaining("OIDC JWKS URL");
     }
 
-    private String rs256Token(KeyPair keyPair, String kid) throws Exception {
+    @Test
+    void rejectsRs256ConfigurationWithoutIssuer() {
+        assertThatThrownBy(() -> new JwtTokenProvider(
+                "0123456789abcdef0123456789abcdef",
+                7200,
+                "RS256",
+                "http://127.0.0.1/.well-known/jwks.json",
+                "",
+                "intelligent-report-api"
+        )).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("OIDC issuer");
+    }
+
+    @Test
+    void rejectsRs256ConfigurationWithoutAudience() {
+        assertThatThrownBy(() -> new JwtTokenProvider(
+                "0123456789abcdef0123456789abcdef",
+                7200,
+                "RS256",
+                "http://127.0.0.1/.well-known/jwks.json",
+                "https://idp.example.com",
+                ""
+        )).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("OIDC audience");
+    }
+
+    @Test
+    void rejectsRs256TokenWhenIssuerDoesNotMatch() throws Exception {
+        KeyPair keyPair = KeyPairGenerator.getInstance("RSA").generateKeyPair();
+        RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
+        String kid = "oidc-key-issuer";
+        HttpServer server = jwksServer(kid, publicKey);
+        server.start();
+        try {
+            JwtTokenProvider rs256Provider = new JwtTokenProvider(
+                    "0123456789abcdef0123456789abcdef",
+                    7200,
+                    "RS256",
+                    jwksUrl(server),
+                    "https://idp.example.com",
+                    "intelligent-report-api"
+            );
+            String token = rs256Token(keyPair, kid, "https://unexpected-idp.example.com", "intelligent-report-api");
+
+            assertThatThrownBy(() -> rs256Provider.parse(token))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("invalid RS256 JWT");
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void rejectsRs256TokenWhenAudienceDoesNotMatch() throws Exception {
+        KeyPair keyPair = KeyPairGenerator.getInstance("RSA").generateKeyPair();
+        RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
+        String kid = "oidc-key-audience";
+        HttpServer server = jwksServer(kid, publicKey);
+        server.start();
+        try {
+            JwtTokenProvider rs256Provider = new JwtTokenProvider(
+                    "0123456789abcdef0123456789abcdef",
+                    7200,
+                    "RS256",
+                    jwksUrl(server),
+                    "https://idp.example.com",
+                    "intelligent-report-api"
+            );
+            String token = rs256Token(keyPair, kid, "https://idp.example.com", "other-api");
+
+            assertThatThrownBy(() -> rs256Provider.parse(token))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("invalid RS256 JWT");
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    private HttpServer jwksServer(String kid, RSAPublicKey publicKey) throws Exception {
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext("/.well-known/jwks.json", exchange -> {
+            byte[] response = jwks(kid, publicKey).getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, response.length);
+            exchange.getResponseBody().write(response);
+            exchange.close();
+        });
+        return server;
+    }
+
+    private String jwksUrl(HttpServer server) {
+        return "http://127.0.0.1:" + server.getAddress().getPort() + "/.well-known/jwks.json";
+    }
+
+    private String rs256Token(KeyPair keyPair, String kid, String issuer, String audience) throws Exception {
         String header = "{\"alg\":\"RS256\",\"typ\":\"JWT\",\"kid\":\"" + kid + "\"}";
         String payload = "{"
                 + "\"sub\":\"77\","
+                + "\"iss\":\"" + issuer + "\","
+                + "\"aud\":\"" + audience + "\","
                 + "\"roles\":[\"auditor\"],"
                 + "\"permissions\":[\"audit:read\"],"
                 + "\"status\":\"enabled\","
