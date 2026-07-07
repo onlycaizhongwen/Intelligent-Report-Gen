@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -21,6 +22,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleValidation(MethodArgumentNotValidException ex) {
         log.warn("参数校验失败: {}", ex.getMessage());
+        return ResponseEntity.badRequest().body(
+                ApiResponse.failure(ErrorCode.PARAMETER_INVALID.code(), ErrorCode.PARAMETER_INVALID.message())
+        );
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        log.warn("request parameter type mismatch: name={}, value={}", ex.getName(), ex.getValue());
         return ResponseEntity.badRequest().body(
                 ApiResponse.failure(ErrorCode.PARAMETER_INVALID.code(), ErrorCode.PARAMETER_INVALID.message())
         );

@@ -3,6 +3,7 @@ package com.company.report.shared.error;
 import com.company.report.shared.api.ApiResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -64,5 +65,17 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().code()).isEqualTo(409);
         assertThat(response.getBody().message()).isEqualTo("share link expired: expired-token");
+    }
+
+    @Test
+    void mapsTypeMismatchRequestParameterToBadRequestResponse() {
+        ResponseEntity<ApiResponse<Void>> response = handler.handleTypeMismatch(
+                new MethodArgumentTypeMismatchException("1' or '1'='1", Integer.class, "page", null, null)
+        );
+
+        assertThat(response.getStatusCode().value()).isEqualTo(400);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().code()).isEqualTo(400);
+        assertThat(response.getBody().message()).isEqualTo("请求参数错误");
     }
 }

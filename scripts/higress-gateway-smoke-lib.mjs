@@ -171,6 +171,30 @@ export function buildHigressRepresentativeAuthorizationMatrixChecks({
   });
 }
 
+export function buildHigressApplicationLayerAttackFallbackChecks({
+  gatewayBaseUrl = 'http://127.0.0.1:18000',
+  jwtSecret = 'local-dev-secret-change-me-32-bytes-minimum',
+} = {}) {
+  const baseUrl = gatewayBaseUrl.replace(/\/$/, '');
+  const allowedToken = buildGatewaySecurityJwt({
+    secret: jwtSecret,
+    userId: 960,
+    roles: ['attack_probe'],
+    permissions: ['report:read'],
+  });
+  const attackPage = encodeURIComponent("1' or '1'='1");
+
+  return [
+    {
+      name: 'report-list-malformed-page-attack-fallback-through-higress',
+      url: `${baseUrl}/api/v1/reports?page=${attackPage}&pageSize=1`,
+      expectedStatus: 400,
+      expectedCode: 400,
+      headers: { Authorization: `Bearer ${allowedToken}` },
+    },
+  ];
+}
+
 export function buildHigressPermissionCatalogAuthorizationChecks({
   gatewayBaseUrl = 'http://127.0.0.1:18000',
   jwtSecret = 'local-dev-secret-change-me-32-bytes-minimum',
@@ -609,6 +633,7 @@ export async function runHigressGatewaySmoke({
     ...buildHigressGatewaySmokeChecks({ gatewayBaseUrl }),
     ...buildHigressEndpointSecurityChecks({ gatewayBaseUrl, jwtSecret }),
     ...buildHigressRepresentativeAuthorizationMatrixChecks({ gatewayBaseUrl, jwtSecret }),
+    ...buildHigressApplicationLayerAttackFallbackChecks({ gatewayBaseUrl, jwtSecret }),
     ...buildHigressPermissionCatalogAuthorizationChecks({ gatewayBaseUrl, jwtSecret }),
     ...buildHigressDataSourceSecurityChecks({ gatewayBaseUrl, jwtSecret }),
     ...buildHigressControllerEndpointAuthorizationSampleChecks({

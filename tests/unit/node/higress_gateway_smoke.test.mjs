@@ -4,6 +4,7 @@ import fs from 'node:fs';
 
 import {
   buildHigressControllerEndpointAuthorizationChecks,
+  buildHigressApplicationLayerAttackFallbackChecks,
   buildHigressDataSourceSecurityChecks,
   buildGatewaySecurityJwt,
   buildHigressEndpointSecurityChecks,
@@ -128,6 +129,25 @@ test('buildHigressDataSourceSecurityChecks covers presets, configuration and syn
   assert.match(checks[5].headers.Authorization, /^Bearer /);
   assert.match(checks[6].headers.Authorization, /^Bearer /);
   assert.match(checks[7].headers.Authorization, /^Bearer /);
+});
+
+test('buildHigressApplicationLayerAttackFallbackChecks rejects malformed pagination without 500', () => {
+  const checks = buildHigressApplicationLayerAttackFallbackChecks({
+    gatewayBaseUrl: 'http://127.0.0.1:28000',
+    jwtSecret: 'local-dev-secret-change-me-32-bytes-minimum',
+  });
+
+  assert.deepEqual(
+    checks.map((check) => [check.name, check.expectedStatus, check.expectedCode]),
+    [
+      ['report-list-malformed-page-attack-fallback-through-higress', 400, 400],
+    ],
+  );
+  assert.equal(
+    checks[0].url,
+    "http://127.0.0.1:28000/api/v1/reports?page=1'%20or%20'1'%3D'1&pageSize=1",
+  );
+  assert.match(checks[0].headers.Authorization, /^Bearer /);
 });
 
 test('buildHigressRepresentativeAuthorizationMatrixChecks covers core modules', () => {
