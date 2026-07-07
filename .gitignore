@@ -15,6 +15,7 @@ out/
 
 # Runtime state and caches
 .omx/
+.worktrees/
 frontend/web-console/.npm-cache/
 .pytest_cache/
 .mypy_cache/
