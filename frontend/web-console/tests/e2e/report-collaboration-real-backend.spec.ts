@@ -15,7 +15,7 @@ test.describe('真实后端批注协作 E2E', () => {
     const token = await generateJwt({
       sub: '1',
       roles: ['ADMIN'],
-      permissions: ['report:create', 'report:read', 'report:export', 'report:share', 'user:manage'],
+      permissions: ['report:create', 'report:read', 'report:export', 'report:share', 'user:manage', 'collaboration:write'],
       status: 'enabled'
     });
     const api = await request.newContext({

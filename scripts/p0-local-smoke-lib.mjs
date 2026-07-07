@@ -1,3 +1,8 @@
+import {
+  buildHostRelayConfig,
+  buildHostRelayStartStep,
+} from './uc01-provider-host-relay-lib.mjs';
+
 export function buildP0SmokeSteps({
   dashscopeApiKey,
   realBackendApiBaseUrl = 'http://127.0.0.1:18082/api/v1',
@@ -5,19 +10,36 @@ export function buildP0SmokeSteps({
   gatewayApiBaseUrl = 'http://127.0.0.1:18000/api/v1',
   gatewayOrigin = 'http://127.0.0.1:18000',
   postgresContainer = 'ir-postgres',
+  providerRelayMode = 'host',
+  providerRelayPort = '18091',
+  providerRelayTargetOrigin = 'https://dashscope.aliyuncs.com',
   proxyEnv = {},
 } = {}) {
   if (!dashscopeApiKey) {
     throw new Error('P0 local smoke bundle requires dashscopeApiKey');
   }
 
-  return [
+  const useHostRelay = providerRelayMode !== 'none';
+  const relayConfig = buildHostRelayConfig({
+    port: providerRelayPort,
+    targetOrigin: providerRelayTargetOrigin,
+  });
+  const relayEnv = useHostRelay
+    ? {
+        UC01_PROVIDER_PREFLIGHT_LLM_BASE_URL: relayConfig.containerBaseUrl,
+        UC01_REAL_PROVIDER_LLM_BASE_URL: relayConfig.containerBaseUrl,
+      }
+    : {};
+  const steps = [
     {
       name: 'uc01-provider-preflight',
       command: 'node',
       args: ['scripts/uc01-provider-connectivity-preflight.mjs'],
       env: {
         UC01_PROVIDER_PREFLIGHT_API_KEY: dashscopeApiKey,
+        ...(relayEnv.UC01_PROVIDER_PREFLIGHT_LLM_BASE_URL
+          ? { UC01_PROVIDER_PREFLIGHT_LLM_BASE_URL: relayEnv.UC01_PROVIDER_PREFLIGHT_LLM_BASE_URL }
+          : {}),
         ...proxyEnv,
       },
     },
@@ -27,6 +49,9 @@ export function buildP0SmokeSteps({
       args: ['scripts/uc01-real-provider-worker.mjs'],
       env: {
         UC01_REAL_PROVIDER_API_KEY: dashscopeApiKey,
+        ...(relayEnv.UC01_REAL_PROVIDER_LLM_BASE_URL
+          ? { UC01_REAL_PROVIDER_LLM_BASE_URL: relayEnv.UC01_REAL_PROVIDER_LLM_BASE_URL }
+          : {}),
         ...proxyEnv,
       },
     },
@@ -38,6 +63,11 @@ export function buildP0SmokeSteps({
         UC01_SMOKE_POSTGRES_CONTAINER: postgresContainer,
         UC01_SMOKE_STRICT_AUDIT: 'true',
       },
+    },
+    {
+      name: 'uc06-document-parse-worker',
+      command: 'node',
+      args: ['scripts/document-parse-worker-smoke.mjs'],
     },
     {
       name: 'uc06-real-backend-e2e',
@@ -154,4 +184,15 @@ export function buildP0SmokeSteps({
       },
     },
   ];
+
+  if (useHostRelay) {
+    steps.unshift(
+      buildHostRelayStartStep({
+        port: providerRelayPort,
+        targetOrigin: providerRelayTargetOrigin,
+      }),
+    );
+  }
+
+  return steps;
 }

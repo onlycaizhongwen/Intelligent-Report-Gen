@@ -154,7 +154,7 @@ test.describe('Real backend rule runtime E2E', () => {
     try {
       const seed = Date.now();
       const ruleName = `Rule runtime retry compensation ${seed}`;
-      const ruleId = await createPublishedRule(api, ruleName, createRuntimeDefinition(webhook.url));
+      const ruleId = await createPublishedRule(api, ruleName, createRuntimeDefinition(webhook.url, { maxAsyncReplayAttempts: 0 }));
 
       await page.addInitScript((accessToken) => {
         window.localStorage.setItem('accessToken', accessToken);
@@ -183,7 +183,7 @@ test.describe('Real backend rule runtime E2E', () => {
 
       await failedRow.getByRole('button', { name: retryButtonName }).click();
 
-      await expect(page.locator('.ledger-row').filter({ hasText: 'succeeded' })).toBeVisible();
+      await expect(page.locator('.ledger-row').filter({ hasText: 'succeeded' }).filter({ hasText: `Source action #${failedExecutionId}` })).toHaveCount(1);
       await expect(page.getByText('Succeeded 1')).toBeVisible();
       await expect(page.getByText('Success rate 50%')).toBeVisible();
 
@@ -285,7 +285,12 @@ async function clickProductionRun(page: Page) {
   await page.locator('.toolbar-actions button').nth(2).click();
 }
 
-function createRuntimeDefinition(webhookUrl: string) {
+function createRuntimeDefinition(
+  webhookUrl: string,
+  options: {
+    maxAsyncReplayAttempts?: number;
+  } = {},
+) {
   return {
     nodes: [
       { id: 'start', type: 'start' },
@@ -306,7 +311,7 @@ function createRuntimeDefinition(webhookUrl: string) {
         method: 'POST',
         maxRetryCount: 0,
         retryBackoffSeconds: 0,
-        maxAsyncReplayAttempts: 1,
+        maxAsyncReplayAttempts: options.maxAsyncReplayAttempts ?? 1,
         headers: { 'X-System': 'rule-runtime-smoke' },
         body: { eventType: 'rule_runtime_smoke' },
       },

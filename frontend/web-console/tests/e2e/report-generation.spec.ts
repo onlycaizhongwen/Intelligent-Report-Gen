@@ -311,6 +311,86 @@ test.describe('智能报告生成 E2E', () => {
     expect(exportPayload).not.toHaveProperty('brand');
   });
 
+  test('REQ-REPORT-004：报告详情加载多页已治理企业导出模板', async ({ page }) => {
+    await page.route('**/api/v1/reports/88', async (route) => {
+      await route.fulfill({
+        json: {
+          code: 200,
+          message: 'ok',
+          data: {
+            reportId: '88',
+            title: '季度经营分析报告',
+            status: 'completed',
+            currentVersionId: '21',
+            sections: [{ sectionId: 's1', heading: '经营概览', content: '收入保持增长。' }]
+          }
+        }
+      });
+    });
+    await page.route('**/api/v1/reports/88/versions', async (route) => {
+      await route.fulfill({ json: { code: 200, message: 'ok', data: [] } });
+    });
+    await page.route('**/api/v1/enterprise-export-templates?**', async (route) => {
+      const url = new URL(route.request().url());
+      const pageNo = url.searchParams.get('page');
+      const item = pageNo === '2'
+        ? {
+            id: 902,
+            templateId: 'managed-board-page-2',
+            name: 'Board governed template page 2',
+            version: 'v1',
+            status: 'active',
+            brandSnapshot: {
+              templateId: 'managed-board-page-2',
+              templateVersion: 'v1',
+              format: 'pdf',
+              companyName: 'Managed Finance',
+              logoObjectKey: 'logos/managed-page-2.svg',
+              header: 'Managed Board Pack Page 2',
+              footer: 'Managed confidential',
+              fontFamily: 'Arial',
+              primaryColor: '#155E75',
+              layout: { coverTitle: 'Governed Board Pack' }
+            }
+          }
+        : {
+            id: 901,
+            templateId: 'managed-board-page-1',
+            name: 'Board governed template page 1',
+            version: 'v1',
+            status: 'active',
+            brandSnapshot: {
+              templateId: 'managed-board-page-1',
+              templateVersion: 'v1',
+              format: 'pdf',
+              companyName: 'Managed Finance',
+              logoObjectKey: 'logos/managed-page-1.svg',
+              header: 'Managed Board Pack Page 1',
+              footer: 'Managed confidential',
+              fontFamily: 'Arial',
+              primaryColor: '#155E75',
+              layout: { coverTitle: 'Governed Board Pack' }
+            }
+          };
+      await route.fulfill({
+        json: {
+          code: 200,
+          message: 'ok',
+          data: {
+            items: [item],
+            page: Number(pageNo ?? '1'),
+            pageSize: 1,
+            total: 2
+          }
+        }
+      });
+    });
+
+    await page.goto('/reports/88');
+
+    await expect(page.locator('select[aria-label="已治理企业模板"] option[value="managed-board-page-2"]')).toHaveCount(1);
+  });
+
   test('REQ-REPORT-003：报告详情可点击引用标记查看来源快照和质量评分', async ({ page }) => {
     let referenceCalled = false;
     await page.route('**/api/v1/reports/88', async (route) => {

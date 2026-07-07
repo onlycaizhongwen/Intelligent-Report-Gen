@@ -47,6 +47,10 @@ async function main() {
     gatewayOrigin:
       process.env.P0_SMOKE_GATEWAY_ORIGIN ?? 'http://127.0.0.1:18000',
     postgresContainer: process.env.P0_SMOKE_POSTGRES_CONTAINER ?? 'ir-postgres',
+    providerRelayMode: process.env.P0_SMOKE_PROVIDER_RELAY ?? 'host',
+    providerRelayPort: process.env.P0_SMOKE_PROVIDER_RELAY_PORT ?? '18091',
+    providerRelayTargetOrigin:
+      process.env.P0_SMOKE_PROVIDER_RELAY_TARGET_ORIGIN ?? 'https://dashscope.aliyuncs.com',
     proxyEnv: collectProxyEnv(process.env),
   });
 

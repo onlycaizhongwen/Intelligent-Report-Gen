@@ -442,8 +442,21 @@ async function loadVersions() {
 
 async function loadManagedTemplates() {
   try {
-    const result = await reportApi.listEnterpriseExportTemplates({ page: 1, pageSize: 20, status: 'active' });
-    managedTemplates.value = result.items ?? [];
+    const pageSize = 100;
+    const templates = new Map<string, EnterpriseExportTemplate>();
+    let page = 1;
+    let total = Number.POSITIVE_INFINITY;
+    while (templates.size < total && page <= 50) {
+      const result = await reportApi.listEnterpriseExportTemplates({ page, pageSize, status: 'active' });
+      const items = result.items ?? [];
+      items.forEach((template) => templates.set(template.templateId, template));
+      total = result.total ?? templates.size;
+      if (items.length === 0) {
+        break;
+      }
+      page += 1;
+    }
+    managedTemplates.value = Array.from(templates.values());
   } catch {
     managedTemplates.value = [];
   }
