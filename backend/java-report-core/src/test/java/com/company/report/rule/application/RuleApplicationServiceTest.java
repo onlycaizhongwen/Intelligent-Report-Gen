@@ -1194,6 +1194,42 @@ class RuleApplicationServiceTest {
     }
 
     @Test
+    void rejectsApprovalSupplementAttachmentWhenPdfContainsActiveContentBeforeStorageWrite() {
+        InMemoryRuleRepository ruleRepository = new InMemoryRuleRepository();
+        InMemoryAuditRepository auditRepository = new InMemoryAuditRepository();
+        FakeApprovalSupplementStorage storage = new FakeApprovalSupplementStorage();
+        RuleApplicationService approvalService = new RuleApplicationService(
+                new RuleDomainService(),
+                ruleRepository,
+                auditRepository,
+                new FakeSystemAlertRepository(),
+                storage
+        );
+        Long ruleId = publishRule(approvalService, "Supplement attachment PDF active content rule", approvalRuleDefinition());
+        Long approvalRecordId = rejectedApprovalRecordId(approvalService, ruleId);
+        byte[] pdfWithScript = "%PDF-1.7\n1 0 obj << /OpenAction << /S /JavaScript /JS (app.launchURL('https://evil.example')) >> >>".getBytes(StandardCharsets.US_ASCII);
+
+        assertThatThrownBy(() -> approvalService.uploadApprovalSupplementAttachment(
+                ruleId,
+                approvalRecordId,
+                new MockMultipartFile("file", "scripted-evidence.pdf", "application/pdf", pdfWithScript)
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("approval supplement attachment failed content inspection: pdf_active_content_detected");
+
+        assertThat(storage.storeCallCount).isZero();
+        assertThat(auditRepository.logs)
+                .filteredOn(log -> "rule_approval_supplement_attachment_rejected".equals(log.operationType()))
+                .singleElement()
+                .satisfies(log -> assertThat(log.detail())
+                        .containsEntry("approvalRecordId", approvalRecordId)
+                        .containsEntry("fileName", "scripted-evidence.pdf")
+                        .containsEntry("contentType", "application/pdf")
+                        .containsEntry("rejectionReason", "pdf_active_content_detected")
+                        .containsEntry("inspectionEngine", "basic_attachment_content_inspector"));
+    }
+
+    @Test
     void rejectsApprovalSupplementAttachmentWhenImageContainsActiveContentBeforeStorageWrite() {
         InMemoryRuleRepository ruleRepository = new InMemoryRuleRepository();
         InMemoryAuditRepository auditRepository = new InMemoryAuditRepository();

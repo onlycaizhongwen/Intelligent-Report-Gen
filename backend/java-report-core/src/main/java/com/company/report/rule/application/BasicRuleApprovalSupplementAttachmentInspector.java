@@ -48,6 +48,12 @@ public class BasicRuleApprovalSupplementAttachmentInspector implements RuleAppro
                     "file content does not match declared content type"
             );
         }
+        if (isPdfContentType(contentType) && containsPdfActiveContentMarker(bytes)) {
+            return InspectionResult.rejected(
+                    "pdf_active_content_detected",
+                    "pdf evidence contains active content markers"
+            );
+        }
         if (isImageContentType(contentType) && containsImageActiveContentMarker(bytes)) {
             return InspectionResult.rejected(
                     "image_active_content_detected",
@@ -114,6 +120,21 @@ public class BasicRuleApprovalSupplementAttachmentInspector implements RuleAppro
     private static boolean isImageContentType(String contentType) {
         String normalized = contentType == null ? "" : contentType.toLowerCase(Locale.ROOT);
         return "image/jpeg".equals(normalized) || "image/png".equals(normalized);
+    }
+
+    private static boolean isPdfContentType(String contentType) {
+        String normalized = contentType == null ? "" : contentType.toLowerCase(Locale.ROOT);
+        return "application/pdf".equals(normalized);
+    }
+
+    private static boolean containsPdfActiveContentMarker(byte[] bytes) {
+        String content = new String(bytes, StandardCharsets.US_ASCII).toLowerCase(Locale.ROOT);
+        return content.contains("/javascript")
+                || content.contains("/js")
+                || content.contains("/openaction")
+                || content.contains("/launch")
+                || content.contains("/embeddedfile")
+                || content.contains("/richmedia");
     }
 
     private static boolean isLegacyOfficeContentType(String contentType) {
