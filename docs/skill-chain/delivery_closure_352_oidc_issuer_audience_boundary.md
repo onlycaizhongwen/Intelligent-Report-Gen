@@ -31,4 +31,4 @@ Local development remains compatible with `HS256 + JWT_SECRET`; the new issuer/a
 ## Remaining Risk
 
 - This closure validates Java-side OIDC issuer/audience enforcement with local signed RS256 tokens. It does not complete a live external IdP browser login through Higress.
-- JWKS caching and key rotation windows remain follow-up production hardening.
+- Live external IdP browser login through Higress remains follow-up production hardening.

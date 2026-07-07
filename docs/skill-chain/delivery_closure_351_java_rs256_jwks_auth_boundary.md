@@ -31,4 +31,4 @@ When `security.jwt.algorithm=RS256` and no JWKS URL is configured, `JwtTokenProv
 ## Remaining Risk
 
 - This closure validates Java-side RS256/JWKS token verification with a local JWKS endpoint. It does not complete a live production IdP login flow through Higress.
-- JWKS caching, key rotation windows, issuer/audience checks, and Higress OIDC browser login acceptance remain follow-up production hardening.
+- Higress OIDC browser login acceptance remains follow-up production hardening.

@@ -24,6 +24,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -40,6 +41,9 @@ public class JwtTokenProvider {
     private final String oidcJwksUrl;
     private final String oidcIssuer;
     private final String oidcAudience;
+    private final long oidcJwksCacheTtlSeconds;
+    private Map<String, PublicKey> cachedJwksKeys = Map.of();
+    private Instant cachedJwksExpiresAt = Instant.EPOCH;
 
     @Autowired
     public JwtTokenProvider(
@@ -48,7 +52,8 @@ public class JwtTokenProvider {
             @Value("${security.jwt.algorithm:HS256}") String algorithm,
             @Value("${security.jwt.oidc-jwks-url:}") String oidcJwksUrl,
             @Value("${security.jwt.oidc-issuer:}") String oidcIssuer,
-            @Value("${security.jwt.oidc-audience:}") String oidcAudience
+            @Value("${security.jwt.oidc-audience:}") String oidcAudience,
+            @Value("${security.jwt.oidc-jwks-cache-ttl-seconds:300}") long oidcJwksCacheTtlSeconds
     ) {
         this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.accessTokenTtlSeconds = accessTokenTtlSeconds;
@@ -56,6 +61,7 @@ public class JwtTokenProvider {
         this.oidcJwksUrl = oidcJwksUrl == null ? "" : oidcJwksUrl.trim();
         this.oidcIssuer = oidcIssuer == null ? "" : oidcIssuer.trim();
         this.oidcAudience = oidcAudience == null ? "" : oidcAudience.trim();
+        this.oidcJwksCacheTtlSeconds = oidcJwksCacheTtlSeconds;
         if ("RS256".equals(this.algorithm)) {
             if (this.oidcJwksUrl.isBlank()) {
                 throw new IllegalArgumentException("OIDC JWKS URL is required when security.jwt.algorithm=RS256");
@@ -66,15 +72,29 @@ public class JwtTokenProvider {
             if (this.oidcAudience.isBlank()) {
                 throw new IllegalArgumentException("OIDC audience is required when security.jwt.algorithm=RS256");
             }
+            if (this.oidcJwksCacheTtlSeconds <= 0) {
+                throw new IllegalArgumentException("OIDC JWKS cache TTL must be positive when security.jwt.algorithm=RS256");
+            }
         }
     }
 
     public JwtTokenProvider(String secret, long accessTokenTtlSeconds) {
-        this(secret, accessTokenTtlSeconds, "HS256", "", "", "");
+        this(secret, accessTokenTtlSeconds, "HS256", "", "", "", 300);
     }
 
     public JwtTokenProvider(String secret, long accessTokenTtlSeconds, String algorithm, String oidcJwksUrl) {
-        this(secret, accessTokenTtlSeconds, algorithm, oidcJwksUrl, "", "");
+        this(secret, accessTokenTtlSeconds, algorithm, oidcJwksUrl, "", "", 300);
+    }
+
+    public JwtTokenProvider(
+            String secret,
+            long accessTokenTtlSeconds,
+            String algorithm,
+            String oidcJwksUrl,
+            String oidcIssuer,
+            String oidcAudience
+    ) {
+        this(secret, accessTokenTtlSeconds, algorithm, oidcJwksUrl, oidcIssuer, oidcAudience, 300);
     }
 
     /** OpenSpec: permission-collaboration / REQ-AUTH-001 / JWT Access Token 两小时有效 */
@@ -172,7 +192,32 @@ public class JwtTokenProvider {
         return List.of();
     }
 
-    private PublicKey resolveJwksPublicKey(String kid) throws Exception {
+    private synchronized PublicKey resolveJwksPublicKey(String kid) throws Exception {
+        Instant now = Instant.now();
+        PublicKey cachedKey = findPublicKey(kid, cachedJwksKeys);
+        if (cachedKey != null && cachedJwksExpiresAt.isAfter(now)) {
+            return cachedKey;
+        }
+        cachedJwksKeys = fetchJwksPublicKeys();
+        cachedJwksExpiresAt = now.plusSeconds(oidcJwksCacheTtlSeconds);
+        PublicKey refreshedKey = findPublicKey(kid, cachedJwksKeys);
+        if (refreshedKey != null) {
+            return refreshedKey;
+        }
+        throw new IllegalArgumentException("matching JWKS RSA key not found");
+    }
+
+    private PublicKey findPublicKey(String kid, Map<String, PublicKey> keys) {
+        if (keys.isEmpty()) {
+            return null;
+        }
+        if (kid.isBlank()) {
+            return keys.values().iterator().next();
+        }
+        return keys.get(kid);
+    }
+
+    private Map<String, PublicKey> fetchJwksPublicKeys() throws Exception {
         HttpRequest request = HttpRequest.newBuilder(URI.create(oidcJwksUrl))
                 .timeout(Duration.ofSeconds(5))
                 .GET()
@@ -185,23 +230,22 @@ public class JwtTokenProvider {
         if (!(keysValue instanceof List<?> keys)) {
             throw new IllegalArgumentException("JWKS keys missing");
         }
+        Map<String, PublicKey> publicKeys = new LinkedHashMap<>();
         for (Object keyValue : keys) {
             if (!(keyValue instanceof Map<?, ?> key)) {
                 continue;
             }
             Object kidValue = key.get("kid");
             String keyKid = kidValue == null ? "" : String.valueOf(kidValue);
-            if (!kid.isBlank() && !kid.equals(keyKid)) {
-                continue;
-            }
             if (!"RSA".equals(String.valueOf(key.get("kty")))) {
                 continue;
             }
             BigInteger modulus = new BigInteger(1, base64UrlDecode(String.valueOf(key.get("n"))));
             BigInteger exponent = new BigInteger(1, base64UrlDecode(String.valueOf(key.get("e"))));
-            return KeyFactory.getInstance("RSA").generatePublic(new RSAPublicKeySpec(modulus, exponent));
+            PublicKey publicKey = KeyFactory.getInstance("RSA").generatePublic(new RSAPublicKeySpec(modulus, exponent));
+            publicKeys.put(keyKid, publicKey);
         }
-        throw new IllegalArgumentException("matching JWKS RSA key not found");
+        return publicKeys;
     }
 
     private Map<String, Object> decodeJson(String base64Url) throws Exception {

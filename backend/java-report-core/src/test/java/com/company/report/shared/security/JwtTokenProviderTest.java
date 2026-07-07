@@ -13,6 +13,8 @@ import java.security.interfaces.RSAPublicKey;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -160,6 +162,85 @@ class JwtTokenProviderTest {
             assertThatThrownBy(() -> rs256Provider.parse(token))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("invalid RS256 JWT");
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void cachesJwksForRepeatedRs256TokenVerification() throws Exception {
+        KeyPair keyPair = KeyPairGenerator.getInstance("RSA").generateKeyPair();
+        RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
+        String kid = "oidc-key-cache";
+        AtomicInteger requests = new AtomicInteger();
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext("/.well-known/jwks.json", exchange -> {
+            requests.incrementAndGet();
+            byte[] response = jwks(kid, publicKey).getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, response.length);
+            exchange.getResponseBody().write(response);
+            exchange.close();
+        });
+        server.start();
+        try {
+            JwtTokenProvider rs256Provider = new JwtTokenProvider(
+                    "0123456789abcdef0123456789abcdef",
+                    7200,
+                    "RS256",
+                    jwksUrl(server),
+                    "https://idp.example.com",
+                    "intelligent-report-api"
+            );
+            String token = rs256Token(keyPair, kid, "https://idp.example.com", "intelligent-report-api");
+
+            rs256Provider.parse(token);
+            rs256Provider.parse(token);
+
+            assertThat(requests).hasValue(1);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void refreshesCachedJwksWhenTokenKidIsRotated() throws Exception {
+        KeyPair firstKeyPair = KeyPairGenerator.getInstance("RSA").generateKeyPair();
+        KeyPair secondKeyPair = KeyPairGenerator.getInstance("RSA").generateKeyPair();
+        String firstKid = "oidc-key-before-rotation";
+        String secondKid = "oidc-key-after-rotation";
+        AtomicInteger requests = new AtomicInteger();
+        AtomicReference<String> jwksResponse = new AtomicReference<>(
+                jwks(firstKid, (RSAPublicKey) firstKeyPair.getPublic())
+        );
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext("/.well-known/jwks.json", exchange -> {
+            requests.incrementAndGet();
+            byte[] response = jwksResponse.get().getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, response.length);
+            exchange.getResponseBody().write(response);
+            exchange.close();
+        });
+        server.start();
+        try {
+            JwtTokenProvider rs256Provider = new JwtTokenProvider(
+                    "0123456789abcdef0123456789abcdef",
+                    7200,
+                    "RS256",
+                    jwksUrl(server),
+                    "https://idp.example.com",
+                    "intelligent-report-api"
+            );
+            String firstToken = rs256Token(firstKeyPair, firstKid, "https://idp.example.com", "intelligent-report-api");
+            String secondToken = rs256Token(secondKeyPair, secondKid, "https://idp.example.com", "intelligent-report-api");
+
+            rs256Provider.parse(firstToken);
+            jwksResponse.set(jwks(secondKid, (RSAPublicKey) secondKeyPair.getPublic()));
+            CurrentUser currentUser = rs256Provider.parse(secondToken);
+
+            assertThat(currentUser.userId()).isEqualTo(77L);
+            assertThat(requests).hasValue(2);
         } finally {
             server.stop(0);
         }
