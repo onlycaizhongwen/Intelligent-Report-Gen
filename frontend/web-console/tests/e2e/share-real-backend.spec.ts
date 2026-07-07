@@ -11,7 +11,7 @@ test.describe('真实后端分享访问 E2E', () => {
     const adminToken = await generateJwt({
       sub: '1',
       roles: ['ADMIN'],
-      permissions: ['report:create', 'report:read', 'report:export', 'report:share'],
+      permissions: ['report:create', 'report:read', 'report:export', 'report:share', 'report:template:manage'],
       status: 'enabled'
     });
     const api = await request.newContext({
@@ -28,8 +28,34 @@ test.describe('真实后端分享访问 E2E', () => {
 
     await completeReport(api, task.taskId);
 
+    const templateId = `share-export-${suffix}`;
+    const templateResponse = await api.post(apiUrl('enterprise-export-templates'), {
+      data: {
+        templateId,
+        name: `Share export template ${suffix}`,
+        brand: {
+          companyName: 'Share Finance',
+          logoObjectKey: `logos/share-${suffix}.svg`,
+          header: 'Share controlled export',
+          footer: 'External read-only',
+          fontFamily: 'Arial',
+          primaryColor: '#155E75',
+          layout: {
+            coverTitle: 'Share Board Pack',
+            tocTitle: 'Share Contents',
+            bodyTitlePrefix: 'Share Section',
+            titleFontSize: 28,
+            bodyFontSize: 18,
+            headerFontSize: 12,
+            footerFontSize: 10
+          }
+        }
+      }
+    });
+    expect(templateResponse.ok(), `create export template failed: ${templateResponse.status()} ${await templateResponse.text()}`).toBeTruthy();
+
     const exportResponse = await api.post(apiUrl(`reports/${task.reportId}/exports`), {
-      data: { format: 'markdown', templateId: 'enterprise-default' }
+      data: { format: 'markdown', templateId }
     });
     expect(exportResponse.ok(), `create export failed: ${exportResponse.status()} ${await exportResponse.text()}`).toBeTruthy();
     const exported = (await exportResponse.json()).data as { exportFileId: number; fileName: string };

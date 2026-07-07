@@ -33,6 +33,8 @@ export function buildDeliverySmokeSteps({
       env: {
         P1_SMOKE_REAL_BACKEND_API_BASE_URL: realBackendApiBaseUrl,
         P1_SMOKE_REAL_BACKEND_ORIGIN: realBackendOrigin,
+        P1_SMOKE_HIGRESS_API_BASE_URL: gatewayApiBaseUrl,
+        P1_SMOKE_HIGRESS_ORIGIN: gatewayOrigin,
       },
     },
     {
