@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 
 import {
+  buildHigressControllerEndpointAuthorizationChecks,
   buildHigressDataSourceSecurityChecks,
   buildGatewaySecurityJwt,
   buildHigressEndpointSecurityChecks,
@@ -9,7 +11,14 @@ import {
   buildHigressPermissionCatalogAuthorizationChecks,
   buildHigressRepresentativeAuthorizationMatrixChecks,
   classifyGatewayResponse,
+  renderHigressControllerEndpointAuthorizationMatrixMarkdown,
 } from '../../../scripts/higress-gateway-smoke-lib.mjs';
+import {
+  buildJavaControllerAuthorizationMatrix,
+} from '../../../scripts/controller-authorization-matrix-lib.mjs';
+
+const controllersRoot = 'backend/java-report-core/src/main/java/com/company/report';
+const endpointHigressMatrixDocPath = 'docs/skill-chain/higress_controller_endpoint_authorization_matrix.md';
 
 test('buildHigressGatewaySmokeChecks targets Java-routed API and blocked Python chat path', () => {
   const checks = buildHigressGatewaySmokeChecks({
@@ -198,4 +207,47 @@ test('buildHigressPermissionCatalogAuthorizationChecks covers every RBAC catalog
   assert.equal(checks.find((check) => check.name === 'catalog-report-create-authorized-through-higress')?.url, 'http://127.0.0.1:28000/api/v1/report-templates');
   assert.equal(checks.find((check) => check.name === 'catalog-knowledge-upload-authorized-through-higress')?.url, 'http://127.0.0.1:28000/api/v1/documents/999999999');
   assert.equal(checks.find((check) => check.name === 'catalog-rule-debug-authorized-through-higress')?.url, 'http://127.0.0.1:28000/api/v1/rules/999999999/runs?page=1&pageSize=1');
+});
+
+test('buildHigressControllerEndpointAuthorizationChecks covers every permission controller endpoint', () => {
+  const matrix = buildJavaControllerAuthorizationMatrix({ controllersRoot });
+  const permissionEndpoints = matrix.filter((entry) => entry.boundary === 'permission');
+  const checks = buildHigressControllerEndpointAuthorizationChecks({
+    controllerMatrix: matrix,
+    gatewayBaseUrl: 'http://127.0.0.1:28000',
+    jwtSecret: 'local-dev-secret-change-me-32-bytes-minimum',
+  });
+
+  assert.ok(permissionEndpoints.length > 80, 'expected broad endpoint-level permission coverage');
+  assert.equal(checks.length, permissionEndpoints.length * 3);
+
+  for (const endpoint of permissionEndpoints) {
+    const endpointChecks = checks.filter((check) => check.controllerEndpoint === `${endpoint.method} ${endpoint.path}`);
+    assert.equal(endpointChecks.length, 3, `${endpoint.method} ${endpoint.path} should have 401/403/authorized checks`);
+    assert.deepEqual(endpointChecks.map((check) => check.expectedBoundary), ['missing-token', 'forbidden', 'authorized']);
+    assert.equal(endpointChecks[0].expectedStatus, 401);
+    assert.equal(endpointChecks[1].expectedStatus, 403);
+    assert.equal(endpointChecks[2].permission, endpoint.permission);
+  }
+
+  const uploadChecks = checks.filter((check) =>
+    check.controllerEndpoint === 'POST /api/v1/rules/{ruleId}/approval-records/{approvalRecordId}/supplement-attachments');
+  assert.equal(uploadChecks.length, 3);
+  assert.equal(uploadChecks[2].url, 'http://127.0.0.1:28000/api/v1/rules/999999999/approval-records/999999999/supplement-attachments');
+  assert.equal(uploadChecks[2].method, 'POST');
+  assert.equal(uploadChecks[2].permission, 'rule:debug');
+  assert.match(uploadChecks[2].headers.Authorization, /^Bearer /);
+});
+
+test('Higress controller endpoint authorization matrix document stays synchronized', () => {
+  const matrix = buildJavaControllerAuthorizationMatrix({ controllersRoot });
+  const checks = buildHigressControllerEndpointAuthorizationChecks({
+    controllerMatrix: matrix,
+    gatewayBaseUrl: 'http://127.0.0.1:18000',
+  });
+  const expected = renderHigressControllerEndpointAuthorizationMatrixMarkdown(checks);
+  const actual = fs.readFileSync(endpointHigressMatrixDocPath, 'utf8');
+
+  assert.equal(actual, expected);
+  assert.match(actual, /\| POST \/api\/v1\/rules\/\{ruleId\}\/approval-records\/\{approvalRecordId\}\/supplement-attachments \| rule:debug \| 3 \|/);
 });

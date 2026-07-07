@@ -352,6 +352,100 @@ export function buildHigressPermissionCatalogAuthorizationChecks({
   });
 }
 
+export function buildHigressControllerEndpointAuthorizationChecks({
+  controllerMatrix = [],
+  gatewayBaseUrl = 'http://127.0.0.1:18000',
+  jwtSecret = 'local-dev-secret-change-me-32-bytes-minimum',
+} = {}) {
+  const baseUrl = gatewayBaseUrl.replace(/\/$/, '');
+  return controllerMatrix
+    .filter((endpoint) => endpoint.boundary === 'permission')
+    .flatMap((endpoint, index) => {
+      const endpointKey = `${endpoint.method} ${endpoint.path}`;
+      const probePath = toProbePath(endpoint.path);
+      const insufficientToken = buildGatewaySecurityJwt({
+        secret: jwtSecret,
+        userId: 1200 + index,
+        roles: ['endpoint_probe_forbidden'],
+        permissions: [],
+      });
+      const allowedToken = buildGatewaySecurityJwt({
+        secret: jwtSecret,
+        userId: 1400 + index,
+        roles: ['endpoint_probe_authorized'],
+        permissions: [endpoint.permission],
+      });
+      return [
+        {
+          name: `controller-endpoint-${index}-missing-token-through-higress`,
+          controllerEndpoint: endpointKey,
+          controller: endpoint.controller,
+          handler: endpoint.handler,
+          permission: endpoint.permission,
+          expectedBoundary: 'missing-token',
+          url: `${baseUrl}${probePath}`,
+          method: endpoint.method,
+          expectedStatus: 401,
+          expectedCode: 401,
+          headers: {},
+        },
+        {
+          name: `controller-endpoint-${index}-insufficient-permission-through-higress`,
+          controllerEndpoint: endpointKey,
+          controller: endpoint.controller,
+          handler: endpoint.handler,
+          permission: endpoint.permission,
+          expectedBoundary: 'forbidden',
+          url: `${baseUrl}${probePath}`,
+          method: endpoint.method,
+          expectedStatus: 403,
+          expectedCode: 403,
+          headers: { Authorization: `Bearer ${insufficientToken}` },
+        },
+        {
+          name: `controller-endpoint-${index}-authorized-through-higress`,
+          controllerEndpoint: endpointKey,
+          controller: endpoint.controller,
+          handler: endpoint.handler,
+          permission: endpoint.permission,
+          expectedBoundary: 'authorized',
+          url: `${baseUrl}${probePath}`,
+          method: endpoint.method,
+          expectedStatus: null,
+          expectedCode: null,
+          headers: { Authorization: `Bearer ${allowedToken}` },
+        },
+      ];
+    });
+}
+
+export function renderHigressControllerEndpointAuthorizationMatrixMarkdown(checks) {
+  const grouped = new Map();
+  for (const check of checks) {
+    if (!grouped.has(check.controllerEndpoint)) {
+      grouped.set(check.controllerEndpoint, {
+        controllerEndpoint: check.controllerEndpoint,
+        permission: check.permission,
+        controller: check.controller,
+        handler: check.handler,
+        checkCount: 0,
+      });
+    }
+    grouped.get(check.controllerEndpoint).checkCount += 1;
+  }
+  const rows = [
+    '# Higress Controller Endpoint Authorization Matrix',
+    '',
+    '| Controller Endpoint | Permission | Check Count | Controller | Handler |',
+    '| --- | --- | --- | --- | --- |',
+    ...[...grouped.values()]
+      .sort((left, right) => left.controllerEndpoint.localeCompare(right.controllerEndpoint))
+      .map((entry) => `| ${entry.controllerEndpoint} | ${entry.permission} | ${entry.checkCount} | ${entry.controller} | ${entry.handler} |`),
+    '',
+  ];
+  return rows.join('\n');
+}
+
 export function buildHigressDataSourceSecurityChecks({
   gatewayBaseUrl = 'http://127.0.0.1:18000',
   jwtSecret = 'local-dev-secret-change-me-32-bytes-minimum',
@@ -447,6 +541,10 @@ export function buildHigressDataSourceSecurityChecks({
       bodyIncludes: 'knowledge data source not found',
     },
   ];
+}
+
+function toProbePath(path) {
+  return path.replace(/\{[^}]+}/g, '999999999');
 }
 
 export function classifyGatewayResponse(status, body) {
