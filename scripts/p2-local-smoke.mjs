@@ -39,6 +39,14 @@ async function main() {
       process.env.P2_SMOKE_REAL_BACKEND_API_BASE_URL ?? 'http://127.0.0.1:18082/api/v1',
     realBackendOrigin:
       process.env.P2_SMOKE_REAL_BACKEND_ORIGIN ?? 'http://127.0.0.1:18082',
+    gatewayBaseUrl:
+      process.env.P2_SMOKE_HIGRESS_GATEWAY_BASE_URL ?? 'http://127.0.0.1:18000',
+    tlsGatewayBaseUrl:
+      process.env.P2_SMOKE_HIGRESS_TLS_GATEWAY_BASE_URL ?? 'https://127.0.0.1:18443',
+    gatewayApiBaseUrl:
+      process.env.P2_SMOKE_HIGRESS_API_BASE_URL ?? 'http://127.0.0.1:18000/api/v1',
+    gatewayOrigin:
+      process.env.P2_SMOKE_HIGRESS_ORIGIN ?? 'http://127.0.0.1:18000',
   });
 
   const results = [];

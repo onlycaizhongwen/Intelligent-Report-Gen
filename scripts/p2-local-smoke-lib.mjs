@@ -2,6 +2,7 @@ export function buildP2SmokeSteps({
   realBackendApiBaseUrl = 'http://127.0.0.1:18082/api/v1',
   realBackendOrigin = 'http://127.0.0.1:18082',
   gatewayBaseUrl = 'http://127.0.0.1:18000',
+  tlsGatewayBaseUrl = 'https://127.0.0.1:18443',
   gatewayApiBaseUrl = 'http://127.0.0.1:18000/api/v1',
   gatewayOrigin = 'http://127.0.0.1:18000',
 } = {}) {
@@ -12,6 +13,15 @@ export function buildP2SmokeSteps({
       args: ['scripts/higress-gateway-smoke.mjs'],
       env: {
         HIGRESS_GATEWAY_BASE_URL: gatewayBaseUrl,
+      },
+    },
+    {
+      name: 'higress-tls-endpoint-security-smoke',
+      command: 'node',
+      args: ['scripts/higress-gateway-smoke.mjs'],
+      env: {
+        HIGRESS_GATEWAY_BASE_URL: tlsGatewayBaseUrl,
+        NODE_TLS_REJECT_UNAUTHORIZED: '0',
       },
     },
     {
