@@ -3,6 +3,8 @@
 > 楠屾敹鍘熷垯锛氭帴鍙ｅ瓨鍦ㄣ€侀〉闈㈠瓨鍦ㄣ€佹祴璇曢鏋跺瓨鍦ㄩ兘涓嶇瓑浜庝氦浠樺畬鎴愶紱蹇呴』鑳芥寜鍘熷瀷鏃呯▼璺戦€氫笟鍔￠棴鐜紝骞剁暀涓嬫暟鎹簱銆佸璞″瓨鍌ㄣ€佺綉鍏炽€佸璁℃垨绔埌绔祴璇曡瘉鎹€?
 ## Recent Closure Evidence
 
+- 2026-07-07 Closure 331: UC-08 approval supplement Office embedded-object deep parser for `REQ-RULE-001`. Java now rejects OOXML Office archives containing `/embeddings/`, `/activex/`, `/controls/`, `oleObject.bin`, or `package.bin` entries before storage with `embedded_object_detected`, preserving `inspectionEngine=basic_attachment_content_inspector` audit evidence and stopping before MinIO storage writes. Verification: RED embedded-object test first failed because the DOCX upload was accepted and stored; GREEN targeted embedded-object test passed `1/1`; upload security regression passed `15/15`; full `RuleApplicationServiceTest` passed `103/103`; structured contract test passed `1/1`. See `docs/skill-chain/delivery_closure_331_uc08_approval_supplement_embedded_objects.md`.
+
 - 2026-07-07 Closure 330: UC-08 approval supplement image active-content inspection for `REQ-RULE-001`. Java now rejects PNG/JPEG evidence uploads containing obvious active content markers such as script/svg/html/javascript payloads before storage with `image_active_content_detected`, preserving `inspectionEngine=basic_attachment_content_inspector` audit evidence and stopping before MinIO storage writes. Verification: RED image active-content test first failed because the PNG upload was accepted and stored; GREEN targeted image active-content test passed `1/1`; upload security regression passed `14/14`; full `RuleApplicationServiceTest` passed `102/102`; structured contract test passed `1/1`. See `docs/skill-chain/delivery_closure_330_uc08_approval_supplement_image_active_content.md`.
 
 - 2026-07-06 Closure 329: UC-08 approval supplement Office relationship deep parser for `REQ-RULE-001`. Java now inspects OOXML `.rels` entries before storage and rejects external relationship targets with `external_relationship_detected`, preserving `inspectionEngine=basic_attachment_content_inspector` audit evidence and stopping before MinIO storage writes. Verification: RED external relationship test first failed because the malicious relationship archive was accepted and stored; GREEN targeted external relationship test passed `1/1`. See `docs/skill-chain/delivery_closure_329_uc08_approval_supplement_external_relationships.md`.
@@ -1123,6 +1125,15 @@
 - Traceability evidence: rejected uploads still use `rule_approval_supplement_attachment_rejected` and include `inspectionEngine=basic_attachment_content_inspector`, `inspectionMessage`, `fileName`, `contentType`, and `rejectionReason=image_active_content_detected`.
 - Code evidence: `BasicRuleApprovalSupplementAttachmentInspector.java`, `RuleApplicationServiceTest.java`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_closure_330_uc08_approval_supplement_image_active_content.md`.
 - Verification evidence: RED image active-content test first failed because the PNG upload was accepted and stored; GREEN targeted image active-content test passed `1/1`; approval supplement upload security regression passed `14/14`; full `RuleApplicationServiceTest` passed `102/102`; structured contract test passed `1/1`.
+- Remaining gaps: Office embedded-object deep parsing is closed by Closure 331; OCR semantic extraction malware inspection, broader sandbox/deep parser analysis, and live ClamAV container smoke remain future production hardening.
+
+### 2026-07-07 UC-08 approval supplement Office embedded-object closure
+
+- Scope: `REQ-RULE-001`, `UC-08`, rejected approval supplement attachment upload.
+- Result: Java now rejects OOXML Office archives containing `/embeddings/`, `/activex/`, `/controls/`, `oleObject.bin`, or `package.bin` entries before object storage writes.
+- Traceability evidence: rejected uploads still use `rule_approval_supplement_attachment_rejected` and include `inspectionEngine=basic_attachment_content_inspector`, `inspectionMessage`, `fileName`, `contentType`, and `rejectionReason=embedded_object_detected`.
+- Code evidence: `BasicRuleApprovalSupplementAttachmentInspector.java`, `RuleApplicationServiceTest.java`, `docs/skill-chain/api_contract.md`, and `docs/skill-chain/delivery_closure_331_uc08_approval_supplement_embedded_objects.md`.
+- Verification evidence: RED embedded-object test first failed because the DOCX upload was accepted and stored; GREEN targeted embedded-object test passed `1/1`; approval supplement upload security regression passed `15/15`; full `RuleApplicationServiceTest` passed `103/103`; structured contract test passed `1/1`.
 - Remaining gaps: OCR semantic extraction malware inspection, broader sandbox/deep parser analysis, and live ClamAV container smoke remain future production hardening.
 
 ### 2026-07-06 UC-06 Data source configuration contract completion

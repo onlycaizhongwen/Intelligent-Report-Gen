@@ -120,6 +120,14 @@ public class BasicRuleApprovalSupplementAttachmentInspector implements RuleAppro
                 || content.contains("<?php");
     }
 
+    private static boolean isEmbeddedObjectEntry(String entryName) {
+        return entryName.contains("/embeddings/")
+                || entryName.contains("/activex/")
+                || entryName.contains("/controls/")
+                || entryName.endsWith("oleobject.bin")
+                || entryName.endsWith("package.bin");
+    }
+
     private static InspectionResult inspectOfficeArchive(byte[] bytes) throws IOException {
         if (hasEncryptedZipEntryFlag(bytes)) {
             return InspectionResult.rejected(
@@ -135,6 +143,12 @@ public class BasicRuleApprovalSupplementAttachmentInspector implements RuleAppro
                     return InspectionResult.rejected(
                             "macro_payload_detected",
                             "office archive contains a macro payload"
+                    );
+                }
+                if (isEmbeddedObjectEntry(entryName)) {
+                    return InspectionResult.rejected(
+                            "embedded_object_detected",
+                            "office archive contains an embedded object payload"
                     );
                 }
                 InspectionResult entryInspection = inspectEntryContent(zip, entryName);
