@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 
 import {
   buildHigressControllerEndpointAuthorizationChecks,
@@ -8,9 +9,11 @@ import {
   buildHigressControllerEndpointAuthorizationReadOnlyAuthorizedChecks,
   buildHigressApplicationLayerAttackFallbackChecks,
   buildHigressDataSourceSecurityChecks,
+  buildGatewayOidcSecurityJwt,
   buildGatewaySecurityJwt,
   buildHigressEndpointSecurityChecks,
   buildHigressGatewaySmokeChecks,
+  buildHigressOidcEndpointSecurityChecks,
   buildHigressPermissionCatalogAuthorizationChecks,
   buildHigressRepresentativeAuthorizationMatrixChecks,
   classifyGatewayResponse,
@@ -58,6 +61,11 @@ function decodeJwtPayload(token) {
   return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
 }
 
+function decodeJwtHeader(token) {
+  const [header] = token.split('.');
+  return JSON.parse(Buffer.from(header, 'base64url').toString('utf8'));
+}
+
 test('buildGatewaySecurityJwt creates Java-compatible permission claims', () => {
   const token = buildGatewaySecurityJwt({
     secret: 'local-dev-secret-change-me-32-bytes-minimum',
@@ -75,6 +83,79 @@ test('buildGatewaySecurityJwt creates Java-compatible permission claims', () => 
   assert.equal(payload.status, 'enabled');
   assert.equal(payload.iat, 1800000000);
   assert.equal(payload.exp, 1800007200);
+});
+
+test('buildGatewayOidcSecurityJwt creates OIDC-compatible RS256 claims', () => {
+  const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', {
+    modulusLength: 2048,
+  });
+  const token = buildGatewayOidcSecurityJwt({
+    privateKey,
+    keyId: 'local-oidc-key',
+    issuer: 'https://idp.local.test',
+    audience: 'intelligent-report-api',
+    userId: 702,
+    roles: ['oidc_operator'],
+    permissions: ['permission:read'],
+    nowEpochSeconds: 1800000000,
+  });
+
+  const header = decodeJwtHeader(token);
+  const payload = decodeJwtPayload(token);
+  const [encodedHeader, encodedPayload, signature] = token.split('.');
+  const verified = crypto.verify(
+    'RSA-SHA256',
+    Buffer.from(`${encodedHeader}.${encodedPayload}`),
+    publicKey,
+    Buffer.from(signature, 'base64url'),
+  );
+
+  assert.equal(header.alg, 'RS256');
+  assert.equal(header.kid, 'local-oidc-key');
+  assert.equal(payload.sub, '702');
+  assert.equal(payload.iss, 'https://idp.local.test');
+  assert.equal(payload.aud, 'intelligent-report-api');
+  assert.deepEqual(payload.roles, ['oidc_operator']);
+  assert.deepEqual(payload.permissions, ['permission:read']);
+  assert.equal(payload.status, 'enabled');
+  assert.equal(payload.iat, 1800000000);
+  assert.equal(payload.exp, 1800007200);
+  assert.equal(verified, true);
+});
+
+test('buildHigressOidcEndpointSecurityChecks covers accepted and rejected OIDC boundaries', () => {
+  const { privateKey } = crypto.generateKeyPairSync('rsa', {
+    modulusLength: 2048,
+  });
+  const checks = buildHigressOidcEndpointSecurityChecks({
+    gatewayBaseUrl: 'http://127.0.0.1:28000',
+    privateKey,
+    keyId: 'local-oidc-key',
+    issuer: 'https://idp.local.test',
+    audience: 'intelligent-report-api',
+  });
+
+  assert.deepEqual(
+    checks.map((check) => [check.name, check.expectedStatus, check.expectedCode]),
+    [
+      ['oidc-current-user-authorized-through-higress', 200, 200],
+      ['oidc-current-user-wrong-issuer-through-higress', 401, 401],
+      ['oidc-current-user-wrong-audience-through-higress', 401, 401],
+    ],
+  );
+  assert.equal(checks[0].url, 'http://127.0.0.1:28000/api/v1/auth/me');
+  assert.match(checks[0].headers.Authorization, /^Bearer /);
+  assert.match(checks[1].headers.Authorization, /^Bearer /);
+  assert.match(checks[2].headers.Authorization, /^Bearer /);
+
+  const acceptedPayload = decodeJwtPayload(checks[0].headers.Authorization.replace('Bearer ', ''));
+  const wrongIssuerPayload = decodeJwtPayload(checks[1].headers.Authorization.replace('Bearer ', ''));
+  const wrongAudiencePayload = decodeJwtPayload(checks[2].headers.Authorization.replace('Bearer ', ''));
+
+  assert.equal(acceptedPayload.iss, 'https://idp.local.test');
+  assert.equal(acceptedPayload.aud, 'intelligent-report-api');
+  assert.equal(wrongIssuerPayload.iss, 'https://idp.local.test/untrusted');
+  assert.equal(wrongAudiencePayload.aud, 'intelligent-report-api-untrusted');
 });
 
 test('buildHigressEndpointSecurityChecks covers unauthenticated, forbidden and allowed gateway outcomes', () => {
@@ -355,7 +436,7 @@ test('Higress controller endpoint authorization matrix document stays synchroniz
     gatewayBaseUrl: 'http://127.0.0.1:18000',
   });
   const expected = renderHigressControllerEndpointAuthorizationMatrixMarkdown(checks);
-  const actual = fs.readFileSync(endpointHigressMatrixDocPath, 'utf8');
+  const actual = fs.readFileSync(endpointHigressMatrixDocPath, 'utf8').replace(/\r\n/g, '\n');
 
   assert.equal(actual, expected);
   assert.match(actual, /\| POST \/api\/v1\/rules\/\{ruleId\}\/approval-records\/\{approvalRecordId\}\/supplement-attachments \| rule:debug \| 3 \|/);
@@ -529,5 +610,53 @@ test('runHigressGatewaySmoke can append live 401 and 403 samples from controller
   assert.equal(
     calls.filter((entry) => entry.url === 'http://127.0.0.1:28000/api/v1/audit-logs').length,
     2,
+  );
+});
+
+test('runHigressGatewaySmoke can append OIDC endpoint security probes when configured', async () => {
+  const { privateKey } = crypto.generateKeyPairSync('rsa', {
+    modulusLength: 2048,
+  });
+  const calls = [];
+  const result = await runHigressGatewaySmoke({
+    gatewayBaseUrl: 'http://127.0.0.1:28000',
+    oidcEndpointSecurityConfig: {
+      privateKey,
+      keyId: 'local-oidc-key',
+      issuer: 'https://idp.local.test',
+      audience: 'intelligent-report-api',
+    },
+    fetchImpl: async (url, options) => {
+      const authorization = options.headers?.Authorization;
+      calls.push({ url, authorization });
+      const token = authorization?.replace('Bearer ', '');
+      let payload = {};
+      try {
+        payload = token ? decodeJwtPayload(token) : {};
+      } catch {
+        payload = {};
+      }
+      const accepted = payload.iss === 'https://idp.local.test'
+        && payload.aud === 'intelligent-report-api';
+      return {
+        status: accepted ? 200 : 401,
+        text: async () => JSON.stringify({
+          code: accepted ? 200 : 401,
+          data: accepted ? { userId: 702 } : null,
+        }),
+      };
+    },
+  });
+
+  const names = result.results.map((entry) => entry.name);
+  assert.ok(names.includes('oidc-current-user-authorized-through-higress'));
+  assert.ok(names.includes('oidc-current-user-wrong-issuer-through-higress'));
+  assert.ok(names.includes('oidc-current-user-wrong-audience-through-higress'));
+  assert.equal(result.results.find((entry) => entry.name === 'oidc-current-user-authorized-through-higress')?.passed, true);
+  assert.equal(result.results.find((entry) => entry.name === 'oidc-current-user-wrong-issuer-through-higress')?.passed, true);
+  assert.equal(result.results.find((entry) => entry.name === 'oidc-current-user-wrong-audience-through-higress')?.passed, true);
+  assert.equal(
+    calls.filter((entry) => entry.url === 'http://127.0.0.1:28000/api/v1/auth/me').length,
+    3,
   );
 });

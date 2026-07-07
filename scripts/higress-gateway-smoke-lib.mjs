@@ -38,6 +38,34 @@ export function buildGatewaySecurityJwt({
   return `${unsigned}.${signature}`;
 }
 
+export function buildGatewayOidcSecurityJwt({
+  privateKey,
+  keyId,
+  issuer,
+  audience,
+  userId,
+  roles,
+  permissions,
+  status = 'enabled',
+  nowEpochSeconds = Math.floor(Date.now() / 1000),
+  expiresInSeconds = 7200,
+}) {
+  const header = base64urlJson({ alg: 'RS256', typ: 'JWT', kid: keyId });
+  const payload = base64urlJson({
+    sub: String(userId),
+    iss: issuer,
+    aud: audience,
+    roles,
+    permissions,
+    status,
+    iat: nowEpochSeconds,
+    exp: nowEpochSeconds + expiresInSeconds,
+  });
+  const unsigned = `${header}.${payload}`;
+  const signature = crypto.sign('RSA-SHA256', Buffer.from(unsigned), privateKey).toString('base64url');
+  return `${unsigned}.${signature}`;
+}
+
 export function buildHigressGatewaySmokeChecks({
   gatewayBaseUrl = 'http://127.0.0.1:18000',
 } = {}) {
@@ -56,6 +84,69 @@ export function buildHigressGatewaySmokeChecks({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: 'gateway boundary smoke' }),
+    },
+  ];
+}
+
+export function buildHigressOidcEndpointSecurityChecks({
+  gatewayBaseUrl = 'http://127.0.0.1:18000',
+  privateKey,
+  keyId,
+  issuer,
+  audience,
+} = {}) {
+  const baseUrl = gatewayBaseUrl.replace(/\/$/, '');
+  const acceptedToken = buildGatewayOidcSecurityJwt({
+    privateKey,
+    keyId,
+    issuer,
+    audience,
+    userId: 702,
+    roles: ['oidc_operator'],
+    permissions: ['permission:read'],
+  });
+  const wrongIssuerToken = buildGatewayOidcSecurityJwt({
+    privateKey,
+    keyId,
+    issuer: `${issuer}/untrusted`,
+    audience,
+    userId: 703,
+    roles: ['oidc_operator'],
+    permissions: ['permission:read'],
+  });
+  const wrongAudienceToken = buildGatewayOidcSecurityJwt({
+    privateKey,
+    keyId,
+    issuer,
+    audience: `${audience}-untrusted`,
+    userId: 704,
+    roles: ['oidc_operator'],
+    permissions: ['permission:read'],
+  });
+  const url = `${baseUrl}/api/v1/auth/me`;
+
+  return [
+    {
+      name: 'oidc-current-user-authorized-through-higress',
+      url,
+      expectedStatus: 200,
+      expectedCode: 200,
+      headers: { Authorization: `Bearer ${acceptedToken}` },
+      bodyIncludes: '"userId"',
+    },
+    {
+      name: 'oidc-current-user-wrong-issuer-through-higress',
+      url,
+      expectedStatus: 401,
+      expectedCode: 401,
+      headers: { Authorization: `Bearer ${wrongIssuerToken}` },
+    },
+    {
+      name: 'oidc-current-user-wrong-audience-through-higress',
+      url,
+      expectedStatus: 401,
+      expectedCode: 401,
+      headers: { Authorization: `Bearer ${wrongAudienceToken}` },
     },
   ];
 }
@@ -711,6 +802,7 @@ export async function runHigressGatewaySmoke({
   controllerEndpointAuthorizationSampleLimit = 0,
   controllerEndpointAuthorizationNegativeCoverage = false,
   controllerEndpointAuthorizationReadOnlyAuthorizedCoverage = false,
+  oidcEndpointSecurityConfig = null,
   fetchImpl = fetch,
 } = {}) {
   const checks = [
@@ -737,6 +829,12 @@ export async function runHigressGatewaySmoke({
         controllerMatrix,
         gatewayBaseUrl,
         jwtSecret,
+      })
+      : []),
+    ...(oidcEndpointSecurityConfig
+      ? buildHigressOidcEndpointSecurityChecks({
+        gatewayBaseUrl,
+        ...oidcEndpointSecurityConfig,
       })
       : []),
   ];
