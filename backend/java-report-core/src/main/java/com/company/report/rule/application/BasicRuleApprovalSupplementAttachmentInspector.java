@@ -54,6 +54,12 @@ public class BasicRuleApprovalSupplementAttachmentInspector implements RuleAppro
                     "image evidence contains active content markers"
             );
         }
+        if (isLegacyOfficeContentType(contentType) && containsLegacyOfficeMacroMarker(bytes)) {
+            return InspectionResult.rejected(
+                    "legacy_office_macro_detected",
+                    "legacy office file contains macro markers"
+            );
+        }
         if (isOfficeOpenXmlContentType(contentType)) {
             InspectionResult archiveInspection = inspectOfficeArchive(bytes);
             if (!archiveInspection.accepted()) {
@@ -108,6 +114,20 @@ public class BasicRuleApprovalSupplementAttachmentInspector implements RuleAppro
     private static boolean isImageContentType(String contentType) {
         String normalized = contentType == null ? "" : contentType.toLowerCase(Locale.ROOT);
         return "image/jpeg".equals(normalized) || "image/png".equals(normalized);
+    }
+
+    private static boolean isLegacyOfficeContentType(String contentType) {
+        String normalized = contentType == null ? "" : contentType.toLowerCase(Locale.ROOT);
+        return "application/msword".equals(normalized) || "application/vnd.ms-excel".equals(normalized);
+    }
+
+    private static boolean containsLegacyOfficeMacroMarker(byte[] bytes) {
+        String content = new String(bytes, StandardCharsets.US_ASCII).toLowerCase(Locale.ROOT);
+        return content.contains("vba_project")
+                || content.contains("vbaproject")
+                || content.contains("vba/")
+                || content.contains(" vba")
+                || content.contains("macros");
     }
 
     private static boolean containsImageActiveContentMarker(byte[] bytes) {

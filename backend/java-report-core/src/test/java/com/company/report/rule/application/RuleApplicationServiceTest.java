@@ -1275,6 +1275,42 @@ class RuleApplicationServiceTest {
     }
 
     @Test
+    void rejectsApprovalSupplementAttachmentWhenLegacyOfficeContainsMacroMarkerBeforeStorageWrite() {
+        InMemoryRuleRepository ruleRepository = new InMemoryRuleRepository();
+        InMemoryAuditRepository auditRepository = new InMemoryAuditRepository();
+        FakeApprovalSupplementStorage storage = new FakeApprovalSupplementStorage();
+        RuleApplicationService approvalService = new RuleApplicationService(
+                new RuleDomainService(),
+                ruleRepository,
+                auditRepository,
+                new FakeSystemAlertRepository(),
+                storage
+        );
+        Long ruleId = publishRule(approvalService, "Supplement attachment legacy Office macro inspection rule", approvalRuleDefinition());
+        Long approvalRecordId = rejectedApprovalRecordId(approvalService, ruleId);
+        byte[] legacyDocWithMacro = legacyOfficeBytes("WordDocument VBA_PROJECT macro storage");
+
+        assertThatThrownBy(() -> approvalService.uploadApprovalSupplementAttachment(
+                ruleId,
+                approvalRecordId,
+                new MockMultipartFile("file", "legacy-macro.doc", "application/msword", legacyDocWithMacro)
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("approval supplement attachment failed content inspection: legacy_office_macro_detected");
+
+        assertThat(storage.storeCallCount).isZero();
+        assertThat(auditRepository.logs)
+                .filteredOn(log -> "rule_approval_supplement_attachment_rejected".equals(log.operationType()))
+                .singleElement()
+                .satisfies(log -> assertThat(log.detail())
+                        .containsEntry("approvalRecordId", approvalRecordId)
+                        .containsEntry("fileName", "legacy-macro.doc")
+                        .containsEntry("contentType", "application/msword")
+                        .containsEntry("rejectionReason", "legacy_office_macro_detected")
+                        .containsEntry("inspectionEngine", "basic_attachment_content_inspector"));
+    }
+
+    @Test
     void rejectsApprovalSupplementAttachmentWhenOfficeArchiveContainsMalwareSignatureBeforeStorageWrite() throws IOException {
         InMemoryRuleRepository ruleRepository = new InMemoryRuleRepository();
         InMemoryAuditRepository auditRepository = new InMemoryAuditRepository();
@@ -5583,6 +5619,17 @@ class RuleApplicationServiceTest {
 
     private static byte[] officeArchiveWithEntry(String entryName, String content) throws IOException {
         return officeArchiveWithEntryBytes(entryName, content.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static byte[] legacyOfficeBytes(String marker) {
+        byte[] prefix = new byte[] {
+                (byte) 0xD0, (byte) 0xCF, 0x11, (byte) 0xE0, (byte) 0xA1, (byte) 0xB1, 0x1A, (byte) 0xE1
+        };
+        byte[] suffix = marker.getBytes(StandardCharsets.US_ASCII);
+        byte[] bytes = new byte[prefix.length + suffix.length];
+        System.arraycopy(prefix, 0, bytes, 0, prefix.length);
+        System.arraycopy(suffix, 0, bytes, prefix.length, suffix.length);
+        return bytes;
     }
 
     private static byte[] officeArchiveWithEncryptedFlaggedEntry(String entryName, String content) throws IOException {
