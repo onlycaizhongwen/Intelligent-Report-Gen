@@ -440,6 +440,11 @@ public class KnowledgeApplicationService {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("scannedCount", candidates.size());
         result.put("migratedCount", migratedCount);
+        writeDataSourceMaintenanceAudit("knowledge_data_source_credential_reencryption_run", "succeeded", Map.of(
+                "scannedCount", candidates.size(),
+                "migratedCount", migratedCount,
+                "limit", Math.max(limit, 1)
+        ));
         return result;
     }
 
@@ -1499,6 +1504,19 @@ public class KnowledgeApplicationService {
                 operationType,
                 "knowledge_data_source",
                 dataSource.id(),
+                result,
+                detail == null ? Map.of() : detail,
+                java.time.OffsetDateTime.now()
+        ));
+    }
+
+    private void writeDataSourceMaintenanceAudit(String operationType, String result, Map<String, Object> detail) {
+        auditRepository.save(new OperationLog(
+                null,
+                currentUserId(),
+                operationType,
+                "knowledge_data_source",
+                null,
                 result,
                 detail == null ? Map.of() : detail,
                 java.time.OffsetDateTime.now()

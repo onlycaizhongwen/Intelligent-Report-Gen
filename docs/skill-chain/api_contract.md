@@ -4380,7 +4380,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
   {
     "method": "POST",
     "path": "/api/v1/data-sources/credentials/reencrypt",
-    "description": "维护重加密旧密钥数据源凭证",
+    "description": "维护重加密旧密钥数据源凭证；每次运行写入不含 secret 的 knowledge_data_source_credential_reencryption_run 聚合审计",
     "module": "knowledge-base-ingestion",
     "securityIntent": "datasource:manage",
     "contentType": "application/json",
@@ -4414,7 +4414,7 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "data": {
         "type": "object",
         "required": true,
-        "description": "data source credential re-encryption result without secret values",
+        "description": "data source credential re-encryption result without secret values; the same scannedCount/migratedCount plus effective limit are written to aggregate audit operation knowledge_data_source_credential_reencryption_run",
         "properties": {
           "scannedCount": {
             "type": "integer",

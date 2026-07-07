@@ -1664,11 +1664,60 @@ class KnowledgeApplicationServiceTest {
         assertThat(migrated.credentialSecret()).startsWith("enc:v2:primary-2026-07:");
         assertThat(currentCodec.decrypt(migrated.credentialSecret())).isEqualTo("rotated-password");
         assertThat(auditRepository.logs)
+                .filteredOn(log -> "knowledge_data_source_credential_reencrypted".equals(log.operationType()))
                 .singleElement()
                 .satisfies(log -> {
                     assertThat(log.operationType()).isEqualTo("knowledge_data_source_credential_reencrypted");
                     assertThat(log.detail()).containsEntry("dataSourceId", stale.id());
                     assertThat(log.detail()).doesNotContainKeys("credentialSecret", "password");
+                });
+    }
+
+    @Test
+    void reencryptsStaleDataSourceCredentialsWritesRunSummaryAuditWithoutSecrets() {
+        CurrentUserHolder.set(new CurrentUser(7L, Set.of("admin"), Set.of("knowledge:manage")));
+        FakeKnowledgeBaseRepository knowledgeBaseRepository = new FakeKnowledgeBaseRepository();
+        FakeAuditRepository auditRepository = new FakeAuditRepository();
+        DataSourceCredentialCodec currentCodec = new DataSourceCredentialCodec(
+                "primary-2026-07",
+                "current-data-source-key",
+                new java.security.SecureRandom(new byte[]{1, 2, 3, 4}));
+        knowledgeBaseRepository.saveDataSource(KnowledgeDataSource.enabled(
+                7L,
+                "Current Finance API",
+                "api",
+                "https://example.test/current",
+                "sync_app",
+                currentCodec.encrypt("current-password"),
+                null,
+                null,
+                null
+        ));
+        KnowledgeApplicationService service = new KnowledgeApplicationService(
+                new KnowledgeDomainService(),
+                new FakeStorage(),
+                new FakeRepository(),
+                knowledgeBaseRepository,
+                new FakePublisher(),
+                currentCodec,
+                auditRepository,
+                new FakeSystemAlertRepository());
+
+        Map<String, Object> result = service.reencryptStaleDataSourceCredentials(100);
+
+        assertThat(result)
+                .containsEntry("scannedCount", 1)
+                .containsEntry("migratedCount", 0);
+        assertThat(auditRepository.logs)
+                .filteredOn(log -> "knowledge_data_source_credential_reencryption_run".equals(log.operationType()))
+                .singleElement()
+                .satisfies(log -> {
+                    assertThat(log.result()).isEqualTo("succeeded");
+                    assertThat(log.detail())
+                            .containsEntry("scannedCount", 1)
+                            .containsEntry("migratedCount", 0)
+                            .containsEntry("limit", 100);
+                    assertThat(log.detail()).doesNotContainKeys("credentialSecret", "password", "plainSecret");
                 });
     }
 
