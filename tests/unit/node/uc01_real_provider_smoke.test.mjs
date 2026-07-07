@@ -8,6 +8,7 @@ import {
   buildModelInvocationSql,
   evaluateSmokeResult,
   extractReportSummary,
+  parseModelInvocationLine,
 } from '../../../scripts/uc01-real-provider-smoke-lib.mjs';
 
 function decodeJwtPayload(token) {
@@ -58,7 +59,25 @@ test('buildCreateTaskRequest and buildConfirmOutlineRequest produce the UC-01 sm
 test('buildModelInvocationSql targets the task audit evidence needed by UC-01 smoke', () => {
   assert.equal(
     buildModelInvocationSql(207),
-    'select task_id, provider, model_name, status, total_tokens, trace_id from model_invocations where task_id = 207 order by id desc limit 1;',
+    'select task_id, provider, model_name, status, total_tokens, trace_id, error_code, error_message from model_invocations where task_id = 207 order by id desc limit 1;',
+  );
+});
+
+test('parseModelInvocationLine preserves provider failure diagnostics for UC-01 smoke', () => {
+  assert.deepEqual(
+    parseModelInvocationLine(
+      '340|local-fallback|local-rag-fallback|fallback_succeeded||trace_340||<urlopen error [SSL: UNEXPECTED_EOF_WHILE_READING]>',
+    ),
+    {
+      taskId: 340,
+      provider: 'local-fallback',
+      modelName: 'local-rag-fallback',
+      status: 'fallback_succeeded',
+      totalTokens: null,
+      traceId: 'trace_340',
+      errorCode: null,
+      errorMessage: '<urlopen error [SSL: UNEXPECTED_EOF_WHILE_READING]>',
+    },
   );
 });
 

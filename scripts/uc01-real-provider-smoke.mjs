@@ -9,6 +9,7 @@ import {
   buildSmokeJwt,
   evaluateSmokeResult,
   extractReportSummary,
+  parseModelInvocationLine,
 } from './uc01-real-provider-smoke-lib.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -85,15 +86,7 @@ async function queryModelInvocation(taskId) {
   if (!line) {
     return null;
   }
-  const [taskIdValue, provider, modelName, status, totalTokens, traceId] = line.split('|');
-  return {
-    taskId: Number(taskIdValue),
-    provider,
-    modelName,
-    status,
-    totalTokens: Number(totalTokens),
-    traceId,
-  };
+  return parseModelInvocationLine(line);
 }
 
 async function main() {

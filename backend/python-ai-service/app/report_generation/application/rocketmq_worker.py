@@ -1,9 +1,12 @@
 import asyncio
 import json
+import logging
 import os
 from typing import Any
 
 from app.report_generation.application.generation_worker import ReportGenerationWorker
+
+logger = logging.getLogger(__name__)
 
 
 class RocketMqReportGenerationSource:
@@ -29,11 +32,21 @@ class RocketMqReportGenerationSource:
         from rocketmq.client import _CConsumeStatus
 
         def callback(message: Any) -> Any:
+            event: dict[str, Any] = {}
             try:
                 event = json.loads(message.body.decode("utf-8"))
                 asyncio.run(worker.handle(event))
                 return _CConsumeStatus.CONSUME_SUCCESS
-            except Exception:
+            except Exception as exc:
+                payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+                logger.exception(
+                    "failed to process report generation message topic=%s tag=%s eventKey=%s taskId=%s error=%s",
+                    self.topic,
+                    self.tag,
+                    event.get("eventKey"),
+                    payload.get("taskId"),
+                    exc,
+                )
                 return _CConsumeStatus.RECONSUME_LATER
 
         self.consumer.subscribe(self.topic, callback, self.tag)

@@ -61,7 +61,21 @@ export function extractReportSummary(responseBody) {
 }
 
 export function buildModelInvocationSql(taskId) {
-  return `select task_id, provider, model_name, status, total_tokens, trace_id from model_invocations where task_id = ${taskId} order by id desc limit 1;`;
+  return `select task_id, provider, model_name, status, total_tokens, trace_id, error_code, error_message from model_invocations where task_id = ${taskId} order by id desc limit 1;`;
+}
+
+export function parseModelInvocationLine(line) {
+  const [taskIdValue, provider, modelName, status, totalTokens, traceId, errorCode, errorMessage] = line.split('|');
+  return {
+    taskId: Number(taskIdValue),
+    provider: provider || null,
+    modelName: modelName || null,
+    status: status || null,
+    totalTokens: totalTokens ? Number(totalTokens) : null,
+    traceId: traceId || null,
+    errorCode: errorCode || null,
+    errorMessage: errorMessage || null,
+  };
 }
 
 export function evaluateSmokeResult({ strictAudit = false, reportSummary, modelInvocation }) {

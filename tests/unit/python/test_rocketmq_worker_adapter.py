@@ -1,3 +1,4 @@
+import logging
 import os
 
 import pytest
@@ -48,6 +49,24 @@ def test_report_generation_rocketmq_source_processes_message(monkeypatch):
 
     assert status == fake_module._CConsumeStatus.CONSUME_SUCCESS
     assert worker.events[0]["payload"]["taskId"] == 501
+
+
+def test_report_generation_rocketmq_source_logs_processing_failures(monkeypatch, caplog):
+    fake_module = FakeRocketMqModule()
+    monkeypatch.setitem(__import__("sys").modules, "rocketmq.client", fake_module)
+    source = RocketMqReportGenerationSource(consumer=fake_module.PushConsumer("group-report"), topic="topic")
+    worker = FailingReportGenerationWorker()
+
+    source.start(worker)
+    with caplog.at_level(logging.ERROR):
+        status = fake_module.consumer.callback(
+            FakeMessage(b'{"eventType":"report.generation.outline_confirmed","eventKey":"501","payload":{"taskId":501}}')
+        )
+
+    assert status == fake_module._CConsumeStatus.RECONSUME_LATER
+    assert "failed to process report generation message" in caplog.text
+    assert "eventKey=501" in caplog.text
+    assert "taskId=501" in caplog.text
 
 
 def test_knowledge_index_cleanup_source_consumes_deleted_item_events(monkeypatch):
@@ -140,3 +159,8 @@ class RecordingReportGenerationWorker:
     async def handle(self, event):
         self.events.append(event)
         return {"eventType": "report.generation.completed"}
+
+
+class FailingReportGenerationWorker:
+    async def handle(self, event):
+        raise RuntimeError("callback failed")
