@@ -6,6 +6,7 @@ import {
   buildHostRelayStartStep,
   isAllowedRelayPath,
   targetUrlForRelayRequest,
+  validateHostRelayRuntime,
 } from '../../../scripts/uc01-provider-host-relay-lib.mjs';
 
 test('buildHostRelayConfig exposes a container-reachable OpenAI-compatible base URL', () => {
@@ -55,4 +56,16 @@ test('buildHostRelayStartStep returns a bounded local smoke startup command', ()
   assert.deepEqual(step.args, ['scripts/uc01-provider-host-relay-start.mjs']);
   assert.equal(step.env.UC01_PROVIDER_RELAY_PORT, '19091');
   assert.equal(step.env.UC01_PROVIDER_RELAY_TARGET_ORIGIN, 'https://dashscope.aliyuncs.com');
+});
+
+test('validateHostRelayRuntime rejects production profiles by default', () => {
+  assert.throws(
+    () => validateHostRelayRuntime({ nodeEnv: 'production' }),
+    /local smoke only/,
+  );
+  assert.throws(
+    () => validateHostRelayRuntime({ springProfilesActive: 'prod,metrics' }),
+    /local smoke only/,
+  );
+  assert.doesNotThrow(() => validateHostRelayRuntime({ nodeEnv: 'local-smoke' }));
 });

@@ -30,6 +30,30 @@ export function buildHostRelayStartStep(options = {}) {
   };
 }
 
+export function validateHostRelayRuntime({
+  nodeEnv = '',
+  springProfilesActive = '',
+  appProfile = '',
+  allowProductionRelay = false,
+} = {}) {
+  if (allowProductionRelay) {
+    return;
+  }
+
+  const profileValues = [nodeEnv, springProfilesActive, appProfile]
+    .flatMap((value) => String(value || '').split(','))
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+  const productionProfile = profileValues.find((value) =>
+    value === 'prod' || value === 'production'
+  );
+  if (productionProfile) {
+    throw new Error(
+      `UC-01 provider host relay is local smoke only and must not run with production profile: ${productionProfile}`,
+    );
+  }
+}
+
 export function isAllowedRelayPath(pathname) {
   return pathname === '/health' || pathname.startsWith('/compatible-mode/v1/');
 }

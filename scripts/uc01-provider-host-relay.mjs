@@ -5,7 +5,15 @@ import {
   isAllowedRelayPath,
   relayHeadersFromRequestHeaders,
   targetUrlForRelayRequest,
+  validateHostRelayRuntime,
 } from './uc01-provider-host-relay-lib.mjs';
+
+validateHostRelayRuntime({
+  nodeEnv: process.env.NODE_ENV,
+  springProfilesActive: process.env.SPRING_PROFILES_ACTIVE,
+  appProfile: process.env.APP_PROFILE,
+  allowProductionRelay: process.env.UC01_PROVIDER_RELAY_ALLOW_PRODUCTION === 'true',
+});
 
 const config = buildHostRelayConfig({
   port: process.env.UC01_PROVIDER_RELAY_PORT,

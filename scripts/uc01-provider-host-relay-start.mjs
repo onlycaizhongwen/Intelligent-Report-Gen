@@ -3,7 +3,17 @@ import { mkdir } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 
-import { buildHostRelayConfig } from './uc01-provider-host-relay-lib.mjs';
+import {
+  buildHostRelayConfig,
+  validateHostRelayRuntime,
+} from './uc01-provider-host-relay-lib.mjs';
+
+validateHostRelayRuntime({
+  nodeEnv: process.env.NODE_ENV,
+  springProfilesActive: process.env.SPRING_PROFILES_ACTIVE,
+  appProfile: process.env.APP_PROFILE,
+  allowProductionRelay: process.env.UC01_PROVIDER_RELAY_ALLOW_PRODUCTION === 'true',
+});
 
 const config = buildHostRelayConfig({
   port: process.env.UC01_PROVIDER_RELAY_PORT,
