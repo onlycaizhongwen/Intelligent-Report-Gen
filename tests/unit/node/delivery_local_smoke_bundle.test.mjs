@@ -10,6 +10,8 @@ test('buildDeliverySmokeSteps returns the expected P0-P3 command sequence', () =
     dashscopeApiKey: 'bundle-key',
     realBackendApiBaseUrl: 'http://127.0.0.1:28082/api/v1',
     realBackendOrigin: 'http://127.0.0.1:28082',
+    gatewayBaseUrl: 'http://127.0.0.1:28000',
+    tlsGatewayBaseUrl: 'https://127.0.0.1:28443',
     gatewayApiBaseUrl: 'http://127.0.0.1:28000/api/v1',
     gatewayOrigin: 'http://127.0.0.1:28000',
     postgresContainer: 'bundle-postgres',
@@ -40,9 +42,15 @@ test('buildDeliverySmokeSteps returns the expected P0-P3 command sequence', () =
   assert.deepEqual(steps[2].args, ['scripts/p2-local-smoke.mjs']);
   assert.equal(steps[2].env.P2_SMOKE_REAL_BACKEND_API_BASE_URL, 'http://127.0.0.1:28082/api/v1');
   assert.equal(steps[2].env.P2_SMOKE_REAL_BACKEND_ORIGIN, 'http://127.0.0.1:28082');
+  assert.equal(steps[2].env.P2_SMOKE_HIGRESS_GATEWAY_BASE_URL, 'http://127.0.0.1:28000');
+  assert.equal(steps[2].env.P2_SMOKE_HIGRESS_TLS_GATEWAY_BASE_URL, 'https://127.0.0.1:28443');
+  assert.equal(steps[2].env.P2_SMOKE_HIGRESS_API_BASE_URL, 'http://127.0.0.1:28000/api/v1');
+  assert.equal(steps[2].env.P2_SMOKE_HIGRESS_ORIGIN, 'http://127.0.0.1:28000');
 
   assert.equal(steps[3].command, 'node');
   assert.deepEqual(steps[3].args, ['scripts/p3-local-smoke.mjs']);
   assert.equal(steps[3].env.P3_SMOKE_REAL_BACKEND_API_BASE_URL, 'http://127.0.0.1:28082/api/v1');
   assert.equal(steps[3].env.P3_SMOKE_REAL_BACKEND_ORIGIN, 'http://127.0.0.1:28082');
+  assert.equal(steps[3].env.P3_SMOKE_HIGRESS_API_BASE_URL, 'http://127.0.0.1:28000/api/v1');
+  assert.equal(steps[3].env.P3_SMOKE_HIGRESS_ORIGIN, 'http://127.0.0.1:28000');
 });

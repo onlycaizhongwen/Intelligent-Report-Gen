@@ -1,6 +1,8 @@
 export function buildP3SmokeSteps({
   realBackendApiBaseUrl = 'http://127.0.0.1:18082/api/v1',
   realBackendOrigin = 'http://127.0.0.1:18082',
+  gatewayApiBaseUrl = 'http://127.0.0.1:18000/api/v1',
+  gatewayOrigin = 'http://127.0.0.1:18000',
 } = {}) {
   return [
     {
@@ -90,8 +92,8 @@ export function buildP3SmokeSteps({
       workdir: 'frontend/web-console',
       env: {
         RUN_REAL_BACKEND_E2E: 'true',
-        REAL_BACKEND_API_BASE_URL: 'http://127.0.0.1:18000/api/v1',
-        REAL_BACKEND_ORIGIN: 'http://127.0.0.1:18000',
+        REAL_BACKEND_API_BASE_URL: gatewayApiBaseUrl,
+        REAL_BACKEND_ORIGIN: gatewayOrigin,
       },
     },
     {
@@ -108,8 +110,8 @@ export function buildP3SmokeSteps({
       workdir: 'frontend/web-console',
       env: {
         RUN_REAL_BACKEND_E2E: 'true',
-        REAL_BACKEND_API_BASE_URL: 'http://127.0.0.1:18000/api/v1',
-        REAL_BACKEND_ORIGIN: 'http://127.0.0.1:18000',
+        REAL_BACKEND_API_BASE_URL: gatewayApiBaseUrl,
+        REAL_BACKEND_ORIGIN: gatewayOrigin,
         RULE_WEBHOOK_REPLAY_WORKER_ENABLED: 'true',
       },
     },
@@ -161,8 +163,8 @@ export function buildP3SmokeSteps({
       workdir: 'frontend/web-console',
       env: {
         RUN_REAL_BACKEND_E2E: 'true',
-        REAL_BACKEND_API_BASE_URL: 'http://127.0.0.1:18000/api/v1',
-        REAL_BACKEND_ORIGIN: 'http://127.0.0.1:18000',
+        REAL_BACKEND_API_BASE_URL: gatewayApiBaseUrl,
+        REAL_BACKEND_ORIGIN: gatewayOrigin,
       },
     },
   ];

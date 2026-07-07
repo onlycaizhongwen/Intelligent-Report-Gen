@@ -6,7 +6,10 @@ import {
 } from '../../../scripts/p3-local-smoke-lib.mjs';
 
 test('buildP3SmokeSteps returns the expected UC-13, UC-07 and UC-08 command sequence', () => {
-  const steps = buildP3SmokeSteps();
+  const steps = buildP3SmokeSteps({
+    gatewayApiBaseUrl: 'http://127.0.0.1:28000/api/v1',
+    gatewayOrigin: 'http://127.0.0.1:28000',
+  });
 
   assert.equal(steps.length, 10);
 
@@ -80,8 +83,8 @@ test('buildP3SmokeSteps returns the expected UC-13, UC-07 and UC-08 command sequ
   ]);
   assert.equal(steps[5].workdir, 'frontend/web-console');
   assert.equal(steps[5].env.RUN_REAL_BACKEND_E2E, 'true');
-  assert.equal(steps[5].env.REAL_BACKEND_API_BASE_URL, 'http://127.0.0.1:18000/api/v1');
-  assert.equal(steps[5].env.REAL_BACKEND_ORIGIN, 'http://127.0.0.1:18000');
+  assert.equal(steps[5].env.REAL_BACKEND_API_BASE_URL, 'http://127.0.0.1:28000/api/v1');
+  assert.equal(steps[5].env.REAL_BACKEND_ORIGIN, 'http://127.0.0.1:28000');
 
   assert.equal(steps[6].name, 'uc08-rule-runtime-higress-replay-exhaustion-e2e');
   assert.equal(steps[6].command, 'npm');
@@ -95,8 +98,8 @@ test('buildP3SmokeSteps returns the expected UC-13, UC-07 and UC-08 command sequ
   ]);
   assert.equal(steps[6].workdir, 'frontend/web-console');
   assert.equal(steps[6].env.RUN_REAL_BACKEND_E2E, 'true');
-  assert.equal(steps[6].env.REAL_BACKEND_API_BASE_URL, 'http://127.0.0.1:18000/api/v1');
-  assert.equal(steps[6].env.REAL_BACKEND_ORIGIN, 'http://127.0.0.1:18000');
+  assert.equal(steps[6].env.REAL_BACKEND_API_BASE_URL, 'http://127.0.0.1:28000/api/v1');
+  assert.equal(steps[6].env.REAL_BACKEND_ORIGIN, 'http://127.0.0.1:28000');
   assert.equal(steps[6].env.RULE_WEBHOOK_REPLAY_WORKER_ENABLED, 'true');
 
   assert.equal(steps[7].name, 'uc08-delegate-rules-real-backend-e2e');
@@ -139,6 +142,6 @@ test('buildP3SmokeSteps returns the expected UC-13, UC-07 and UC-08 command sequ
   ]);
   assert.equal(steps[9].workdir, 'frontend/web-console');
   assert.equal(steps[9].env.RUN_REAL_BACKEND_E2E, 'true');
-  assert.equal(steps[9].env.REAL_BACKEND_API_BASE_URL, 'http://127.0.0.1:18000/api/v1');
-  assert.equal(steps[9].env.REAL_BACKEND_ORIGIN, 'http://127.0.0.1:18000');
+  assert.equal(steps[9].env.REAL_BACKEND_API_BASE_URL, 'http://127.0.0.1:28000/api/v1');
+  assert.equal(steps[9].env.REAL_BACKEND_ORIGIN, 'http://127.0.0.1:28000');
 });

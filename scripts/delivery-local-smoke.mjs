@@ -40,6 +40,10 @@ async function main() {
       process.env.DELIVERY_SMOKE_REAL_BACKEND_API_BASE_URL ?? 'http://127.0.0.1:18082/api/v1',
     realBackendOrigin:
       process.env.DELIVERY_SMOKE_REAL_BACKEND_ORIGIN ?? 'http://127.0.0.1:18082',
+    gatewayBaseUrl:
+      process.env.DELIVERY_SMOKE_GATEWAY_BASE_URL ?? 'http://127.0.0.1:18000',
+    tlsGatewayBaseUrl:
+      process.env.DELIVERY_SMOKE_TLS_GATEWAY_BASE_URL ?? 'https://127.0.0.1:18443',
     gatewayApiBaseUrl:
       process.env.DELIVERY_SMOKE_GATEWAY_API_BASE_URL ?? 'http://127.0.0.1:18000/api/v1',
     gatewayOrigin:
