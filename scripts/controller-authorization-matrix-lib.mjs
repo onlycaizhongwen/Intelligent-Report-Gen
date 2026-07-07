@@ -106,6 +106,7 @@ function parseControllerFile(filePath) {
       endpoints.push({
         method: mapping.method,
         path: joinPaths(basePath, mapping.path),
+        consumes: mapping.consumes,
         boundary: security.boundary,
         permission: security.permission,
         controller,
@@ -147,6 +148,7 @@ function extractMethodMapping(annotations) {
     return {
       method: MAPPING_METHODS.get(match[1]),
       path: extractAnnotationPath(annotation),
+      consumes: extractAnnotationValues(annotation, 'consumes'),
     };
   }
   return null;
@@ -162,6 +164,19 @@ function extractAnnotationPath(annotation) {
     return value[1];
   }
   return '';
+}
+
+function extractAnnotationValues(annotation, attributeName) {
+  const match = annotation.match(new RegExp(`${attributeName}\\s*=\\s*(\\{[^}]+\\}|[^,)]+)`));
+  if (!match) {
+    return undefined;
+  }
+  const raw = match[1].replace(/[{}]/g, '');
+  const values = raw
+    .split(',')
+    .map((value) => value.trim().replace(/^"|"$/g, ''))
+    .filter(Boolean);
+  return values.length === 0 ? undefined : values;
 }
 
 function extractSecurityBoundary(annotations) {

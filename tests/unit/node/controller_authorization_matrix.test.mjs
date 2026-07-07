@@ -55,6 +55,19 @@ test('buildJavaControllerAuthorizationMatrix extracts endpoint-level security bo
   );
 });
 
+test('buildJavaControllerAuthorizationMatrix extracts endpoint consumes metadata for multipart handlers', () => {
+  const matrix = buildJavaControllerAuthorizationMatrix({ controllersRoot });
+
+  assert.deepEqual(
+    pickConsumes(matrix, 'POST', '/api/v1/documents/upload'),
+    ['MediaType.MULTIPART_FORM_DATA_VALUE'],
+  );
+  assert.deepEqual(
+    pickConsumes(matrix, 'POST', '/api/v1/rules/{ruleId}/approval-records/{approvalRecordId}/supplement-attachments'),
+    ['MediaType.MULTIPART_FORM_DATA_VALUE'],
+  );
+});
+
 test('findControllerAuthorizationGaps fails if any controller mapping lacks an explicit boundary', () => {
   const matrix = buildJavaControllerAuthorizationMatrix({ controllersRoot });
   const gaps = findControllerAuthorizationGaps(matrix);
@@ -98,4 +111,10 @@ function pick(matrix, method, path) {
     controller: found.controller,
     handler: found.handler,
   };
+}
+
+function pickConsumes(matrix, method, path) {
+  const found = matrix.find((entry) => entry.method === method && entry.path === path);
+  assert.ok(found, `${method} ${path} should be present`);
+  return found.consumes;
 }

@@ -1,5 +1,16 @@
 import crypto from 'node:crypto';
 
+const NEGATIVE_MULTIPART_BOUNDARY = '----ir-higress-negative-boundary';
+const NEGATIVE_MULTIPART_BODY = [
+  `--${NEGATIVE_MULTIPART_BOUNDARY}`,
+  'Content-Disposition: form-data; name="file"; filename="gateway-negative-smoke.txt"',
+  'Content-Type: text/plain',
+  '',
+  'gateway negative authorization smoke',
+  `--${NEGATIVE_MULTIPART_BOUNDARY}--`,
+  '',
+].join('\r\n');
+
 function base64urlJson(value) {
   return Buffer.from(JSON.stringify(value)).toString('base64url');
 }
@@ -387,6 +398,7 @@ export function buildHigressControllerEndpointAuthorizationChecks({
     .flatMap((endpoint, index) => {
       const endpointKey = `${endpoint.method} ${endpoint.path}`;
       const probePath = toProbePath(endpoint.path);
+      const contentProbe = buildControllerEndpointContentProbe(endpoint);
       const insufficientToken = buildGatewaySecurityJwt({
         secret: jwtSecret,
         userId: 1200 + index,
@@ -411,7 +423,8 @@ export function buildHigressControllerEndpointAuthorizationChecks({
           method: endpoint.method,
           expectedStatus: 401,
           expectedCode: 401,
-          headers: {},
+          headers: contentProbe.headers,
+          body: contentProbe.body,
         },
         {
           name: `controller-endpoint-${index}-insufficient-permission-through-higress`,
@@ -424,7 +437,8 @@ export function buildHigressControllerEndpointAuthorizationChecks({
           method: endpoint.method,
           expectedStatus: 403,
           expectedCode: 403,
-          headers: { Authorization: `Bearer ${insufficientToken}` },
+          headers: { Authorization: `Bearer ${insufficientToken}`, ...contentProbe.headers },
+          body: contentProbe.body,
         },
         {
           name: `controller-endpoint-${index}-authorized-through-higress`,
@@ -437,10 +451,39 @@ export function buildHigressControllerEndpointAuthorizationChecks({
           method: endpoint.method,
           expectedStatus: null,
           expectedCode: null,
-          headers: { Authorization: `Bearer ${allowedToken}` },
+          headers: { Authorization: `Bearer ${allowedToken}`, ...contentProbe.headers },
+          body: contentProbe.body,
         },
       ];
     });
+}
+
+function buildControllerEndpointContentProbe(endpoint) {
+  if (!isMultipartEndpoint(endpoint)) {
+    return { headers: {}, body: undefined };
+  }
+  return {
+    headers: { 'Content-Type': `multipart/form-data; boundary=${NEGATIVE_MULTIPART_BOUNDARY}` },
+    body: NEGATIVE_MULTIPART_BODY,
+  };
+}
+
+function isMultipartEndpoint(endpoint) {
+  return (endpoint.consumes ?? []).some((value) =>
+    value === 'MediaType.MULTIPART_FORM_DATA_VALUE'
+    || String(value).toLowerCase() === 'multipart/form-data');
+}
+
+export function buildHigressControllerEndpointAuthorizationNegativeChecks({
+  controllerMatrix = [],
+  gatewayBaseUrl = 'http://127.0.0.1:18000',
+  jwtSecret = 'local-dev-secret-change-me-32-bytes-minimum',
+} = {}) {
+  return buildHigressControllerEndpointAuthorizationChecks({
+    controllerMatrix,
+    gatewayBaseUrl,
+    jwtSecret,
+  }).filter((check) => check.expectedBoundary !== 'authorized');
 }
 
 export function renderHigressControllerEndpointAuthorizationMatrixMarkdown(checks) {
@@ -627,6 +670,7 @@ export async function runHigressGatewaySmoke({
   jwtSecret = 'local-dev-secret-change-me-32-bytes-minimum',
   controllerMatrix = [],
   controllerEndpointAuthorizationSampleLimit = 0,
+  controllerEndpointAuthorizationNegativeCoverage = false,
   fetchImpl = fetch,
 } = {}) {
   const checks = [
@@ -636,12 +680,18 @@ export async function runHigressGatewaySmoke({
     ...buildHigressApplicationLayerAttackFallbackChecks({ gatewayBaseUrl, jwtSecret }),
     ...buildHigressPermissionCatalogAuthorizationChecks({ gatewayBaseUrl, jwtSecret }),
     ...buildHigressDataSourceSecurityChecks({ gatewayBaseUrl, jwtSecret }),
-    ...buildHigressControllerEndpointAuthorizationSampleChecks({
-      controllerMatrix,
-      gatewayBaseUrl,
-      jwtSecret,
-      sampleLimit: controllerEndpointAuthorizationSampleLimit,
-    }),
+    ...(controllerEndpointAuthorizationNegativeCoverage
+      ? buildHigressControllerEndpointAuthorizationNegativeChecks({
+        controllerMatrix,
+        gatewayBaseUrl,
+        jwtSecret,
+      })
+      : buildHigressControllerEndpointAuthorizationSampleChecks({
+        controllerMatrix,
+        gatewayBaseUrl,
+        jwtSecret,
+        sampleLimit: controllerEndpointAuthorizationSampleLimit,
+      })),
   ];
   const results = [];
   for (const check of checks) {

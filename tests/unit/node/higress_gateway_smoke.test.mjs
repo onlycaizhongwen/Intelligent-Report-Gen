@@ -4,6 +4,7 @@ import fs from 'node:fs';
 
 import {
   buildHigressControllerEndpointAuthorizationChecks,
+  buildHigressControllerEndpointAuthorizationNegativeChecks,
   buildHigressApplicationLayerAttackFallbackChecks,
   buildHigressDataSourceSecurityChecks,
   buildGatewaySecurityJwt,
@@ -260,6 +261,45 @@ test('buildHigressControllerEndpointAuthorizationChecks covers every permission 
   assert.match(uploadChecks[2].headers.Authorization, /^Bearer /);
 });
 
+test('buildHigressControllerEndpointAuthorizationNegativeChecks covers every permission endpoint without authorized write probes', () => {
+  const matrix = buildJavaControllerAuthorizationMatrix({ controllersRoot });
+  const permissionEndpoints = matrix.filter((entry) => entry.boundary === 'permission');
+  const checks = buildHigressControllerEndpointAuthorizationNegativeChecks({
+    controllerMatrix: matrix,
+    gatewayBaseUrl: 'http://127.0.0.1:28000',
+    jwtSecret: 'local-dev-secret-change-me-32-bytes-minimum',
+  });
+
+  assert.ok(permissionEndpoints.length > 80, 'expected broad endpoint-level permission coverage');
+  assert.equal(checks.length, permissionEndpoints.length * 2);
+  assert.deepEqual(
+    [...new Set(checks.map((check) => check.expectedBoundary))].sort(),
+    ['forbidden', 'missing-token'],
+  );
+  assert.equal(checks.filter((check) => check.expectedBoundary === 'authorized').length, 0);
+
+  for (const endpoint of permissionEndpoints) {
+    const endpointChecks = checks.filter((check) => check.controllerEndpoint === `${endpoint.method} ${endpoint.path}`);
+    assert.equal(endpointChecks.length, 2, `${endpoint.method} ${endpoint.path} should have safe 401/403 checks`);
+    assert.deepEqual(endpointChecks.map((check) => check.expectedBoundary), ['missing-token', 'forbidden']);
+    assert.equal(endpointChecks[0].expectedStatus, 401);
+    assert.equal(endpointChecks[1].expectedStatus, 403);
+  }
+
+  for (const endpointPath of [
+    '/api/v1/documents/upload',
+    '/api/v1/rules/{ruleId}/approval-records/{approvalRecordId}/supplement-attachments',
+  ]) {
+    const endpointChecks = checks.filter((check) => check.controllerEndpoint === `POST ${endpointPath}`);
+    assert.equal(endpointChecks.length, 2, `${endpointPath} should have safe multipart 401/403 checks`);
+    for (const check of endpointChecks) {
+      assert.match(check.headers['Content-Type'], /^multipart\/form-data; boundary=/);
+      assert.match(check.body, /name="file"; filename="gateway-negative-smoke.txt"/);
+      assert.match(check.body, /gateway negative authorization smoke/);
+    }
+  }
+});
+
 test('Higress controller endpoint authorization matrix document stays synchronized', () => {
   const matrix = buildJavaControllerAuthorizationMatrix({ controllersRoot });
   const checks = buildHigressControllerEndpointAuthorizationChecks({
@@ -271,6 +311,58 @@ test('Higress controller endpoint authorization matrix document stays synchroniz
 
   assert.equal(actual, expected);
   assert.match(actual, /\| POST \/api\/v1\/rules\/\{ruleId\}\/approval-records\/\{approvalRecordId\}\/supplement-attachments \| rule:debug \| 3 \|/);
+});
+
+test('runHigressGatewaySmoke can append full generated endpoint 401 and 403 coverage', async () => {
+  const controllerMatrix = [
+    {
+      boundary: 'permission',
+      method: 'GET',
+      path: '/api/v1/audit-logs',
+      permission: 'audit:read',
+      controller: 'AuditController',
+      handler: 'listAuditLogs',
+    },
+    {
+      boundary: 'permission',
+      method: 'POST',
+      path: '/api/v1/rules/{ruleId}/runs',
+      permission: 'rule:debug',
+      controller: 'RuleController',
+      handler: 'runRule',
+    },
+  ];
+  const calls = [];
+  const result = await runHigressGatewaySmoke({
+    gatewayBaseUrl: 'http://127.0.0.1:28000',
+    controllerMatrix,
+    controllerEndpointAuthorizationNegativeCoverage: true,
+    fetchImpl: async (url, options) => {
+      const authorization = options.headers?.Authorization;
+      calls.push({ url, method: options.method, authorization });
+      const status = authorization ? 403 : 401;
+      return {
+        status,
+        text: async () => JSON.stringify({ code: status }),
+      };
+    },
+  });
+
+  const names = result.results.map((entry) => entry.name);
+  assert.ok(names.includes('controller-endpoint-0-missing-token-through-higress'));
+  assert.ok(names.includes('controller-endpoint-0-insufficient-permission-through-higress'));
+  assert.ok(names.includes('controller-endpoint-1-missing-token-through-higress'));
+  assert.ok(names.includes('controller-endpoint-1-insufficient-permission-through-higress'));
+  assert.ok(!names.includes('controller-endpoint-0-authorized-through-higress'));
+  assert.ok(!names.includes('controller-endpoint-1-authorized-through-higress'));
+  assert.equal(
+    calls.filter((entry) => entry.url === 'http://127.0.0.1:28000/api/v1/audit-logs').length,
+    2,
+  );
+  assert.equal(
+    calls.filter((entry) => entry.url === 'http://127.0.0.1:28000/api/v1/rules/999999999/runs').length,
+    2,
+  );
 });
 
 test('runHigressGatewaySmoke can append live 401 and 403 samples from controller endpoints', async () => {
