@@ -726,3 +726,36 @@ test('runHigressGatewaySmoke can append OIDC endpoint security probes when confi
     3,
   );
 });
+
+test('runHigressGatewaySmoke can run OIDC probes without HS256 baseline coverage', async () => {
+  const { privateKey } = crypto.generateKeyPairSync('rsa', {
+    modulusLength: 2048,
+  });
+  const result = await runHigressGatewaySmoke({
+    gatewayBaseUrl: 'http://127.0.0.1:28000',
+    baselineCoverage: false,
+    oidcEndpointSecurityConfig: {
+      privateKey,
+      keyId: 'local-oidc-key',
+      issuer: 'https://idp.local.test',
+      audience: 'intelligent-report-api',
+    },
+    fetchImpl: async (url, options) => {
+      const token = options.headers?.Authorization?.replace('Bearer ', '');
+      const payload = token ? decodeJwtPayload(token) : {};
+      const accepted = payload.iss === 'https://idp.local.test'
+        && payload.aud === 'intelligent-report-api';
+      return {
+        status: accepted ? 200 : 401,
+        text: async () => JSON.stringify({ code: accepted ? 200 : 401, data: accepted ? { userId: 702 } : null }),
+      };
+    },
+  });
+
+  assert.equal(result.passed, true);
+  assert.deepEqual(result.results.map((entry) => entry.name), [
+    'oidc-current-user-authorized-through-higress',
+    'oidc-current-user-wrong-issuer-through-higress',
+    'oidc-current-user-wrong-audience-through-higress',
+  ]);
+});

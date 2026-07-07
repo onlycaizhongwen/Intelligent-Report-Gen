@@ -861,6 +861,7 @@ function evaluateEndpointSecurityCheck(check, status, body) {
 export async function runHigressGatewaySmoke({
   gatewayBaseUrl = 'http://127.0.0.1:18000',
   jwtSecret = 'local-dev-secret-change-me-32-bytes-minimum',
+  baselineCoverage = true,
   controllerMatrix = [],
   controllerEndpointAuthorizationSampleLimit = 0,
   controllerEndpointAuthorizationNegativeCoverage = false,
@@ -869,7 +870,7 @@ export async function runHigressGatewaySmoke({
   oidcEndpointSecurityConfig = null,
   fetchImpl = fetch,
 } = {}) {
-  const checks = [
+  const baselineChecks = baselineCoverage ? [
     ...buildHigressGatewaySmokeChecks({ gatewayBaseUrl }),
     ...buildHigressEndpointSecurityChecks({ gatewayBaseUrl, jwtSecret }),
     ...buildHigressRepresentativeAuthorizationMatrixChecks({ gatewayBaseUrl, jwtSecret }),
@@ -898,6 +899,9 @@ export async function runHigressGatewaySmoke({
         jwtSecret,
       })
       : []),
+  ] : [];
+  const checks = [
+    ...baselineChecks,
     ...(oidcEndpointSecurityConfig
       ? buildHigressOidcEndpointSecurityChecks({
         gatewayBaseUrl,

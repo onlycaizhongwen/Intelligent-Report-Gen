@@ -6,6 +6,10 @@ function isTruthy(value) {
   return ['1', 'true', 'all', 'yes'].includes(String(value ?? '').toLowerCase());
 }
 
+function isFalsey(value) {
+  return ['0', 'false', 'none', 'no'].includes(String(value ?? '').toLowerCase());
+}
+
 function readOidcPrivateKey() {
   if (process.env.HIGRESS_OIDC_PRIVATE_KEY_PEM) {
     return process.env.HIGRESS_OIDC_PRIVATE_KEY_PEM.replace(/\\n/g, '\n');
@@ -56,6 +60,7 @@ const controllerEndpointAuthorizationReadOnlyAuthorizedCoverage = isTruthy(
   process.env.HIGRESS_CONTROLLER_ENDPOINT_AUTH_READONLY_AUTHORIZED_COVERAGE,
 );
 const wafBlockingCoverage = isTruthy(process.env.HIGRESS_WAF_BLOCKING_COVERAGE);
+const baselineCoverage = !isFalsey(process.env.HIGRESS_GATEWAY_BASELINE_COVERAGE);
 const needsControllerMatrix = controllerEndpointAuthorizationSampleLimit > 0
   || controllerEndpointAuthorizationNegativeCoverage
   || controllerEndpointAuthorizationReadOnlyAuthorizedCoverage;
@@ -63,6 +68,7 @@ const oidcEndpointSecurityConfig = buildOidcEndpointSecurityConfig();
 
 const result = await runHigressGatewaySmoke({
   gatewayBaseUrl: process.env.HIGRESS_GATEWAY_BASE_URL ?? 'http://127.0.0.1:18000',
+  baselineCoverage,
   controllerEndpointAuthorizationSampleLimit,
   controllerEndpointAuthorizationNegativeCoverage,
   controllerEndpointAuthorizationReadOnlyAuthorizedCoverage,

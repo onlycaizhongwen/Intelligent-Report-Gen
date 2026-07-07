@@ -57,9 +57,10 @@
 - UC-08 webhook retry compensation is now browser-visible and Higress-verified: a failed webhook can be retried from `/rules`, the retry reuses the original idempotency key, and the returned ledger preserves `sourceActionExecutionId`.
 - UC-08 webhook automatic replay exhaustion is now browser-visible and Higress-verified: the scheduled replay worker can exhaust a repeatedly failing webhook, preserve the original source action trace, and stop duplicate terminal compensation records.
 - Higress local WAF policy is now stored as a non-active candidate manifest. The active local route omits `higress.io/enable-waf` until the WAF plugin image can be mirrored/preloaded and verified with the opt-in blocking smoke.
+- Higress OIDC local test-IdP smoke now proves `RS256`/JWKS authentication through the local gateway with accepted, wrong-issuer, and wrong-audience probes while keeping the default local `HS256` smoke unchanged.
 
 ### 已知问题
 
-- OpenSearch 已完成本地最小资源部署，但知识全文索引业务链路仍需持续验收；Higress `/api/v1/** -> java-report-core` 本地路由和代表性 RBAC `401/403/200` 已有 smoke 证据；UC-08 webhook 失败补偿、手动重试补偿、自动重放耗尽均已有 Higress 浏览器验收证据；OIDC/TLS/WAF 仍待生产化验证。
+- OpenSearch 已完成本地最小资源部署，但知识全文索引业务链路仍需持续验收；Higress `/api/v1/** -> java-report-core` 本地路由和代表性 RBAC `401/403/200` 已有 smoke 证据；UC-08 webhook 失败补偿、手动重试补偿、自动重放耗尽均已有 Higress 浏览器验收证据；本地测试 IdP OIDC 已有 Higress 烟测证据；客户生产 OIDC、可信 TLS、WAF 阻断仍待生产化验证。
 
 [OK] Skill S28 completed
