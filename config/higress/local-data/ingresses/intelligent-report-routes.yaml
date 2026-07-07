@@ -5,7 +5,6 @@ metadata:
   namespace: default
   annotations:
     higress.io/enable-ai-gateway: "true"
-    higress.io/enable-waf: "true"
     higress.io/enable-prometheus: "true"
     higress.io/ai-token-rate-limit: "true"
     higress.io/prompt-security: "true"

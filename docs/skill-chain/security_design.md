@@ -22,7 +22,7 @@
 | API 鉴权 | Java Spring Security 校验 JWT 和权限项 |
 | JWT 算法边界 | 本地默认 `HS256 + JWT_SECRET`；生产 `RS256` 必须配置 `OIDC_JWKS_URL + OIDC_ISSUER + OIDC_AUDIENCE`，任一缺失或 token `iss/aud` 不匹配必须 fail closed；JWKS 按 `kid` 缓存并在 kid 缺失时刷新 |
 | Higress OIDC smoke | Local gateway smoke can opt into `RS256` `/api/v1/auth/me` probes for accepted, wrong-issuer, and wrong-audience tokens without changing default `HS256` local development behavior. |
-| Higress WAF smoke | Default local smoke verifies Java fallback for malformed attack-shaped input; `HIGRESS_WAF_BLOCKING_COVERAGE=true` enables an explicit SQLi/XSS/path-traversal/prompt-injection blocking contract that must return `403`, `406`, or `429` after a real WAF policy is installed. |
+| Higress WAF smoke | Default local smoke verifies Java fallback for malformed attack-shaped input. The local active route does not enable WAF by default because the official Wasm plugin must be locally fetchable or mirrored first. `config/higress/waf/intelligent-report-waf.candidate.yaml` preserves the candidate WAF policy; `HIGRESS_WAF_BLOCKING_COVERAGE=true` enables an explicit SQLi/XSS/path-traversal/prompt-injection blocking contract that must return `403`, `406`, or `429` after the real WAF policy is installed. |
 | Higress trusted TLS smoke | Local HTTPS route smoke may use self-signed certificates with verification disabled; production TLS evidence must run `scripts/higress-tls-certificate-smoke.mjs` with verification enabled and pass trusted-chain plus minimum-validity checks. |
 | RBAC | 当前包含管理员、高级分析师、分析师、查看者，并保留扩展 |
 | 分享访问 | 分享 Token + 可选密码 + 有效期 + 撤销状态 + 报告授权范围 |

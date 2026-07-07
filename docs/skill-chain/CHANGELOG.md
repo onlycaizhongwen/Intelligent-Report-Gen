@@ -25,7 +25,7 @@
 - 使用环境变量管理 `JWT_SECRET`、LLM API Key、数据库密码和 MinIO 密钥。
 - 前端 Axios 使用 `withCredentials`，不把 Token 放入 LocalStorage。
 - Python AI 服务保留 Prompt 注入检测和 JWT 上下文校验。
-- Higress 路由配置保留 WAF、Prompt 安全、Token 限流和 AI Gateway 能力开关。
+- Higress 路由配置保留 Prompt 安全、Token 限流和 AI Gateway 能力开关；WAF 改为非活动候选策略，避免本地开发网关在无法拉取 Wasm 插件时断连。
 - Higress 外部路由不再直连 Python `/api/v1/chat` 或 `/api/v1/documents`，统一将 `/api/v1/**` 导入 Java 业务核心，避免绕过 RBAC、任务状态和审计闭环。
 
 ### 变更
@@ -56,6 +56,7 @@
 - UC-08 webhook failure compensation is now browser-visible and Higress-verified: failed production runs refresh the action ledger, show the concrete webhook error, and support batch ignore from `/rules`.
 - UC-08 webhook retry compensation is now browser-visible and Higress-verified: a failed webhook can be retried from `/rules`, the retry reuses the original idempotency key, and the returned ledger preserves `sourceActionExecutionId`.
 - UC-08 webhook automatic replay exhaustion is now browser-visible and Higress-verified: the scheduled replay worker can exhaust a repeatedly failing webhook, preserve the original source action trace, and stop duplicate terminal compensation records.
+- Higress local WAF policy is now stored as a non-active candidate manifest. The active local route omits `higress.io/enable-waf` until the WAF plugin image can be mirrored/preloaded and verified with the opt-in blocking smoke.
 
 ### 已知问题
 

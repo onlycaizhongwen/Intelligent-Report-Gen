@@ -1,0 +1,24 @@
+apiVersion: extensions.higress.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: intelligent-report-waf
+  namespace: higress-system
+spec:
+  url: oci://higress-registry.cn-hangzhou.cr.aliyuncs.com/plugins/waf:2.0.0
+  imagePullPolicy: IfNotPresent
+  phase: AUTHN
+  priority: 100
+  matchRules:
+    - ingress:
+        - intelligent-report-routes
+  defaultConfig:
+    useCRS: true
+    secRules:
+      - |
+        SecRule ARGS "@rx (?i)1'\s+or\s+'1'='1" "id:357001,phase:2,deny,status:403,msg:'intelligent-report-sqli-probe'"
+      - |
+        SecRule ARGS "@rx (?i)<script>" "id:357002,phase:2,deny,status:403,msg:'intelligent-report-xss-probe'"
+      - |
+        SecRule REQUEST_URI "@rx (?i)%2e%2e%2f" "id:357003,phase:1,deny,status:403,msg:'intelligent-report-path-traversal-probe'"
+      - |
+        SecRule REQUEST_BODY "@rx (?i)ignore previous instructions" "id:357004,phase:2,deny,status:403,msg:'intelligent-report-prompt-injection-probe'"
