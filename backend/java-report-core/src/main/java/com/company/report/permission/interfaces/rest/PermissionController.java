@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Set;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -38,7 +37,7 @@ public class PermissionController {
     public ApiResponse<Map<String, Object>> currentUser() {
         CurrentUser currentUser = CurrentUserHolder.get();
         if (currentUser == null) {
-            currentUser = new CurrentUser(1L, Set.of("ADMIN"), Set.of("report:create", "report:read", "knowledge:upload"));
+            throw new SecurityException("current authenticated user required");
         }
         return ApiResponse.success(Map.of(
                 "userId", currentUser.userId(),

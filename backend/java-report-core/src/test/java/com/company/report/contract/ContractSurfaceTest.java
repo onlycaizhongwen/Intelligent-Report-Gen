@@ -669,6 +669,9 @@ class ContractSurfaceTest {
 
         assertThat(permissionController).contains("@GetMapping(\"/auth/me\")");
         assertThat(permissionController).contains("CurrentUserHolder.get()");
+        assertThat(permissionController).contains("throw new SecurityException(\"current authenticated user required\")");
+        assertThat(permissionController).doesNotContain("new CurrentUser(1L");
+        assertThat(permissionController).doesNotContain("Set.of(\"ADMIN\")");
         assertThat(permissionController).contains("\"displayName\", \"当前用户\"");
         assertThat(permissionController).doesNotContain("褰撳墠鐢ㄦ埛");
     }
