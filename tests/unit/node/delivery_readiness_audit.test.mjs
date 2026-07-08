@@ -23,6 +23,7 @@ test('buildDeliveryReadinessChecks separates local evidence from production gate
     [
       'frontend-browser-http',
       'higress-default-security-smoke',
+      'higress-local-oidc-test-idp-smoke',
       'higress-waf-blocking-policy',
       'higress-trusted-tls-certificate',
       'higress-oidc-endpoint-security',
@@ -31,10 +32,12 @@ test('buildDeliveryReadinessChecks separates local evidence from production gate
   );
 
   assert.equal(checks[0].scope, 'local');
-  assert.equal(checks[2].scope, 'production');
-  assert.equal(checks[4].kind, 'command');
-  assert.equal(checks[4].env.HIGRESS_OIDC_ENDPOINT_SECURITY_COVERAGE, 'true');
-  assert.equal(checks[5].env.DELIVERY_SMOKE_DASHSCOPE_API_KEY, '<provided>');
+  assert.equal(checks[2].scope, 'local');
+  assert.deepEqual(checks[2].args, ['scripts/higress-oidc-local-smoke.mjs']);
+  assert.equal(checks[3].scope, 'production');
+  assert.equal(checks[5].kind, 'command');
+  assert.equal(checks[5].env.HIGRESS_OIDC_ENDPOINT_SECURITY_COVERAGE, 'true');
+  assert.equal(checks[6].env.DELIVERY_SMOKE_DASHSCOPE_API_KEY, '<provided>');
   assert.equal(JSON.stringify(checks), JSON.stringify(checks).replace('secret-key', '<leaked>'));
   assert.equal(JSON.stringify(checks), JSON.stringify(checks).replace('secret-pem', '<leaked>'));
 });
@@ -42,7 +45,12 @@ test('buildDeliveryReadinessChecks separates local evidence from production gate
 test('buildDeliveryReadinessChecks marks credential-gated production checks as blocked when inputs are missing', () => {
   const checks = buildDeliveryReadinessChecks({ env: {} });
   const oidc = checks.find((check) => check.name === 'higress-oidc-endpoint-security');
+  const localOidc = checks.find((check) => check.name === 'higress-local-oidc-test-idp-smoke');
   const delivery = checks.find((check) => check.name === 'credentialed-delivery-smoke');
+
+  assert.equal(localOidc.kind, 'command');
+  assert.equal(localOidc.scope, 'local');
+  assert.deepEqual(localOidc.args, ['scripts/higress-oidc-local-smoke.mjs']);
 
   assert.equal(oidc.kind, 'blocked');
   assert.equal(oidc.status, 'blocked');
@@ -122,6 +130,55 @@ test('classifyDeliveryReadinessResult compacts nested smoke evidence', () => {
       },
     ],
   });
+});
+
+test('classifyDeliveryReadinessResult compacts OIDC local smoke evidence', () => {
+  const outcome = classifyDeliveryReadinessResult(
+    { name: 'higress-local-oidc-test-idp-smoke', scope: 'local', required: true },
+    {
+      exitCode: 0,
+      stdout: JSON.stringify({
+        passed: true,
+        privateKey: '<redacted>',
+        resultCount: 3,
+        oidcResults: [
+          {
+            name: 'oidc-current-user-authorized-through-higress',
+            status: 200,
+            code: 200,
+            classification: 'endpoint-security-expected',
+            passed: true,
+            bodyPreview: 'large accepted user payload',
+          },
+          {
+            name: 'oidc-current-user-wrong-issuer-through-higress',
+            status: 401,
+            code: 401,
+            classification: 'endpoint-security-expected',
+            passed: true,
+            bodyPreview: 'large rejected payload',
+          },
+        ],
+      }),
+    },
+  );
+
+  assert.deepEqual(outcome.evidence.oidcResults, [
+    {
+      name: 'oidc-current-user-authorized-through-higress',
+      status: 200,
+      code: 200,
+      classification: 'endpoint-security-expected',
+      passed: true,
+    },
+    {
+      name: 'oidc-current-user-wrong-issuer-through-higress',
+      status: 401,
+      code: 401,
+      classification: 'endpoint-security-expected',
+      passed: true,
+    },
+  ]);
 });
 
 test('summarizeDeliveryReadiness keeps production readiness false for blocked production gates', () => {

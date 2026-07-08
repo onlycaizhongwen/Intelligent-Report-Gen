@@ -16,6 +16,19 @@ function parseJsonObject(text) {
 }
 
 function compactSmokeEvidence(evidence) {
+  if (Array.isArray(evidence.oidcResults)) {
+    return {
+      ...evidence,
+      oidcResults: evidence.oidcResults.map((result) => ({
+        name: result.name,
+        status: result.status,
+        code: result.code,
+        classification: result.classification,
+        passed: result.passed,
+      })),
+    };
+  }
+
   if (!Array.isArray(evidence.results)) {
     return evidence;
   }
@@ -93,6 +106,12 @@ export function buildDeliveryReadinessChecks({ env = process.env } = {}) {
       scope: 'local',
       description: 'Local Higress route must preserve Java auth and default security boundaries.',
       args: ['scripts/higress-gateway-smoke.mjs'],
+    }),
+    commandCheck({
+      name: 'higress-local-oidc-test-idp-smoke',
+      scope: 'local',
+      description: 'Local Higress route must pass RS256/JWKS OIDC probes against a temporary test IdP and restore the default route.',
+      args: ['scripts/higress-oidc-local-smoke.mjs'],
     }),
     commandCheck({
       name: 'higress-waf-blocking-policy',
