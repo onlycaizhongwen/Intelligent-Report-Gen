@@ -1,3 +1,6 @@
+import { mkdir, writeFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
+
 function hasText(value) {
   return typeof value === 'string' && value.trim().length > 0;
 }
@@ -368,6 +371,35 @@ export function renderProductionReadinessActionPlanMarkdown({
   }
 
   return lines.join('\n');
+}
+
+export function formatDeliveryReadinessAuditOutput({
+  payload,
+  outputFormat = 'json',
+  generatedAt = new Date().toISOString(),
+} = {}) {
+  if (outputFormat === 'markdown') {
+    return renderProductionReadinessActionPlanMarkdown({
+      generatedAt,
+      summary: payload?.summary,
+      actionPlan: payload?.actionPlan,
+    });
+  }
+  return JSON.stringify(payload, null, 2);
+}
+
+export async function writeDeliveryReadinessReportFile({
+  reportFile,
+  content,
+  mkdirImpl = mkdir,
+  writeFileImpl = writeFile,
+} = {}) {
+  if (!hasText(reportFile)) {
+    return false;
+  }
+  await mkdirImpl(dirname(reportFile), { recursive: true });
+  await writeFileImpl(reportFile, content, 'utf8');
+  return true;
 }
 
 export function sanitizeCommandEnv(env = {}) {

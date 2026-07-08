@@ -6,9 +6,10 @@ import {
   buildProductionReadinessActionPlan,
   buildDeliveryReadinessChecks,
   classifyDeliveryReadinessResult,
-  renderProductionReadinessActionPlanMarkdown,
+  formatDeliveryReadinessAuditOutput,
   sanitizeCommandEnv,
   summarizeDeliveryReadiness,
+  writeDeliveryReadinessReportFile,
 } from './delivery-readiness-audit-lib.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -128,12 +129,18 @@ const outputPayload = {
   })),
   results,
 };
+const outputFormat = process.env.DELIVERY_READINESS_OUTPUT === 'markdown' ? 'markdown' : 'json';
+const output = formatDeliveryReadinessAuditOutput({
+  payload: outputPayload,
+  outputFormat,
+});
 
-if (process.env.DELIVERY_READINESS_OUTPUT === 'markdown') {
-  console.log(renderProductionReadinessActionPlanMarkdown({ summary, actionPlan }));
-} else {
-  console.log(JSON.stringify(outputPayload, null, 2));
-}
+console.log(output);
+
+await writeDeliveryReadinessReportFile({
+  reportFile: process.env.DELIVERY_READINESS_REPORT_FILE,
+  content: output,
+});
 
 if (!summary.localReady) {
   process.exit(1);

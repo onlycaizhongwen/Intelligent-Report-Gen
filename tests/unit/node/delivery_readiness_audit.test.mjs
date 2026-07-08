@@ -5,8 +5,10 @@ import {
   buildProductionReadinessActionPlan,
   buildDeliveryReadinessChecks,
   classifyDeliveryReadinessResult,
+  formatDeliveryReadinessAuditOutput,
   renderProductionReadinessActionPlanMarkdown,
   summarizeDeliveryReadiness,
+  writeDeliveryReadinessReportFile,
 } from '../../../scripts/delivery-readiness-audit-lib.mjs';
 
 test('buildDeliveryReadinessChecks separates local evidence from production gates without secrets', () => {
@@ -347,4 +349,38 @@ test('renderProductionReadinessActionPlanMarkdown creates a customer handoff che
   assert.match(markdown, /```bash\nnode scripts\/higress-waf-runtime-preflight\.mjs\n```/);
   assert.match(markdown, /waf-plugin-container-registry-unreachable/);
   assert.equal(markdown.includes('secret'), false);
+});
+
+test('formatDeliveryReadinessAuditOutput preserves JSON default and markdown handoff mode', () => {
+  const payload = {
+    summary: { localReady: true, productionReady: false, productionBlockingItems: ['higress-waf-runtime-preflight'] },
+    actionPlan: { ready: false, blockingItems: [] },
+    checks: [],
+    results: [],
+  };
+
+  assert.deepEqual(
+    JSON.parse(formatDeliveryReadinessAuditOutput({ payload, outputFormat: 'json' })),
+    payload,
+  );
+  assert.match(
+    formatDeliveryReadinessAuditOutput({ payload, outputFormat: 'markdown', generatedAt: '2026-07-08T12:00:00.000Z' }),
+    /^# Production Readiness Action Plan/,
+  );
+});
+
+test('writeDeliveryReadinessReportFile creates the parent directory and writes content', async () => {
+  const calls = [];
+
+  await writeDeliveryReadinessReportFile({
+    reportFile: 'docs/skill-chain/generated/readiness-action-plan.md',
+    content: '# report\n',
+    mkdirImpl: async (path, options) => calls.push(['mkdir', path, options]),
+    writeFileImpl: async (path, content, encoding) => calls.push(['writeFile', path, content, encoding]),
+  });
+
+  assert.deepEqual(calls, [
+    ['mkdir', 'docs/skill-chain/generated', { recursive: true }],
+    ['writeFile', 'docs/skill-chain/generated/readiness-action-plan.md', '# report\n', 'utf8'],
+  ]);
 });
