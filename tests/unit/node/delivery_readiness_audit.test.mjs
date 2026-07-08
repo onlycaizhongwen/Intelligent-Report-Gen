@@ -89,6 +89,23 @@ test('buildDeliveryReadinessChecks allows customer OIDC token-suite evidence wit
   assert.equal(JSON.stringify(checks), JSON.stringify(checks).replace('wrong.audience.jwt', '<leaked>'));
 });
 
+test('buildDeliveryReadinessChecks marks WAF plugin URL override as provided without leaking it', () => {
+  const checks = buildDeliveryReadinessChecks({
+    env: {
+      HIGRESS_WAF_PLUGIN_URL: 'oci://user:secret@registry.customer.example/platform/higress-waf:2.0.0',
+    },
+  });
+  const wafPreflight = checks.find((check) => check.name === 'higress-waf-runtime-preflight');
+
+  assert.equal(wafPreflight.kind, 'command');
+  assert.equal(wafPreflight.scope, 'production');
+  assert.equal(wafPreflight.env.HIGRESS_WAF_PLUGIN_URL, '<provided>');
+  assert.equal(
+    JSON.stringify(checks),
+    JSON.stringify(checks).replace('user:secret@registry.customer.example', '<leaked>'),
+  );
+});
+
 test('classifyDeliveryReadinessResult turns command exits into readiness outcomes', () => {
   assert.deepEqual(
     classifyDeliveryReadinessResult(

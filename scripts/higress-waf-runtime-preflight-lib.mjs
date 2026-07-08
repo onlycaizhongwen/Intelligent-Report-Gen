@@ -18,18 +18,32 @@ function readWafPluginUrl(manifestPath) {
   return match[1].trim();
 }
 
+function chooseWafPluginUrl({ pluginUrlOverride, candidateManifestPath }) {
+  return hasText(pluginUrlOverride)
+    ? pluginUrlOverride.trim()
+    : readWafPluginUrl(candidateManifestPath);
+}
+
+function redactWafPluginUrl(url) {
+  return String(url).replace(/^(oci:\/\/)[^/@\s]+@([^/\s]+)/, '$1<redacted>@$2');
+}
+
 export function parseWafPluginOciUrl(url) {
   if (!hasText(url) || !url.startsWith('oci://')) {
-    throw new Error(`unsupported WAF plugin URL: ${url}`);
+    throw new Error(`unsupported WAF plugin URL: ${redactWafPluginUrl(url)}`);
   }
   const withoutScheme = url.slice('oci://'.length);
   const slashIndex = withoutScheme.indexOf('/');
   const tagIndex = withoutScheme.lastIndexOf(':');
   if (slashIndex <= 0 || tagIndex <= slashIndex + 1 || tagIndex === withoutScheme.length - 1) {
-    throw new Error(`invalid WAF plugin OCI URL: ${url}`);
+    throw new Error(`invalid WAF plugin OCI URL: ${redactWafPluginUrl(url)}`);
+  }
+  const registry = withoutScheme.slice(0, slashIndex);
+  if (registry.includes('@')) {
+    throw new Error(`WAF plugin OCI URL must not include credentials: ${redactWafPluginUrl(url)}`);
   }
   return {
-    registry: withoutScheme.slice(0, slashIndex),
+    registry,
     repository: withoutScheme.slice(slashIndex + 1, tagIndex),
     tag: withoutScheme.slice(tagIndex + 1),
   };
@@ -76,12 +90,13 @@ function defaultCommandRunner(command, args) {
 export async function runHigressWafRuntimePreflight({
   candidateManifestPath = DEFAULT_CANDIDATE_MANIFEST,
   activeLocalManifestPath = DEFAULT_ACTIVE_LOCAL_MANIFEST,
+  pluginUrlOverride,
   containerName = 'ir-higress',
   commandRunner = defaultCommandRunner,
   fetchImpl = fetch,
   timeoutMs = 15000,
 } = {}) {
-  const pluginUrl = readWafPluginUrl(candidateManifestPath);
+  const pluginUrl = chooseWafPluginUrl({ pluginUrlOverride, candidateManifestPath });
   const parsedPlugin = parseWafPluginOciUrl(pluginUrl);
   const request = buildWafManifestRequest(parsedPlugin);
   const activeLocalPlugin = existsSync(activeLocalManifestPath);

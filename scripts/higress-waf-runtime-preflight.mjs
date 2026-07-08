@@ -5,6 +5,7 @@ const result = await runHigressWafRuntimePreflight({
     ?? 'config/higress/waf/intelligent-report-waf.candidate.yaml',
   activeLocalManifestPath: process.env.HIGRESS_WAF_ACTIVE_LOCAL_MANIFEST
     ?? 'config/higress/local-data/wasmplugins/intelligent-report-waf.yaml',
+  pluginUrlOverride: process.env.HIGRESS_WAF_PLUGIN_URL,
   containerName: process.env.HIGRESS_WAF_PREFLIGHT_CONTAINER ?? 'ir-higress',
   timeoutMs: Number(process.env.HIGRESS_WAF_PREFLIGHT_TIMEOUT_MS ?? 15000),
 });

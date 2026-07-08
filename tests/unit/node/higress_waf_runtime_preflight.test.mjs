@@ -19,6 +19,18 @@ test('parseWafPluginOciUrl extracts registry, repository, and tag', () => {
   );
 });
 
+test('parseWafPluginOciUrl rejects userinfo without leaking credentials', () => {
+  assert.throws(
+    () => parseWafPluginOciUrl('oci://user:secret@registry.customer.example/platform/higress-waf:2.0.0'),
+    (error) => {
+      assert.match(error.message, /must not include credentials/);
+      assert.doesNotMatch(error.message, /secret/);
+      assert.match(error.message, /<redacted>@registry\.customer\.example/);
+      return true;
+    },
+  );
+});
+
 test('buildWafManifestRequest targets the OCI manifest endpoint', () => {
   assert.deepEqual(
     buildWafManifestRequest({
@@ -72,6 +84,40 @@ test('runHigressWafRuntimePreflight passes when the WAF image manifest is reacha
   assert.equal(result.containerRegistryReachable, true);
   assert.equal(result.plugin.repository, 'plugins/waf');
   assert.equal(result.activeLocalPlugin, false);
+});
+
+test('runHigressWafRuntimePreflight can probe a mirrored WAF plugin URL override', async () => {
+  let observedProbeArgs;
+  const result = await runHigressWafRuntimePreflight({
+    pluginUrlOverride: 'oci://registry.customer.example/platform/higress-waf:2.0.0',
+    commandRunner: (_command, args) => {
+      observedProbeArgs = args;
+      return { status: 0, stdout: '', stderr: '' };
+    },
+    fetchImpl: async (url) => {
+      assert.equal(url, 'https://registry.customer.example/v2/platform/higress-waf/manifests/2.0.0');
+      return {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        text: async () => '{}',
+      };
+    },
+  });
+
+  assert.equal(result.passed, true);
+  assert.equal(result.plugin.url, 'oci://registry.customer.example/platform/higress-waf:2.0.0');
+  assert.equal(result.plugin.registry, 'registry.customer.example');
+  assert.deepEqual(
+    observedProbeArgs,
+    [
+      'exec',
+      'ir-higress',
+      'sh',
+      '-lc',
+      'curl -k -sS --max-time 15 https://registry.customer.example/v2/ >/tmp/higress-waf-registry-preflight.out',
+    ],
+  );
 });
 
 test('runHigressWafRuntimePreflight fails closed when the Higress container cannot reach the registry', async () => {

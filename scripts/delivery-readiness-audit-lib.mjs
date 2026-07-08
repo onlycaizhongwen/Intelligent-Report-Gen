@@ -121,6 +121,9 @@ export function buildDeliveryReadinessChecks({ env = process.env } = {}) {
       scope: 'production',
       description: 'Gateway WAF plugin OCI image must be reachable before enabling the blocking policy.',
       args: ['scripts/higress-waf-runtime-preflight.mjs'],
+      env: {
+        HIGRESS_WAF_PLUGIN_URL: hasText(env.HIGRESS_WAF_PLUGIN_URL) ? '<provided>' : undefined,
+      },
     }),
     commandCheck({
       name: 'higress-waf-blocking-policy',
