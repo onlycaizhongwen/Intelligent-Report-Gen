@@ -400,7 +400,13 @@ test('buildProductionReadinessActionPlan converts production blockers into custo
       scope: 'production',
       status: 'failed',
       required: true,
-      evidence: { classification: 'waf-plugin-container-registry-unreachable' },
+      evidence: {
+        classification: 'waf-plugin-container-registry-unreachable',
+        containerRegistryReachable: false,
+        hostRegistryReachable: true,
+        hostManifestReachable: true,
+        nextAction: 'fix container network',
+      },
     },
     {
       name: 'higress-waf-blocking-policy',
@@ -444,6 +450,10 @@ test('buildProductionReadinessActionPlan converts production blockers into custo
   assert.deepEqual(plan.blockingItems[0].requiredInputs, ['HIGRESS_WAF_PLUGIN_URL']);
   assert.deepEqual(plan.blockingItems[0].commands, ['HIGRESS_WAF_PLUGIN_URL=<plugin-oci-url> node scripts/higress-waf-runtime-preflight.mjs']);
   assert.match(plan.blockingItems[0].nextAction, /mirror/);
+  assert.equal(plan.blockingItems[0].observed.containerRegistryReachable, false);
+  assert.equal(plan.blockingItems[0].observed.hostRegistryReachable, true);
+  assert.equal(plan.blockingItems[0].observed.hostManifestReachable, true);
+  assert.match(plan.blockingItems[0].observed.nextAction, /container network/);
   assert.deepEqual(plan.blockingItems[1].requiredInputs, [
     'HIGRESS_GATEWAY_BASE_URL',
     'HIGRESS_WAF_BLOCKING_COVERAGE',

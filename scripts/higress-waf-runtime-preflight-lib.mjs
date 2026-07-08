@@ -87,6 +87,30 @@ function defaultCommandRunner(command, args) {
   };
 }
 
+async function probeHostManifest({ fetchImpl, request, timeoutMs }) {
+  try {
+    const response = await fetchImpl(request.url, {
+      method: 'GET',
+      headers: request.headers,
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    const body = await response.text();
+    return {
+      hostRegistryReachable: true,
+      hostManifestReachable: response.ok,
+      hostManifestStatus: response.status,
+      hostManifestStatusText: response.statusText,
+      bodyPreview: body.slice(0, 240),
+    };
+  } catch (error) {
+    return {
+      hostRegistryReachable: false,
+      hostManifestReachable: false,
+      hostManifestError: error?.message ?? String(error),
+    };
+  }
+}
+
 export async function runHigressWafRuntimePreflight({
   candidateManifestPath = DEFAULT_CANDIDATE_MANIFEST,
   activeLocalManifestPath = DEFAULT_ACTIVE_LOCAL_MANIFEST,
@@ -108,13 +132,24 @@ export async function runHigressWafRuntimePreflight({
   });
   const containerProbe = commandRunner(probeCommand, probeArgs);
   if (containerProbe.status !== 0) {
+    const hostProbe = await probeHostManifest({ fetchImpl, request, timeoutMs });
+    const hostManifestReachable = hostProbe.hostManifestReachable === true;
+    const hostRegistryReachable = hostProbe.hostRegistryReachable === true;
     return {
       passed: false,
-      classification: 'waf-plugin-container-registry-unreachable',
+      classification: hostRegistryReachable
+        ? 'waf-plugin-container-registry-unreachable'
+        : 'waf-plugin-registry-unreachable',
       plugin,
       manifestUrl: request.url,
       activeLocalPlugin,
       containerRegistryReachable: false,
+      ...hostProbe,
+      nextAction: hostManifestReachable
+        ? 'fix the Higress runtime container network, proxy, or mirror configuration so the container can reach the same WAF plugin registry that is reachable from the host.'
+        : (hostRegistryReachable
+            ? 'mirror or authenticate the WAF plugin manifest in a registry reachable from the Higress runtime container, then rerun the WAF runtime preflight before enabling the blocking policy.'
+            : 'mirror the plugin into a registry reachable from both the host and the Higress runtime container, then rerun the WAF runtime preflight before enabling the blocking policy.'),
       containerProbe: {
         containerName,
         status: containerProbe.status,
@@ -124,34 +159,20 @@ export async function runHigressWafRuntimePreflight({
     };
   }
 
-  try {
-    const response = await fetchImpl(request.url, {
-      method: 'GET',
-      headers: request.headers,
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-    const body = await response.text();
-    const passed = response.ok;
-    return {
-      passed,
-      classification: passed ? 'waf-plugin-manifest-reachable' : 'waf-plugin-manifest-rejected',
-      status: response.status,
-      statusText: response.statusText,
-      plugin,
-      manifestUrl: request.url,
-      activeLocalPlugin,
-      containerRegistryReachable: true,
-      bodyPreview: body.slice(0, 240),
-    };
-  } catch (error) {
-    return {
-      passed: false,
-      classification: 'waf-plugin-manifest-unreachable',
-      plugin,
-      manifestUrl: request.url,
-      activeLocalPlugin,
-      containerRegistryReachable: true,
-      errorMessage: error?.message ?? String(error),
-    };
-  }
+  const hostProbe = await probeHostManifest({ fetchImpl, request, timeoutMs });
+  const passed = hostProbe.hostManifestReachable === true;
+  return {
+    passed,
+    classification: passed
+      ? 'waf-plugin-manifest-reachable'
+      : (hostProbe.hostManifestError ? 'waf-plugin-manifest-unreachable' : 'waf-plugin-manifest-rejected'),
+    status: hostProbe.hostManifestStatus,
+    statusText: hostProbe.hostManifestStatusText,
+    plugin,
+    manifestUrl: request.url,
+    activeLocalPlugin,
+    containerRegistryReachable: true,
+    ...hostProbe,
+    errorMessage: hostProbe.hostManifestError,
+  };
 }

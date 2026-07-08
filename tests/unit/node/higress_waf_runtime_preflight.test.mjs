@@ -129,8 +129,48 @@ test('runHigressWafRuntimePreflight fails closed when the Higress container cann
   assert.equal(result.passed, false);
   assert.equal(result.classification, 'waf-plugin-container-registry-unreachable');
   assert.equal(result.containerRegistryReachable, false);
+  assert.equal(result.hostManifestReachable, true);
+  assert.equal(result.hostManifestStatus, 200);
+  assert.match(result.nextAction, /container network, proxy, or mirror/);
   assert.match(result.containerProbe.stderr, /unexpected eof/);
   assert.equal(result.plugin.url, 'oci://higress-registry.cn-hangzhou.cr.aliyuncs.com/plugins/waf:2.0.0');
+});
+
+test('runHigressWafRuntimePreflight reports host and container registry failure separately', async () => {
+  const result = await runHigressWafRuntimePreflight({
+    commandRunner: () => ({ status: 6, stdout: '', stderr: 'Could not resolve host' }),
+    fetchImpl: async () => {
+      throw new Error('getaddrinfo ENOTFOUND registry.example.test');
+    },
+    pluginUrlOverride: 'oci://registry.example.test/platform/higress-waf:2.0.0',
+  });
+
+  assert.equal(result.passed, false);
+  assert.equal(result.classification, 'waf-plugin-registry-unreachable');
+  assert.equal(result.containerRegistryReachable, false);
+  assert.equal(result.hostManifestReachable, false);
+  assert.match(result.hostManifestError, /ENOTFOUND/);
+  assert.match(result.nextAction, /mirror the plugin/);
+});
+
+test('runHigressWafRuntimePreflight distinguishes host manifest rejection from host network failure', async () => {
+  const result = await runHigressWafRuntimePreflight({
+    commandRunner: () => ({ status: 35, stdout: '', stderr: 'unexpected eof while reading' }),
+    fetchImpl: async () => ({
+      ok: false,
+      status: 401,
+      statusText: 'Unauthorized',
+      text: async () => '{"errors":[{"code":"UNAUTHORIZED"}]}',
+    }),
+  });
+
+  assert.equal(result.passed, false);
+  assert.equal(result.classification, 'waf-plugin-container-registry-unreachable');
+  assert.equal(result.containerRegistryReachable, false);
+  assert.equal(result.hostRegistryReachable, true);
+  assert.equal(result.hostManifestReachable, false);
+  assert.equal(result.hostManifestStatus, 401);
+  assert.match(result.nextAction, /mirror or authenticate/);
 });
 
 test('runHigressWafRuntimePreflight fails closed when the WAF image manifest cannot be fetched from the host', async () => {

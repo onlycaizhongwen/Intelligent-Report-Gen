@@ -494,6 +494,12 @@ export function buildProductionReadinessActionPlan({ checks = [], results = [] }
           status: result.status,
           classification: result.evidence?.classification,
           authorizationError: result.evidence?.authorizationError,
+          containerRegistryReachable: result.evidence?.containerRegistryReachable,
+          hostRegistryReachable: result.evidence?.hostRegistryReachable,
+          hostManifestReachable: result.evidence?.hostManifestReachable,
+          hostManifestStatus: result.evidence?.hostManifestStatus,
+          hostManifestError: result.evidence?.hostManifestError,
+          nextAction: result.evidence?.nextAction,
           failedResultCount: Array.isArray(result.evidence?.failedResults)
             ? result.evidence.failedResults.length
             : undefined,
