@@ -24,6 +24,7 @@ test('buildDeliveryReadinessChecks separates local evidence from production gate
       'frontend-browser-http',
       'higress-default-security-smoke',
       'higress-local-oidc-test-idp-smoke',
+      'higress-waf-runtime-preflight',
       'higress-waf-blocking-policy',
       'higress-trusted-tls-certificate',
       'higress-oidc-endpoint-security',
@@ -35,9 +36,10 @@ test('buildDeliveryReadinessChecks separates local evidence from production gate
   assert.equal(checks[2].scope, 'local');
   assert.deepEqual(checks[2].args, ['scripts/higress-oidc-local-smoke.mjs']);
   assert.equal(checks[3].scope, 'production');
-  assert.equal(checks[5].kind, 'command');
-  assert.equal(checks[5].env.HIGRESS_OIDC_ENDPOINT_SECURITY_COVERAGE, 'true');
-  assert.equal(checks[6].env.DELIVERY_SMOKE_DASHSCOPE_API_KEY, '<provided>');
+  assert.deepEqual(checks[3].args, ['scripts/higress-waf-runtime-preflight.mjs']);
+  assert.equal(checks[6].kind, 'command');
+  assert.equal(checks[6].env.HIGRESS_OIDC_ENDPOINT_SECURITY_COVERAGE, 'true');
+  assert.equal(checks[7].env.DELIVERY_SMOKE_DASHSCOPE_API_KEY, '<provided>');
   assert.equal(JSON.stringify(checks), JSON.stringify(checks).replace('secret-key', '<leaked>'));
   assert.equal(JSON.stringify(checks), JSON.stringify(checks).replace('secret-pem', '<leaked>'));
 });

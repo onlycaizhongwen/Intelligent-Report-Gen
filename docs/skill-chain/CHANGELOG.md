@@ -62,9 +62,10 @@
 - Higress trusted TLS smoke now supports `HIGRESS_TLS_CA_FILE` for customer/private CA bundles while keeping certificate verification enabled.
 - Higress production OIDC smoke now accepts a customer pre-signed token suite (`HIGRESS_OIDC_ACCEPTED_TOKEN`, `HIGRESS_OIDC_WRONG_ISSUER_TOKEN`, `HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN`) so customers do not need to provide private signing keys for readiness validation.
 - 规则引擎 webhook 手动重试与自动重放边界补强：当 `maxAsyncReplayAttempts=0` 时，自动重放 worker 和 due-action 查询都会跳过该动作，避免后台自动重放与浏览器手动重试竞争生成重复成功记录。
+- Delivery readiness audit adds `higress-waf-runtime-preflight`, which checks WAF plugin OCI reachability from the Higress runtime container before the blocking policy is enabled.
 
 ### 已知问题
 
-- OpenSearch 已完成本地最小资源部署，但知识全文索引业务链路仍需持续验收；Higress `/api/v1/** -> java-report-core` 本地路由和代表性 RBAC `401/403/200` 已有 smoke 证据；UC-08 webhook 失败补偿、手动重试补偿、自动重放耗尽均已有 Higress 浏览器验收证据；本地测试 IdP OIDC 已有 Higress 烟测证据；客户生产 OIDC 已支持预签 token 套件验收但仍需客户现场 token 证据；可信 TLS、WAF 阻断仍待生产化验证。
+- OpenSearch 已完成本地最小资源部署，但知识全文索引业务链路仍需持续验收；Higress `/api/v1/** -> java-report-core` 本地路由和代表性 RBAC `401/403/200` 已有 smoke 证据；UC-08 webhook 失败补偿、手动重试补偿、自动重放耗尽均已有 Higress 浏览器验收证据；本地测试 IdP OIDC 已有 Higress 烟测证据；客户生产 OIDC 已支持预签 token 套件验收但仍需客户现场 token 证据；可信 TLS 仍待生产化验证；WAF 阻断需先通过 Higress runtime container 的 OCI 插件可达性预检。
 
 [OK] Skill S28 completed
