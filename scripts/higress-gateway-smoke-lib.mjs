@@ -94,35 +94,42 @@ export function buildHigressOidcEndpointSecurityChecks({
   keyId,
   issuer,
   audience,
+  acceptedToken,
+  wrongIssuerToken,
+  wrongAudienceToken,
 } = {}) {
   const baseUrl = gatewayBaseUrl.replace(/\/$/, '');
-  const acceptedToken = buildGatewayOidcSecurityJwt({
-    privateKey,
-    keyId,
-    issuer,
-    audience,
-    userId: 702,
-    roles: ['oidc_operator'],
-    permissions: ['permission:read'],
-  });
-  const wrongIssuerToken = buildGatewayOidcSecurityJwt({
-    privateKey,
-    keyId,
-    issuer: `${issuer}/untrusted`,
-    audience,
-    userId: 703,
-    roles: ['oidc_operator'],
-    permissions: ['permission:read'],
-  });
-  const wrongAudienceToken = buildGatewayOidcSecurityJwt({
-    privateKey,
-    keyId,
-    issuer,
-    audience: `${audience}-untrusted`,
-    userId: 704,
-    roles: ['oidc_operator'],
-    permissions: ['permission:read'],
-  });
+  const tokens = acceptedToken && wrongIssuerToken && wrongAudienceToken
+    ? { acceptedToken, wrongIssuerToken, wrongAudienceToken }
+    : {
+        acceptedToken: buildGatewayOidcSecurityJwt({
+          privateKey,
+          keyId,
+          issuer,
+          audience,
+          userId: 702,
+          roles: ['oidc_operator'],
+          permissions: ['permission:read'],
+        }),
+        wrongIssuerToken: buildGatewayOidcSecurityJwt({
+          privateKey,
+          keyId,
+          issuer: `${issuer}/untrusted`,
+          audience,
+          userId: 703,
+          roles: ['oidc_operator'],
+          permissions: ['permission:read'],
+        }),
+        wrongAudienceToken: buildGatewayOidcSecurityJwt({
+          privateKey,
+          keyId,
+          issuer,
+          audience: `${audience}-untrusted`,
+          userId: 704,
+          roles: ['oidc_operator'],
+          permissions: ['permission:read'],
+        }),
+      };
   const url = `${baseUrl}/api/v1/auth/me`;
 
   return [
@@ -131,7 +138,7 @@ export function buildHigressOidcEndpointSecurityChecks({
       url,
       expectedStatus: 200,
       expectedCode: 200,
-      headers: { Authorization: `Bearer ${acceptedToken}` },
+      headers: { Authorization: `Bearer ${tokens.acceptedToken}` },
       bodyIncludes: '"userId"',
     },
     {
@@ -139,14 +146,14 @@ export function buildHigressOidcEndpointSecurityChecks({
       url,
       expectedStatus: 401,
       expectedCode: 401,
-      headers: { Authorization: `Bearer ${wrongIssuerToken}` },
+      headers: { Authorization: `Bearer ${tokens.wrongIssuerToken}` },
     },
     {
       name: 'oidc-current-user-wrong-audience-through-higress',
       url,
       expectedStatus: 401,
       expectedCode: 401,
-      headers: { Authorization: `Bearer ${wrongAudienceToken}` },
+      headers: { Authorization: `Bearer ${tokens.wrongAudienceToken}` },
     },
   ];
 }

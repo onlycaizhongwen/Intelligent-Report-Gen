@@ -78,7 +78,7 @@ function commandCheck({ name, scope, description, command = 'node', args, env = 
     description,
     command,
     args,
-    env,
+    env: Object.fromEntries(Object.entries(env).filter(([, value]) => value !== undefined)),
   };
 }
 
@@ -89,6 +89,9 @@ export function buildDeliveryReadinessChecks({ env = process.env } = {}) {
     && hasText(env.HIGRESS_OIDC_KEY_ID)
     && hasText(env.OIDC_ISSUER)
     && hasText(env.OIDC_AUDIENCE);
+  const hasOidcTokenSuite = hasText(env.HIGRESS_OIDC_ACCEPTED_TOKEN)
+    && hasText(env.HIGRESS_OIDC_WRONG_ISSUER_TOKEN)
+    && hasText(env.HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN);
   const hasDeliveryModelKey = hasText(env.DELIVERY_SMOKE_DASHSCOPE_API_KEY)
     || hasText(env.DASHSCOPE_API_KEY);
 
@@ -128,7 +131,7 @@ export function buildDeliveryReadinessChecks({ env = process.env } = {}) {
       description: 'Gateway TLS certificate must be trusted and valid for the configured minimum window.',
       args: ['scripts/higress-tls-certificate-smoke.mjs'],
     }),
-    hasOidcConfig
+    hasOidcConfig || hasOidcTokenSuite
       ? commandCheck({
           name: 'higress-oidc-endpoint-security',
           scope: 'production',
@@ -138,20 +141,21 @@ export function buildDeliveryReadinessChecks({ env = process.env } = {}) {
             HIGRESS_OIDC_ENDPOINT_SECURITY_COVERAGE: 'true',
             HIGRESS_OIDC_PRIVATE_KEY_FILE: hasText(env.HIGRESS_OIDC_PRIVATE_KEY_FILE) ? '<provided>' : undefined,
             HIGRESS_OIDC_PRIVATE_KEY_PEM: hasText(env.HIGRESS_OIDC_PRIVATE_KEY_PEM) ? '<provided>' : undefined,
-            HIGRESS_OIDC_KEY_ID: '<provided>',
-            OIDC_ISSUER: env.OIDC_ISSUER,
-            OIDC_AUDIENCE: env.OIDC_AUDIENCE,
+            HIGRESS_OIDC_KEY_ID: hasOidcConfig ? '<provided>' : undefined,
+            OIDC_ISSUER: hasOidcConfig ? env.OIDC_ISSUER : undefined,
+            OIDC_AUDIENCE: hasOidcConfig ? env.OIDC_AUDIENCE : undefined,
+            HIGRESS_OIDC_ACCEPTED_TOKEN: hasText(env.HIGRESS_OIDC_ACCEPTED_TOKEN) ? '<provided>' : undefined,
+            HIGRESS_OIDC_WRONG_ISSUER_TOKEN: hasText(env.HIGRESS_OIDC_WRONG_ISSUER_TOKEN) ? '<provided>' : undefined,
+            HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN: hasText(env.HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN) ? '<provided>' : undefined,
           },
         })
       : blockedCheck({
           name: 'higress-oidc-endpoint-security',
           scope: 'production',
-          description: 'Gateway OIDC smoke requires a customer or test IdP signing configuration.',
+          description: 'Gateway OIDC smoke requires either customer token-suite evidence or a customer/test IdP signing configuration.',
           missingEnv: [
-            'HIGRESS_OIDC_PRIVATE_KEY_FILE or HIGRESS_OIDC_PRIVATE_KEY_PEM',
-            'HIGRESS_OIDC_KEY_ID',
-            'OIDC_ISSUER',
-            'OIDC_AUDIENCE',
+            'HIGRESS_OIDC_ACCEPTED_TOKEN + HIGRESS_OIDC_WRONG_ISSUER_TOKEN + HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN',
+            'or HIGRESS_OIDC_PRIVATE_KEY_FILE/HIGRESS_OIDC_PRIVATE_KEY_PEM + HIGRESS_OIDC_KEY_ID + OIDC_ISSUER + OIDC_AUDIENCE',
           ],
         }),
     hasDeliveryModelKey

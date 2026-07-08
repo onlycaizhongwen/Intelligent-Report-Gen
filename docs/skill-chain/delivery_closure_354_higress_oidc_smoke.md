@@ -20,6 +20,8 @@ The Higress gateway smoke harness now supports an opt-in OIDC endpoint security 
 - `runHigressGatewaySmoke(...)` appends the OIDC probes only when `oidcEndpointSecurityConfig` is explicitly provided, so default local `HS256` smoke behavior remains unchanged.
 - `scripts/higress-gateway-smoke.mjs` can enable the contract with:
   - `HIGRESS_OIDC_ENDPOINT_SECURITY_COVERAGE=true`
+  - preferred production customer token suite: `HIGRESS_OIDC_ACCEPTED_TOKEN`, `HIGRESS_OIDC_WRONG_ISSUER_TOKEN`, `HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN`
+  - or local/test signing configuration:
   - `HIGRESS_OIDC_PRIVATE_KEY_PEM` or `HIGRESS_OIDC_PRIVATE_KEY_FILE`
   - `HIGRESS_OIDC_KEY_ID`
   - `OIDC_ISSUER`

@@ -159,6 +159,24 @@ test('buildHigressOidcEndpointSecurityChecks covers accepted and rejected OIDC b
   assert.equal(wrongAudiencePayload.aud, 'intelligent-report-api-untrusted');
 });
 
+test('buildHigressOidcEndpointSecurityChecks accepts customer-provided OIDC token suite', () => {
+  const checks = buildHigressOidcEndpointSecurityChecks({
+    gatewayBaseUrl: 'http://127.0.0.1:28000',
+    acceptedToken: 'customer.accepted.token',
+    wrongIssuerToken: 'customer.wrong-issuer.token',
+    wrongAudienceToken: 'customer.wrong-audience.token',
+  });
+
+  assert.deepEqual(
+    checks.map((check) => [check.name, check.expectedStatus, check.expectedCode, check.headers.Authorization]),
+    [
+      ['oidc-current-user-authorized-through-higress', 200, 200, 'Bearer customer.accepted.token'],
+      ['oidc-current-user-wrong-issuer-through-higress', 401, 401, 'Bearer customer.wrong-issuer.token'],
+      ['oidc-current-user-wrong-audience-through-higress', 401, 401, 'Bearer customer.wrong-audience.token'],
+    ],
+  );
+});
+
 test('buildHigressEndpointSecurityChecks covers unauthenticated, forbidden and allowed gateway outcomes', () => {
   const checks = buildHigressEndpointSecurityChecks({
     gatewayBaseUrl: 'http://127.0.0.1:28000',
@@ -757,5 +775,43 @@ test('runHigressGatewaySmoke can run OIDC probes without HS256 baseline coverage
     'oidc-current-user-authorized-through-higress',
     'oidc-current-user-wrong-issuer-through-higress',
     'oidc-current-user-wrong-audience-through-higress',
+  ]);
+});
+
+test('runHigressGatewaySmoke can run OIDC probes from a customer token suite', async () => {
+  const calls = [];
+  const result = await runHigressGatewaySmoke({
+    gatewayBaseUrl: 'http://127.0.0.1:28000',
+    baselineCoverage: false,
+    oidcEndpointSecurityConfig: {
+      acceptedToken: 'customer.accepted.token',
+      wrongIssuerToken: 'customer.wrong-issuer.token',
+      wrongAudienceToken: 'customer.wrong-audience.token',
+    },
+    fetchImpl: async (url, options) => {
+      const authorization = options.headers?.Authorization;
+      calls.push({ url, authorization });
+      const accepted = authorization === 'Bearer customer.accepted.token';
+      return {
+        status: accepted ? 200 : 401,
+        text: async () => JSON.stringify({ code: accepted ? 200 : 401, data: accepted ? { userId: 702 } : null }),
+      };
+    },
+  });
+
+  assert.equal(result.passed, true);
+  assert.deepEqual(calls, [
+    {
+      url: 'http://127.0.0.1:28000/api/v1/auth/me',
+      authorization: 'Bearer customer.accepted.token',
+    },
+    {
+      url: 'http://127.0.0.1:28000/api/v1/auth/me',
+      authorization: 'Bearer customer.wrong-issuer.token',
+    },
+    {
+      url: 'http://127.0.0.1:28000/api/v1/auth/me',
+      authorization: 'Bearer customer.wrong-audience.token',
+    },
   ]);
 });

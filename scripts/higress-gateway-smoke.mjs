@@ -20,15 +20,42 @@ function readOidcPrivateKey() {
   return null;
 }
 
+function hasText(value) {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
 function buildOidcEndpointSecurityConfig() {
   const requested = isTruthy(process.env.HIGRESS_OIDC_ENDPOINT_SECURITY_COVERAGE);
+  const acceptedToken = process.env.HIGRESS_OIDC_ACCEPTED_TOKEN;
+  const wrongIssuerToken = process.env.HIGRESS_OIDC_WRONG_ISSUER_TOKEN;
+  const wrongAudienceToken = process.env.HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN;
+  const hasTokenSuite = hasText(acceptedToken) && hasText(wrongIssuerToken) && hasText(wrongAudienceToken);
+  if (hasTokenSuite) {
+    return {
+      acceptedToken,
+      wrongIssuerToken,
+      wrongAudienceToken,
+    };
+  }
   const privateKey = readOidcPrivateKey();
   const issuer = process.env.OIDC_ISSUER;
   const audience = process.env.OIDC_AUDIENCE;
-  if (!requested && !privateKey && !issuer && !audience) {
+  if (!requested && !privateKey && !issuer && !audience
+    && !acceptedToken && !wrongIssuerToken && !wrongAudienceToken) {
     return null;
   }
   const missing = [];
+  if (acceptedToken || wrongIssuerToken || wrongAudienceToken) {
+    if (!acceptedToken) {
+      missing.push('HIGRESS_OIDC_ACCEPTED_TOKEN');
+    }
+    if (!wrongIssuerToken) {
+      missing.push('HIGRESS_OIDC_WRONG_ISSUER_TOKEN');
+    }
+    if (!wrongAudienceToken) {
+      missing.push('HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN');
+    }
+  }
   if (!privateKey) {
     missing.push('HIGRESS_OIDC_PRIVATE_KEY_PEM or HIGRESS_OIDC_PRIVATE_KEY_FILE');
   }

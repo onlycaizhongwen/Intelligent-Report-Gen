@@ -55,15 +55,36 @@ test('buildDeliveryReadinessChecks marks credential-gated production checks as b
   assert.equal(oidc.kind, 'blocked');
   assert.equal(oidc.status, 'blocked');
   assert.deepEqual(oidc.missingEnv, [
-    'HIGRESS_OIDC_PRIVATE_KEY_FILE or HIGRESS_OIDC_PRIVATE_KEY_PEM',
-    'HIGRESS_OIDC_KEY_ID',
-    'OIDC_ISSUER',
-    'OIDC_AUDIENCE',
+    'HIGRESS_OIDC_ACCEPTED_TOKEN + HIGRESS_OIDC_WRONG_ISSUER_TOKEN + HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN',
+    'or HIGRESS_OIDC_PRIVATE_KEY_FILE/HIGRESS_OIDC_PRIVATE_KEY_PEM + HIGRESS_OIDC_KEY_ID + OIDC_ISSUER + OIDC_AUDIENCE',
   ]);
 
   assert.equal(delivery.kind, 'blocked');
   assert.equal(delivery.status, 'blocked');
   assert.deepEqual(delivery.missingEnv, ['DELIVERY_SMOKE_DASHSCOPE_API_KEY or DASHSCOPE_API_KEY']);
+});
+
+test('buildDeliveryReadinessChecks allows customer OIDC token-suite evidence without leaking tokens', () => {
+  const checks = buildDeliveryReadinessChecks({
+    env: {
+      HIGRESS_OIDC_ACCEPTED_TOKEN: 'accepted.jwt.value',
+      HIGRESS_OIDC_WRONG_ISSUER_TOKEN: 'wrong.issuer.jwt',
+      HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN: 'wrong.audience.jwt',
+    },
+  });
+  const oidc = checks.find((check) => check.name === 'higress-oidc-endpoint-security');
+
+  assert.equal(oidc.kind, 'command');
+  assert.equal(oidc.scope, 'production');
+  assert.deepEqual(oidc.env, {
+    HIGRESS_OIDC_ENDPOINT_SECURITY_COVERAGE: 'true',
+    HIGRESS_OIDC_ACCEPTED_TOKEN: '<provided>',
+    HIGRESS_OIDC_WRONG_ISSUER_TOKEN: '<provided>',
+    HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN: '<provided>',
+  });
+  assert.equal(JSON.stringify(checks), JSON.stringify(checks).replace('accepted.jwt.value', '<leaked>'));
+  assert.equal(JSON.stringify(checks), JSON.stringify(checks).replace('wrong.issuer.jwt', '<leaked>'));
+  assert.equal(JSON.stringify(checks), JSON.stringify(checks).replace('wrong.audience.jwt', '<leaked>'));
 });
 
 test('classifyDeliveryReadinessResult turns command exits into readiness outcomes', () => {
