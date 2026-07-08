@@ -338,13 +338,18 @@ test('buildProductionReadinessActionPlan converts production blockers into custo
   assert.deepEqual(plan.blockingItems[0].requiredInputs, ['HIGRESS_WAF_PLUGIN_URL']);
   assert.deepEqual(plan.blockingItems[0].commands, ['node scripts/higress-waf-runtime-preflight.mjs']);
   assert.match(plan.blockingItems[0].nextAction, /mirror/);
-  assert.deepEqual(plan.blockingItems[1].commands, ['HIGRESS_WAF_BLOCKING_COVERAGE=true node scripts/higress-gateway-smoke.mjs']);
+  assert.deepEqual(plan.blockingItems[1].requiredInputs, [
+    'HIGRESS_GATEWAY_BASE_URL',
+    'HIGRESS_WAF_BLOCKING_COVERAGE',
+  ]);
+  assert.deepEqual(plan.blockingItems[1].commands, ['HIGRESS_GATEWAY_BASE_URL=<target-gateway-url> HIGRESS_WAF_BLOCKING_COVERAGE=true node scripts/higress-gateway-smoke.mjs']);
   assert.deepEqual(plan.blockingItems[2].requiredInputs, [
     'HIGRESS_TLS_GATEWAY_HOST',
     'HIGRESS_TLS_SERVER_NAME',
   ]);
   assert.deepEqual(plan.blockingItems[2].optionalInputs, ['HIGRESS_TLS_CA_FILE']);
   assert.deepEqual(plan.blockingItems[3].requiredInputs, [
+    'HIGRESS_GATEWAY_BASE_URL',
     'HIGRESS_OIDC_ACCEPTED_TOKEN',
     'HIGRESS_OIDC_WRONG_ISSUER_TOKEN',
     'HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN',
@@ -353,6 +358,7 @@ test('buildProductionReadinessActionPlan converts production blockers into custo
     {
       name: 'customer-token-suite',
       requiredInputs: [
+        'HIGRESS_GATEWAY_BASE_URL',
         'HIGRESS_OIDC_ACCEPTED_TOKEN',
         'HIGRESS_OIDC_WRONG_ISSUER_TOKEN',
         'HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN',
@@ -362,6 +368,7 @@ test('buildProductionReadinessActionPlan converts production blockers into custo
     {
       name: 'signing-jwks-test-configuration',
       requiredInputs: [
+        'HIGRESS_GATEWAY_BASE_URL',
         'HIGRESS_OIDC_PRIVATE_KEY_FILE or HIGRESS_OIDC_PRIVATE_KEY_PEM',
         'HIGRESS_OIDC_KEY_ID',
         'OIDC_ISSUER',
@@ -471,7 +478,7 @@ test('renderProductionReadinessEnvTemplate creates a customer-fillable blocker e
       },
       {
         name: 'higress-waf-blocking-policy',
-        requiredInputs: ['HIGRESS_WAF_BLOCKING_COVERAGE'],
+        requiredInputs: ['HIGRESS_GATEWAY_BASE_URL', 'HIGRESS_WAF_BLOCKING_COVERAGE'],
         optionalInputs: [],
         inputOptions: [],
       },
@@ -484,6 +491,7 @@ test('renderProductionReadinessEnvTemplate creates a customer-fillable blocker e
       {
         name: 'higress-oidc-endpoint-security',
         requiredInputs: [
+          'HIGRESS_GATEWAY_BASE_URL',
           'HIGRESS_OIDC_ACCEPTED_TOKEN',
           'HIGRESS_OIDC_WRONG_ISSUER_TOKEN',
           'HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN',
@@ -493,6 +501,7 @@ test('renderProductionReadinessEnvTemplate creates a customer-fillable blocker e
           {
             name: 'customer-token-suite',
             requiredInputs: [
+              'HIGRESS_GATEWAY_BASE_URL',
               'HIGRESS_OIDC_ACCEPTED_TOKEN',
               'HIGRESS_OIDC_WRONG_ISSUER_TOKEN',
               'HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN',
@@ -501,6 +510,7 @@ test('renderProductionReadinessEnvTemplate creates a customer-fillable blocker e
           {
             name: 'signing-jwks-test-configuration',
             requiredInputs: [
+              'HIGRESS_GATEWAY_BASE_URL',
               'HIGRESS_OIDC_PRIVATE_KEY_FILE or HIGRESS_OIDC_PRIVATE_KEY_PEM',
               'HIGRESS_OIDC_KEY_ID',
               'OIDC_ISSUER',
@@ -518,6 +528,8 @@ test('renderProductionReadinessEnvTemplate creates a customer-fillable blocker e
   assert.match(template, /PRODUCTION_READINESS_ENV_FILE=<this-file> node scripts\/production-readiness-env-check\.mjs/);
   assert.match(template, /DELIVERY_READINESS_ENV_FILE=<this-file> node scripts\/delivery-readiness-audit\.mjs/);
   assert.match(template, /HIGRESS_WAF_PLUGIN_URL=/);
+  assert.match(template, /HIGRESS_GATEWAY_BASE_URL=/);
+  assert.equal(template.match(/^HIGRESS_GATEWAY_BASE_URL=/gm).length, 1);
   assert.match(template, /HIGRESS_WAF_BLOCKING_COVERAGE=true/);
   assert.match(template, /HIGRESS_TLS_GATEWAY_HOST=/);
   assert.match(template, /HIGRESS_TLS_SERVER_NAME=/);
@@ -544,21 +556,24 @@ test('validateProductionReadinessEnv reports missing production evidence inputs 
     emptyValidation.missingItems.map((item) => item.name),
     [
       'higress-waf-runtime-preflight',
+      'higress-waf-blocking-policy',
       'higress-trusted-tls-certificate',
       'higress-oidc-endpoint-security',
       'credentialed-delivery-smoke',
     ],
   );
   assert.deepEqual(emptyValidation.missingItems[0].missingInputs, ['HIGRESS_WAF_PLUGIN_URL']);
-  assert.deepEqual(emptyValidation.missingItems[1].missingInputs, [
+  assert.deepEqual(emptyValidation.missingItems[1].missingInputs, ['HIGRESS_GATEWAY_BASE_URL']);
+  assert.deepEqual(emptyValidation.missingItems[2].missingInputs, [
     'HIGRESS_TLS_GATEWAY_HOST',
     'HIGRESS_TLS_SERVER_NAME',
   ]);
-  assert.deepEqual(emptyValidation.missingItems[2].optionResults, [
+  assert.deepEqual(emptyValidation.missingItems[3].optionResults, [
     {
       name: 'customer-token-suite',
       ready: false,
       missingInputs: [
+        'HIGRESS_GATEWAY_BASE_URL',
         'HIGRESS_OIDC_ACCEPTED_TOKEN',
         'HIGRESS_OIDC_WRONG_ISSUER_TOKEN',
         'HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN',
@@ -568,6 +583,7 @@ test('validateProductionReadinessEnv reports missing production evidence inputs 
       name: 'signing-jwks-test-configuration',
       ready: false,
       missingInputs: [
+        'HIGRESS_GATEWAY_BASE_URL',
         'HIGRESS_OIDC_PRIVATE_KEY_FILE or HIGRESS_OIDC_PRIVATE_KEY_PEM',
         'HIGRESS_OIDC_KEY_ID',
         'OIDC_ISSUER',
@@ -579,6 +595,7 @@ test('validateProductionReadinessEnv reports missing production evidence inputs 
   const tokenSuiteValidation = validateProductionReadinessEnv({
     env: {
       HIGRESS_WAF_PLUGIN_URL: 'oci://user:secret@registry.customer.example/platform/higress-waf:2.0.0',
+      HIGRESS_GATEWAY_BASE_URL: 'https://gateway.customer.example',
       HIGRESS_TLS_GATEWAY_HOST: 'gateway.customer.example',
       HIGRESS_TLS_SERVER_NAME: 'gateway.customer.example',
       HIGRESS_OIDC_ACCEPTED_TOKEN: 'accepted.jwt.value',

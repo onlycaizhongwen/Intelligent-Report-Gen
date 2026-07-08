@@ -74,6 +74,7 @@
 - Delivery readiness audit can now write a customer-fillable production evidence `.env` template through `DELIVERY_READINESS_ENV_TEMPLATE_FILE`.
 - Production readiness handoff now includes `scripts/production-readiness-env-check.mjs` so customers can precheck filled WAF/TLS/OIDC/model evidence inputs before running long readiness smokes.
 - Delivery readiness audit now supports `DELIVERY_READINESS_ENV_FILE=<path>`, letting the full audit reuse the same customer-filled production evidence `.env` file after precheck.
+- Production WAF and OIDC readiness inputs now require `HIGRESS_GATEWAY_BASE_URL`, preventing target-environment evidence from silently using the local Higress default.
 
 ### 已知问题
 

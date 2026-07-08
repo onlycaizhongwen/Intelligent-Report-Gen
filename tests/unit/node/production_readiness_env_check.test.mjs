@@ -21,6 +21,7 @@ test('production readiness env check reports missing inputs and accepts a filled
     missingOutput.missingItems.map((item) => item.name),
     [
       'higress-waf-runtime-preflight',
+      'higress-waf-blocking-policy',
       'higress-trusted-tls-certificate',
       'higress-oidc-endpoint-security',
       'credentialed-delivery-smoke',
@@ -32,6 +33,7 @@ test('production readiness env check reports missing inputs and accepts a filled
     const envFile = join(tempDir, 'production-readiness.env');
     await writeFile(envFile, [
       'HIGRESS_WAF_PLUGIN_URL=oci://registry.customer.example/platform/higress-waf:2.0.0',
+      'HIGRESS_GATEWAY_BASE_URL=https://gateway.customer.example',
       'HIGRESS_TLS_GATEWAY_HOST=gateway.customer.example',
       'HIGRESS_TLS_SERVER_NAME=gateway.customer.example',
       'HIGRESS_OIDC_PRIVATE_KEY_FILE=/customer/keys/oidc.pem',

@@ -201,6 +201,7 @@ export function buildDeliveryReadinessChecks({ env = process.env } = {}) {
       args: ['scripts/higress-gateway-smoke.mjs'],
       timeoutMs: 60_000,
       env: {
+        HIGRESS_GATEWAY_BASE_URL: hasText(env.HIGRESS_GATEWAY_BASE_URL) ? '<provided>' : undefined,
         HIGRESS_WAF_BLOCKING_COVERAGE: 'true',
       },
     }),
@@ -220,6 +221,7 @@ export function buildDeliveryReadinessChecks({ env = process.env } = {}) {
           timeoutMs: 120_000,
           env: {
             HIGRESS_OIDC_ENDPOINT_SECURITY_COVERAGE: 'true',
+            HIGRESS_GATEWAY_BASE_URL: hasText(env.HIGRESS_GATEWAY_BASE_URL) ? '<provided>' : undefined,
             HIGRESS_OIDC_PRIVATE_KEY_FILE: hasText(env.HIGRESS_OIDC_PRIVATE_KEY_FILE) ? '<provided>' : undefined,
             HIGRESS_OIDC_PRIVATE_KEY_PEM: hasText(env.HIGRESS_OIDC_PRIVATE_KEY_PEM) ? '<provided>' : undefined,
             HIGRESS_OIDC_KEY_ID: hasOidcConfig ? '<provided>' : undefined,
@@ -320,9 +322,9 @@ const PRODUCTION_ACTIONS = {
     requiredEvidence: 'Preflight returns passed=true and containerRegistryReachable=true for the configured plugin registry.',
   },
   'higress-waf-blocking-policy': {
-    requiredInputs: ['HIGRESS_WAF_BLOCKING_COVERAGE'],
-    commands: ['HIGRESS_WAF_BLOCKING_COVERAGE=true node scripts/higress-gateway-smoke.mjs'],
-    nextAction: 'enable the approved Higress WAF policy only after the runtime plugin preflight passes, then prove SQLi, XSS, path traversal, and prompt-injection probes are blocked at the gateway.',
+    requiredInputs: ['HIGRESS_GATEWAY_BASE_URL', 'HIGRESS_WAF_BLOCKING_COVERAGE'],
+    commands: ['HIGRESS_GATEWAY_BASE_URL=<target-gateway-url> HIGRESS_WAF_BLOCKING_COVERAGE=true node scripts/higress-gateway-smoke.mjs'],
+    nextAction: 'enable the approved Higress WAF policy only after the runtime plugin preflight passes, set the target HIGRESS_GATEWAY_BASE_URL, then prove SQLi, XSS, path traversal, and prompt-injection probes are blocked at that gateway.',
     requiredEvidence: 'Gateway WAF blocking smoke returns passed=true with no waf-not-blocked failedResults.',
   },
   'higress-trusted-tls-certificate': {
@@ -334,6 +336,7 @@ const PRODUCTION_ACTIONS = {
   },
   'higress-oidc-endpoint-security': {
     requiredInputs: [
+      'HIGRESS_GATEWAY_BASE_URL',
       'HIGRESS_OIDC_ACCEPTED_TOKEN',
       'HIGRESS_OIDC_WRONG_ISSUER_TOKEN',
       'HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN',
@@ -342,6 +345,7 @@ const PRODUCTION_ACTIONS = {
       {
         name: 'customer-token-suite',
         requiredInputs: [
+          'HIGRESS_GATEWAY_BASE_URL',
           'HIGRESS_OIDC_ACCEPTED_TOKEN',
           'HIGRESS_OIDC_WRONG_ISSUER_TOKEN',
           'HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN',
@@ -351,6 +355,7 @@ const PRODUCTION_ACTIONS = {
       {
         name: 'signing-jwks-test-configuration',
         requiredInputs: [
+          'HIGRESS_GATEWAY_BASE_URL',
           'HIGRESS_OIDC_PRIVATE_KEY_FILE or HIGRESS_OIDC_PRIVATE_KEY_PEM',
           'HIGRESS_OIDC_KEY_ID',
           'OIDC_ISSUER',
@@ -359,8 +364,8 @@ const PRODUCTION_ACTIONS = {
         requiredEvidence: 'Generated RS256/JWKS probes prove accepted issuer/audience succeeds and wrong issuer/audience are rejected through Higress.',
       },
     ],
-    commands: ['HIGRESS_OIDC_ENDPOINT_SECURITY_COVERAGE=true node scripts/higress-gateway-smoke.mjs'],
-    nextAction: 'provide a customer token suite or signing/JWKS test configuration, then prove accepted issuer/audience succeeds and wrong issuer/audience are rejected through Higress.',
+    commands: ['HIGRESS_GATEWAY_BASE_URL=<target-gateway-url> HIGRESS_OIDC_ENDPOINT_SECURITY_COVERAGE=true node scripts/higress-gateway-smoke.mjs'],
+    nextAction: 'set the target HIGRESS_GATEWAY_BASE_URL, provide a customer token suite or signing/JWKS test configuration, then prove accepted issuer/audience succeeds and wrong issuer/audience are rejected through Higress.',
     requiredEvidence: 'OIDC endpoint security smoke returns passed=true for accepted-token 200 and wrong issuer/audience 401 probes.',
   },
   'credentialed-delivery-smoke': {
@@ -490,11 +495,15 @@ function renderEnvAssignment(name, { commented = false } = {}) {
   return `${prefix}${name}=${defaultValues[name] ?? ''}`;
 }
 
-function renderEnvInputLines(inputs = []) {
+function renderEnvInputLines(inputs = [], renderedInputs = new Set()) {
   const lines = [];
   for (const input of inputs) {
     const alternatives = splitEnvAlternatives(input);
     alternatives.forEach((name, index) => {
+      if (renderedInputs.has(name)) {
+        return;
+      }
+      renderedInputs.add(name);
       lines.push(renderEnvAssignment(name, { commented: index > 0 }));
     });
   }
@@ -569,20 +578,25 @@ export function renderProductionReadinessEnvTemplate({
     return lines.join('\n');
   }
 
+  const renderedInputs = new Set();
   for (const item of blockingItems) {
     lines.push(`# ${item.name}`);
     if (Array.isArray(item.inputOptions) && item.inputOptions.length > 0) {
       for (const option of item.inputOptions) {
         lines.push(`# Option: ${option.name}`);
-        lines.push(...renderEnvInputLines(option.requiredInputs));
+        lines.push(...renderEnvInputLines(option.requiredInputs, renderedInputs));
       }
     } else {
-      lines.push(...renderEnvInputLines(item.requiredInputs));
+      lines.push(...renderEnvInputLines(item.requiredInputs, renderedInputs));
     }
     if (Array.isArray(item.optionalInputs) && item.optionalInputs.length > 0) {
       lines.push('# Optional');
       for (const input of item.optionalInputs) {
         for (const name of splitEnvAlternatives(input)) {
+          if (renderedInputs.has(name)) {
+            continue;
+          }
+          renderedInputs.add(name);
           lines.push(renderEnvAssignment(name, { commented: true }));
         }
       }
