@@ -72,6 +72,7 @@
 - Delivery readiness Markdown now renders passed production gates, making credentialed P0-P3 delivery evidence visible even when WAF/TLS/OIDC gates remain open.
 - Delivery readiness Markdown now renders compact evidence for passed production gates, so P0-P3 completion details are preserved in customer handoff reports.
 - Delivery readiness audit can now write a customer-fillable production evidence `.env` template through `DELIVERY_READINESS_ENV_TEMPLATE_FILE`.
+- Production readiness handoff now includes `scripts/production-readiness-env-check.mjs` so customers can precheck filled WAF/TLS/OIDC/model evidence inputs before running long readiness smokes.
 
 ### 已知问题
 

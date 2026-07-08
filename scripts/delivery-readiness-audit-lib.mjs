@@ -447,6 +447,55 @@ function renderEnvInputLines(inputs = []) {
   return lines;
 }
 
+function envInputSatisfied(input, env, defaults = {}) {
+  return splitEnvAlternatives(input).some((name) => hasText(env[name]) || hasText(defaults[name]));
+}
+
+function missingRequiredInputs(inputs = [], env = {}, defaults = {}) {
+  return inputs.filter((input) => !envInputSatisfied(input, env, defaults));
+}
+
+export function validateProductionReadinessEnv({ env = process.env } = {}) {
+  const defaults = {
+    HIGRESS_WAF_BLOCKING_COVERAGE: 'true',
+  };
+  const missingItems = Object.entries(PRODUCTION_ACTIONS)
+    .map(([name, action]) => {
+      if (Array.isArray(action.inputOptions) && action.inputOptions.length > 0) {
+        const optionResults = action.inputOptions.map((option) => {
+          const missingInputs = missingRequiredInputs(option.requiredInputs, env, defaults);
+          return {
+            name: option.name,
+            ready: missingInputs.length === 0,
+            missingInputs,
+          };
+        });
+
+        return optionResults.some((option) => option.ready)
+          ? null
+          : {
+              name,
+              missingInputs: action.requiredInputs ?? [],
+              optionResults,
+            };
+      }
+
+      const missingInputs = missingRequiredInputs(action.requiredInputs, env, defaults);
+      return missingInputs.length === 0
+        ? null
+        : {
+            name,
+            missingInputs,
+          };
+    })
+    .filter(Boolean);
+
+  return {
+    ready: missingItems.length === 0,
+    missingItems,
+  };
+}
+
 export function renderProductionReadinessEnvTemplate({
   generatedAt = new Date().toISOString(),
   actionPlan = { ready: true, blockingItems: [] },
@@ -455,6 +504,7 @@ export function renderProductionReadinessEnvTemplate({
     '# Production Readiness Evidence Environment Template',
     `# Generated: ${generatedAt}`,
     '# Fill these values in the target/customer environment, then rerun the listed readiness commands.',
+    '# Precheck after filling: PRODUCTION_READINESS_ENV_FILE=<this-file> node scripts/production-readiness-env-check.mjs',
     '',
   ];
 

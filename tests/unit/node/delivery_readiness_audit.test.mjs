@@ -9,6 +9,7 @@ import {
   renderProductionReadinessActionPlanMarkdown,
   renderProductionReadinessEnvTemplate,
   summarizeDeliveryReadiness,
+  validateProductionReadinessEnv,
   writeDeliveryReadinessReportFile,
 } from '../../../scripts/delivery-readiness-audit-lib.mjs';
 
@@ -511,6 +512,7 @@ test('renderProductionReadinessEnvTemplate creates a customer-fillable blocker e
   const template = renderProductionReadinessEnvTemplate({ actionPlan });
 
   assert.match(template, /^# Production Readiness Evidence Environment Template/);
+  assert.match(template, /PRODUCTION_READINESS_ENV_FILE=<this-file> node scripts\/production-readiness-env-check\.mjs/);
   assert.match(template, /HIGRESS_WAF_PLUGIN_URL=/);
   assert.match(template, /HIGRESS_WAF_BLOCKING_COVERAGE=true/);
   assert.match(template, /HIGRESS_TLS_GATEWAY_HOST=/);
@@ -528,6 +530,64 @@ test('renderProductionReadinessEnvTemplate creates a customer-fillable blocker e
   assert.match(template, /OIDC_ISSUER=/);
   assert.match(template, /OIDC_AUDIENCE=/);
   assert.equal(template.includes('secret'), false);
+});
+
+test('validateProductionReadinessEnv reports missing production evidence inputs without leaking values', () => {
+  const emptyValidation = validateProductionReadinessEnv({ env: {} });
+
+  assert.equal(emptyValidation.ready, false);
+  assert.deepEqual(
+    emptyValidation.missingItems.map((item) => item.name),
+    [
+      'higress-waf-runtime-preflight',
+      'higress-trusted-tls-certificate',
+      'higress-oidc-endpoint-security',
+      'credentialed-delivery-smoke',
+    ],
+  );
+  assert.deepEqual(emptyValidation.missingItems[0].missingInputs, ['HIGRESS_WAF_PLUGIN_URL']);
+  assert.deepEqual(emptyValidation.missingItems[1].missingInputs, [
+    'HIGRESS_TLS_GATEWAY_HOST',
+    'HIGRESS_TLS_SERVER_NAME',
+  ]);
+  assert.deepEqual(emptyValidation.missingItems[2].optionResults, [
+    {
+      name: 'customer-token-suite',
+      ready: false,
+      missingInputs: [
+        'HIGRESS_OIDC_ACCEPTED_TOKEN',
+        'HIGRESS_OIDC_WRONG_ISSUER_TOKEN',
+        'HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN',
+      ],
+    },
+    {
+      name: 'signing-jwks-test-configuration',
+      ready: false,
+      missingInputs: [
+        'HIGRESS_OIDC_PRIVATE_KEY_FILE or HIGRESS_OIDC_PRIVATE_KEY_PEM',
+        'HIGRESS_OIDC_KEY_ID',
+        'OIDC_ISSUER',
+        'OIDC_AUDIENCE',
+      ],
+    },
+  ]);
+
+  const tokenSuiteValidation = validateProductionReadinessEnv({
+    env: {
+      HIGRESS_WAF_PLUGIN_URL: 'oci://user:secret@registry.customer.example/platform/higress-waf:2.0.0',
+      HIGRESS_TLS_GATEWAY_HOST: 'gateway.customer.example',
+      HIGRESS_TLS_SERVER_NAME: 'gateway.customer.example',
+      HIGRESS_OIDC_ACCEPTED_TOKEN: 'accepted.jwt.value',
+      HIGRESS_OIDC_WRONG_ISSUER_TOKEN: 'wrong.issuer.jwt',
+      HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN: 'wrong.audience.jwt',
+      DELIVERY_SMOKE_DASHSCOPE_API_KEY: 'provider-secret',
+    },
+  });
+
+  assert.equal(tokenSuiteValidation.ready, true);
+  assert.deepEqual(tokenSuiteValidation.missingItems, []);
+  assert.equal(JSON.stringify(tokenSuiteValidation).includes('secret'), false);
+  assert.equal(JSON.stringify(tokenSuiteValidation).includes('accepted.jwt.value'), false);
 });
 
 test('writeDeliveryReadinessReportFile creates the parent directory and writes content', async () => {
