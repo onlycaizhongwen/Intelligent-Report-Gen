@@ -82,6 +82,7 @@
 - Production readiness precheck CLI now has regression coverage proving blank customer `.env` evidence files override stale shell WAF/TLS/OIDC/provider values in the real command path.
 - Production WAF/OIDC readiness checks now fail closed when `HIGRESS_GATEWAY_BASE_URL` is missing or points at `localhost`/loopback, preventing local Higress from being counted as customer production gateway evidence.
 - UC-06 document parse worker smoke now fails closed unless the Docker worker remains running after startup stabilization, and records bounded redacted diagnostics when the container exits immediately.
+- UC-06 document parse worker smoke now also waits for Docker healthcheck status and requires `healthy` when the worker image exposes health evidence.
 
 ### 已知问题
 

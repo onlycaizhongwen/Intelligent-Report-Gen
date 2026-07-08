@@ -64,12 +64,14 @@ test('buildDockerLogsArgs limits failure diagnostics without leaking full contai
 
 test('parseContainerState reads docker inspect state JSON', () => {
   assert.deepEqual(
-    parseContainerState('{"Status":"exited","Running":false,"ExitCode":2,"Error":"boom"}'),
+    parseContainerState('{"Status":"exited","Running":false,"ExitCode":2,"Error":"boom","Health":{"Status":"unhealthy","FailingStreak":3}}'),
     {
       status: 'exited',
       running: false,
       exitCode: 2,
       error: 'boom',
+      healthStatus: 'unhealthy',
+      healthFailingStreak: 3,
     },
   );
 });
@@ -110,11 +112,37 @@ test('summarizeWorkerStartup passes only when worker remains running', () => {
       running: true,
       exitCode: 0,
       error: '',
+      healthStatus: 'healthy',
+      healthFailingStreak: 0,
     },
   });
 
   assert.equal(summary.passed, true);
-  assert.equal(summary.classification, 'document-parse-worker-running');
+  assert.equal(summary.classification, 'document-parse-worker-healthy');
   assert.equal(summary.opensearchUrl, 'http://ir-opensearch:9200');
   assert.equal(summary.milvusHost, 'ir-milvus');
+});
+
+test('summarizeWorkerStartup fails closed when worker healthcheck is unhealthy', () => {
+  const config = buildDocumentParseWorkerConfig();
+  const summary = summarizeWorkerStartup({
+    config,
+    removedExistingContainer: false,
+    containerId: 'abc123',
+    state: {
+      status: 'running',
+      running: true,
+      exitCode: 0,
+      error: '',
+      healthStatus: 'unhealthy',
+      healthFailingStreak: 4,
+    },
+    logs: 'health probe failed',
+  });
+
+  assert.equal(summary.passed, false);
+  assert.equal(summary.classification, 'document-parse-worker-unhealthy');
+  assert.equal(summary.state.healthStatus, 'unhealthy');
+  assert.equal(summary.state.healthFailingStreak, 4);
+  assert.equal(summary.logsTail, 'health probe failed');
 });

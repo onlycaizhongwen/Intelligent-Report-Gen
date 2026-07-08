@@ -18,6 +18,10 @@ const stabilizationMs = Number.parseInt(
   process.env.DOCUMENT_PARSE_WORKER_STABILIZATION_MS ?? '1500',
   10,
 );
+const healthTimeoutMs = Number.parseInt(
+  process.env.DOCUMENT_PARSE_WORKER_HEALTH_TIMEOUT_MS ?? '45000',
+  10,
+);
 
 function wait(ms) {
   return new Promise((resolve) => {
@@ -36,6 +40,41 @@ async function removeExistingContainer(name) {
     }
     throw error;
   }
+}
+
+async function inspectContainerState(name) {
+  const inspectResult = await execFileAsync(
+    'docker',
+    buildDockerInspectArgs(name),
+    {
+      windowsHide: true,
+    },
+  );
+  return parseContainerState(inspectResult.stdout.trim());
+}
+
+async function waitForWorkerState(name) {
+  const timeoutMs = Number.isFinite(healthTimeoutMs) && healthTimeoutMs >= 0
+    ? healthTimeoutMs
+    : 45000;
+  const deadline = Date.now() + timeoutMs;
+  let state;
+
+  do {
+    state = await inspectContainerState(name);
+    if (!state.running) {
+      return state;
+    }
+    if (!state.healthStatus || state.healthStatus === 'healthy') {
+      return state;
+    }
+    if (state.healthStatus !== 'starting') {
+      return state;
+    }
+    await wait(1000);
+  } while (Date.now() < deadline);
+
+  return state;
 }
 
 async function main() {
@@ -63,17 +102,10 @@ async function main() {
   const containerId = stdout.trim();
   await wait(Number.isFinite(stabilizationMs) && stabilizationMs >= 0 ? stabilizationMs : 1500);
 
-  const inspectResult = await execFileAsync(
-    'docker',
-    buildDockerInspectArgs(config.containerName),
-    {
-      windowsHide: true,
-    },
-  );
-  const state = parseContainerState(inspectResult.stdout.trim());
+  const state = await waitForWorkerState(config.containerName);
   let logs = '';
 
-  if (!state.running) {
+  if (!state.running || (state.healthStatus && state.healthStatus !== 'healthy')) {
     try {
       const logsResult = await execFileAsync(
         'docker',

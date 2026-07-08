@@ -74,6 +74,14 @@ export function parseContainerState(rawState) {
     running: parsed.Running === true,
     exitCode: Number.isInteger(parsed.ExitCode) ? parsed.ExitCode : null,
     error: parsed.Error ?? '',
+    ...(parsed.Health
+      ? {
+          healthStatus: parsed.Health.Status ?? 'unknown',
+          healthFailingStreak: Number.isInteger(parsed.Health.FailingStreak)
+            ? parsed.Health.FailingStreak
+            : null,
+        }
+      : {}),
   };
 }
 
@@ -102,12 +110,23 @@ export function summarizeWorkerStartup({
   state,
   logs = '',
 }) {
-  const passed = state.running === true;
+  const passed =
+    state.running === true &&
+    (!state.healthStatus || state.healthStatus === 'healthy');
+  const classification = (() => {
+    if (!state.running) {
+      return 'document-parse-worker-not-running';
+    }
+    if (state.healthStatus && state.healthStatus !== 'healthy') {
+      return 'document-parse-worker-unhealthy';
+    }
+    return state.healthStatus === 'healthy'
+      ? 'document-parse-worker-healthy'
+      : 'document-parse-worker-running';
+  })();
   return {
     passed,
-    classification: passed
-      ? 'document-parse-worker-running'
-      : 'document-parse-worker-not-running',
+    classification,
     removedExistingContainer,
     containerName: config.containerName,
     containerId,
