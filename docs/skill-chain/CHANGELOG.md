@@ -79,6 +79,7 @@
 - Latest generated production readiness handoff artifacts are now covered by a regression test and regenerated with the current copyable command placeholders.
 - Production readiness `.env` templates now include required inputs for all production evidence gates, including passed gates such as credentialed P0-P3 smoke, so customer target-environment reruns do not miss provider-key inputs.
 - Customer readiness `.env` files are now authoritative for evidence values while shell variables only preserve output-control keys, preventing stale local gateway, OIDC, TLS, or provider credentials from making an unfilled template appear ready.
+- Production readiness precheck CLI now has regression coverage proving blank customer `.env` evidence files override stale shell WAF/TLS/OIDC/provider values in the real command path.
 
 ### 已知问题
 
