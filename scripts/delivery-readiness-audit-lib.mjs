@@ -237,7 +237,8 @@ const PRODUCTION_ACTIONS = {
     requiredEvidence: 'Gateway WAF blocking smoke returns passed=true with no waf-not-blocked failedResults.',
   },
   'higress-trusted-tls-certificate': {
-    requiredInputs: ['HIGRESS_TLS_GATEWAY_HOST', 'HIGRESS_TLS_SERVER_NAME', 'HIGRESS_TLS_CA_FILE'],
+    requiredInputs: ['HIGRESS_TLS_GATEWAY_HOST', 'HIGRESS_TLS_SERVER_NAME'],
+    optionalInputs: ['HIGRESS_TLS_CA_FILE'],
     commands: ['node scripts/higress-tls-certificate-smoke.mjs'],
     nextAction: 'install a trusted gateway certificate for the customer hostname, configure hostname/servername and optional private CA bundle, then rerun the TLS smoke with verification enabled.',
     requiredEvidence: 'TLS smoke returns passed=true/classification=tls-trusted with daysRemaining above the configured minimum.',
@@ -247,6 +248,27 @@ const PRODUCTION_ACTIONS = {
       'HIGRESS_OIDC_ACCEPTED_TOKEN',
       'HIGRESS_OIDC_WRONG_ISSUER_TOKEN',
       'HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN',
+    ],
+    inputOptions: [
+      {
+        name: 'customer-token-suite',
+        requiredInputs: [
+          'HIGRESS_OIDC_ACCEPTED_TOKEN',
+          'HIGRESS_OIDC_WRONG_ISSUER_TOKEN',
+          'HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN',
+        ],
+        requiredEvidence: 'Accepted token succeeds while wrong issuer and wrong audience tokens are rejected through Higress.',
+      },
+      {
+        name: 'signing-jwks-test-configuration',
+        requiredInputs: [
+          'HIGRESS_OIDC_PRIVATE_KEY_FILE or HIGRESS_OIDC_PRIVATE_KEY_PEM',
+          'HIGRESS_OIDC_KEY_ID',
+          'OIDC_ISSUER',
+          'OIDC_AUDIENCE',
+        ],
+        requiredEvidence: 'Generated RS256/JWKS probes prove accepted issuer/audience succeeds and wrong issuer/audience are rejected through Higress.',
+      },
     ],
     commands: ['HIGRESS_OIDC_ENDPOINT_SECURITY_COVERAGE=true node scripts/higress-gateway-smoke.mjs'],
     nextAction: 'provide a customer token suite or signing/JWKS test configuration, then prove accepted issuer/audience succeeds and wrong issuer/audience are rejected through Higress.',
@@ -287,6 +309,8 @@ export function buildProductionReadinessActionPlan({ checks = [], results = [] }
         status: result.status,
         description: check?.description,
         requiredInputs: action.requiredInputs,
+        optionalInputs: action.optionalInputs ?? [],
+        inputOptions: action.inputOptions ?? [],
         commands: action.commands,
         nextAction: action.nextAction,
         requiredEvidence: action.requiredEvidence,
@@ -313,6 +337,20 @@ function renderInlineCodeList(values = []) {
     return '`none`';
   }
   return values.map((value) => `\`${value}\``).join(', ');
+}
+
+function renderInputOptions(inputOptions = []) {
+  if (!Array.isArray(inputOptions) || inputOptions.length === 0) {
+    return [];
+  }
+
+  return [
+    'Input options:',
+    ...inputOptions.map((option) => {
+      const inputs = renderInlineCodeList(option.requiredInputs);
+      return `- ${option.name}: ${inputs}; evidence: ${option.requiredEvidence}`;
+    }),
+  ];
 }
 
 function renderObserved(observed = {}) {
@@ -353,6 +391,8 @@ export function renderProductionReadinessActionPlanMarkdown({
       `Status: ${item.status}`,
       `Description: ${item.description ?? ''}`,
       `Required inputs: ${renderInlineCodeList(item.requiredInputs)}`,
+      `Optional inputs: ${renderInlineCodeList(item.optionalInputs)}`,
+      ...renderInputOptions(item.inputOptions),
       '',
       'Commands:',
       '',

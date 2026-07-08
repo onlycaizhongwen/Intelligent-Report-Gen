@@ -67,6 +67,7 @@
 - Delivery readiness audit now emits a structured `actionPlan` for non-passing production gates, including required inputs, rerun commands, next action, required evidence, and compact observed failure context.
 - Delivery readiness audit can now render the production `actionPlan` as customer-readable Markdown through `DELIVERY_READINESS_OUTPUT=markdown`.
 - Delivery readiness audit can now persist the JSON or Markdown report to `DELIVERY_READINESS_REPORT_FILE`, creating parent directories automatically.
+- Delivery readiness action plans now distinguish optional inputs and alternative OIDC/TLS evidence paths, so customer handoff reports no longer imply private CA files or IdP signing keys are always mandatory.
 
 ### 已知问题
 

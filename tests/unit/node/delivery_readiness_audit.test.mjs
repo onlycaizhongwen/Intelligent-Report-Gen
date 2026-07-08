@@ -302,12 +302,33 @@ test('buildProductionReadinessActionPlan converts production blockers into custo
   assert.deepEqual(plan.blockingItems[2].requiredInputs, [
     'HIGRESS_TLS_GATEWAY_HOST',
     'HIGRESS_TLS_SERVER_NAME',
-    'HIGRESS_TLS_CA_FILE',
   ]);
+  assert.deepEqual(plan.blockingItems[2].optionalInputs, ['HIGRESS_TLS_CA_FILE']);
   assert.deepEqual(plan.blockingItems[3].requiredInputs, [
     'HIGRESS_OIDC_ACCEPTED_TOKEN',
     'HIGRESS_OIDC_WRONG_ISSUER_TOKEN',
     'HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN',
+  ]);
+  assert.deepEqual(plan.blockingItems[3].inputOptions, [
+    {
+      name: 'customer-token-suite',
+      requiredInputs: [
+        'HIGRESS_OIDC_ACCEPTED_TOKEN',
+        'HIGRESS_OIDC_WRONG_ISSUER_TOKEN',
+        'HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN',
+      ],
+      requiredEvidence: 'Accepted token succeeds while wrong issuer and wrong audience tokens are rejected through Higress.',
+    },
+    {
+      name: 'signing-jwks-test-configuration',
+      requiredInputs: [
+        'HIGRESS_OIDC_PRIVATE_KEY_FILE or HIGRESS_OIDC_PRIVATE_KEY_PEM',
+        'HIGRESS_OIDC_KEY_ID',
+        'OIDC_ISSUER',
+        'OIDC_AUDIENCE',
+      ],
+      requiredEvidence: 'Generated RS256/JWKS probes prove accepted issuer/audience succeeds and wrong issuer/audience are rejected through Higress.',
+    },
   ]);
   assert.equal(JSON.stringify(plan).includes('secret'), false);
 });
@@ -328,6 +349,14 @@ test('renderProductionReadinessActionPlanMarkdown creates a customer handoff che
           status: 'failed',
           description: 'Gateway WAF plugin OCI image must be reachable before enabling the blocking policy.',
           requiredInputs: ['HIGRESS_WAF_PLUGIN_URL'],
+          optionalInputs: ['HIGRESS_WAF_PLUGIN_DIGEST'],
+          inputOptions: [
+            {
+              name: 'customer-registry-mirror',
+              requiredInputs: ['HIGRESS_WAF_PLUGIN_URL'],
+              requiredEvidence: 'Preflight reaches the mirrored OCI plugin.',
+            },
+          ],
           commands: ['node scripts/higress-waf-runtime-preflight.mjs'],
           nextAction: 'mirror the approved Higress WAF OCI plugin.',
           requiredEvidence: 'Preflight returns passed=true.',
@@ -346,6 +375,9 @@ test('renderProductionReadinessActionPlanMarkdown creates a customer handoff che
   assert.match(markdown, /Production ready: false/);
   assert.match(markdown, /## higress-waf-runtime-preflight/);
   assert.match(markdown, /Required inputs: `HIGRESS_WAF_PLUGIN_URL`/);
+  assert.match(markdown, /Optional inputs: `HIGRESS_WAF_PLUGIN_DIGEST`/);
+  assert.match(markdown, /Input options:/);
+  assert.match(markdown, /customer-registry-mirror: `HIGRESS_WAF_PLUGIN_URL`/);
   assert.match(markdown, /```bash\nnode scripts\/higress-waf-runtime-preflight\.mjs\n```/);
   assert.match(markdown, /waf-plugin-container-registry-unreachable/);
   assert.equal(markdown.includes('secret'), false);
