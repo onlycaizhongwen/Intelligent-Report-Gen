@@ -39,11 +39,15 @@ test('buildDeliveryReadinessChecks separates local evidence from production gate
   assert.equal(checks[0].scope, 'local');
   assert.equal(checks[2].scope, 'local');
   assert.deepEqual(checks[2].args, ['scripts/higress-oidc-local-smoke.mjs']);
+  assert.equal(checks[2].timeoutMs, 180_000);
   assert.equal(checks[3].scope, 'production');
   assert.deepEqual(checks[3].args, ['scripts/higress-waf-runtime-preflight.mjs']);
+  assert.equal(checks[3].timeoutMs, 45_000);
   assert.equal(checks[6].kind, 'command');
   assert.equal(checks[6].env.HIGRESS_OIDC_ENDPOINT_SECURITY_COVERAGE, 'true');
+  assert.equal(checks[6].timeoutMs, 120_000);
   assert.equal(checks[7].env.DELIVERY_SMOKE_DASHSCOPE_API_KEY, '<provided>');
+  assert.equal(checks[7].timeoutMs, 300_000);
   assert.equal(JSON.stringify(checks), JSON.stringify(checks).replace('secret-key', '<leaked>'));
   assert.equal(JSON.stringify(checks), JSON.stringify(checks).replace('secret-pem', '<leaked>'));
 });
@@ -223,6 +227,34 @@ test('classifyDeliveryReadinessResult compacts OIDC local smoke evidence', () =>
       passed: true,
     },
   ]);
+});
+
+test('classifyDeliveryReadinessResult records command timeout evidence', () => {
+  assert.deepEqual(
+    classifyDeliveryReadinessResult(
+      { name: 'higress-local-oidc-test-idp-smoke', scope: 'local', required: true },
+      {
+        exitCode: null,
+        stdout: '',
+        stderr: '',
+        timedOut: true,
+        signal: 'SIGTERM',
+        timeoutMs: 180_000,
+      },
+    ),
+    {
+      name: 'higress-local-oidc-test-idp-smoke',
+      scope: 'local',
+      status: 'failed',
+      required: true,
+      evidence: {
+        classification: 'command-timeout',
+        timedOut: true,
+        signal: 'SIGTERM',
+        timeoutMs: 180_000,
+      },
+    },
+  );
 });
 
 test('summarizeDeliveryReadiness keeps production readiness false for blocked production gates', () => {

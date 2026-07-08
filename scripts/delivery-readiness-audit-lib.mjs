@@ -72,7 +72,15 @@ function blockedCheck({ name, scope, description, missingEnv }) {
   };
 }
 
-function commandCheck({ name, scope, description, command = 'node', args, env = {} }) {
+function commandCheck({
+  name,
+  scope,
+  description,
+  command = 'node',
+  args,
+  env = {},
+  timeoutMs = 120_000,
+}) {
   return {
     name,
     scope,
@@ -81,6 +89,7 @@ function commandCheck({ name, scope, description, command = 'node', args, env = 
     description,
     command,
     args,
+    timeoutMs,
     env: Object.fromEntries(Object.entries(env).filter(([, value]) => value !== undefined)),
   };
 }
@@ -112,18 +121,21 @@ export function buildDeliveryReadinessChecks({ env = process.env } = {}) {
       scope: 'local',
       description: 'Local Higress route must preserve Java auth and default security boundaries.',
       args: ['scripts/higress-gateway-smoke.mjs'],
+      timeoutMs: 60_000,
     }),
     commandCheck({
       name: 'higress-local-oidc-test-idp-smoke',
       scope: 'local',
       description: 'Local Higress route must pass RS256/JWKS OIDC probes against a temporary test IdP and restore the default route.',
       args: ['scripts/higress-oidc-local-smoke.mjs'],
+      timeoutMs: 180_000,
     }),
     commandCheck({
       name: 'higress-waf-runtime-preflight',
       scope: 'production',
       description: 'Gateway WAF plugin OCI image must be reachable before enabling the blocking policy.',
       args: ['scripts/higress-waf-runtime-preflight.mjs'],
+      timeoutMs: 45_000,
       env: {
         HIGRESS_WAF_PLUGIN_URL: hasText(env.HIGRESS_WAF_PLUGIN_URL) ? '<provided>' : undefined,
       },
@@ -133,6 +145,7 @@ export function buildDeliveryReadinessChecks({ env = process.env } = {}) {
       scope: 'production',
       description: 'Gateway WAF policy must block representative SQLi, XSS, path traversal, and prompt-injection probes.',
       args: ['scripts/higress-gateway-smoke.mjs'],
+      timeoutMs: 60_000,
       env: {
         HIGRESS_WAF_BLOCKING_COVERAGE: 'true',
       },
@@ -142,6 +155,7 @@ export function buildDeliveryReadinessChecks({ env = process.env } = {}) {
       scope: 'production',
       description: 'Gateway TLS certificate must be trusted and valid for the configured minimum window.',
       args: ['scripts/higress-tls-certificate-smoke.mjs'],
+      timeoutMs: 45_000,
     }),
     hasOidcConfig || hasOidcTokenSuite
       ? commandCheck({
@@ -149,6 +163,7 @@ export function buildDeliveryReadinessChecks({ env = process.env } = {}) {
           scope: 'production',
           description: 'Gateway OIDC-compatible RS256 endpoint security probes must pass.',
           args: ['scripts/higress-gateway-smoke.mjs'],
+          timeoutMs: 120_000,
           env: {
             HIGRESS_OIDC_ENDPOINT_SECURITY_COVERAGE: 'true',
             HIGRESS_OIDC_PRIVATE_KEY_FILE: hasText(env.HIGRESS_OIDC_PRIVATE_KEY_FILE) ? '<provided>' : undefined,
@@ -176,6 +191,7 @@ export function buildDeliveryReadinessChecks({ env = process.env } = {}) {
           scope: 'production',
           description: 'Full P0-P3 delivery smoke must run with a real external model provider key.',
           args: ['scripts/delivery-local-smoke.mjs'],
+          timeoutMs: 300_000,
           env: {
             DELIVERY_SMOKE_DASHSCOPE_API_KEY: '<provided>',
           },
@@ -191,6 +207,14 @@ export function buildDeliveryReadinessChecks({ env = process.env } = {}) {
 
 export function classifyDeliveryReadinessResult(check, result) {
   const evidence = compactSmokeEvidence(parseJsonObject(result.stdout));
+  const timeoutEvidence = result.timedOut
+    ? {
+        classification: 'command-timeout',
+        timedOut: true,
+        signal: result.signal,
+        timeoutMs: result.timeoutMs,
+      }
+    : {};
   const passed = result.exitCode === 0 && evidence.passed !== false;
 
   return {
@@ -198,7 +222,10 @@ export function classifyDeliveryReadinessResult(check, result) {
     scope: check.scope,
     status: passed ? 'passed' : 'failed',
     required: check.required === true,
-    evidence,
+    evidence: {
+      ...evidence,
+      ...timeoutEvidence,
+    },
   };
 }
 

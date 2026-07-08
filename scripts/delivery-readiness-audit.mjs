@@ -50,12 +50,15 @@ async function runCommandCheck(check) {
     ...process.env,
     ...sanitizeCommandEnv(check.env),
   };
+  const startedAt = Date.now();
 
   try {
+    console.error(`[readiness] start ${check.name}`);
     const { stdout, stderr } = await execFileAsync(check.command, check.args, {
       cwd: process.cwd(),
       env,
       maxBuffer: 25 * 1024 * 1024,
+      timeout: check.timeoutMs,
       windowsHide: os.platform() === 'win32',
     });
 
@@ -68,18 +71,26 @@ async function runCommandCheck(check) {
       ...outcome,
       command: check.command,
       args: check.args,
+      durationMs: Date.now() - startedAt,
     };
   } catch (error) {
+    const timedOut = error?.killed === true && error?.signal === 'SIGTERM';
     const outcome = classifyDeliveryReadinessResult(check, {
       exitCode: error?.code ?? 1,
       stdout: error?.stdout ?? '',
       stderr: error?.stderr ?? '',
+      timedOut,
+      signal: error?.signal,
+      timeoutMs: check.timeoutMs,
     });
     return {
       ...outcome,
       command: check.command,
       args: check.args,
+      durationMs: Date.now() - startedAt,
     };
+  } finally {
+    console.error(`[readiness] end ${check.name} ${Date.now() - startedAt}ms`);
   }
 }
 
@@ -123,6 +134,7 @@ const outputPayload = {
     description: check.description,
     command: check.command,
     args: check.args,
+    timeoutMs: check.timeoutMs,
     env: check.env,
     url: check.url,
     missingEnv: check.missingEnv,
