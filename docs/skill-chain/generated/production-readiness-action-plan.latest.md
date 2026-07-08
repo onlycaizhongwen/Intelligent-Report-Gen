@@ -1,20 +1,11 @@
 # Production Readiness Action Plan
 
-Generated: 2026-07-08T05:48:35.846Z
+Generated: 2026-07-08T06:16:14.327Z
 
 Local ready: true
 Production ready: false
-Passed production gates: credentialed-delivery-smoke
-Production blockers: higress-waf-runtime-preflight, higress-waf-blocking-policy, higress-trusted-tls-certificate, higress-oidc-endpoint-security
-
-## Passed Production Evidence
-
-### credentialed-delivery-smoke
-
-Evidence:
-- completedSteps: p0-local-smoke; p1-local-smoke; p2-local-smoke; p3-local-smoke
-- plannedStepCount: 4
-- resultCount: 4
+Passed production gates: none
+Production blockers: higress-waf-runtime-preflight, higress-waf-blocking-policy, higress-trusted-tls-certificate, higress-oidc-endpoint-security, credentialed-delivery-smoke
 
 ## higress-waf-runtime-preflight
 
@@ -38,8 +29,8 @@ Observed:
 
 ## higress-waf-blocking-policy
 
-Status: failed
-Description: Gateway WAF policy must block representative SQLi, XSS, path traversal, and prompt-injection probes.
+Status: blocked
+Description: Gateway WAF blocking smoke requires an explicit non-local target gateway URL.
 Required inputs: `HIGRESS_GATEWAY_BASE_URL`, `HIGRESS_WAF_BLOCKING_COVERAGE`
 Optional inputs: `none`
 
@@ -53,8 +44,8 @@ Next action: enable the approved Higress WAF policy only after the runtime plugi
 Required evidence: Gateway WAF blocking smoke returns passed=true with no waf-not-blocked failedResults.
 
 Observed:
-- status: failed
-- failedResultCount: 4
+- status: blocked
+- missingEnv: HIGRESS_GATEWAY_BASE_URL
 
 ## higress-trusted-tls-certificate
 
@@ -98,4 +89,24 @@ Required evidence: OIDC endpoint security smoke returns passed=true for accepted
 
 Observed:
 - status: blocked
-- missingEnv: HIGRESS_OIDC_ACCEPTED_TOKEN + HIGRESS_OIDC_WRONG_ISSUER_TOKEN + HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN; or HIGRESS_OIDC_PRIVATE_KEY_FILE/HIGRESS_OIDC_PRIVATE_KEY_PEM + HIGRESS_OIDC_KEY_ID + OIDC_ISSUER + OIDC_AUDIENCE
+- missingEnv: HIGRESS_GATEWAY_BASE_URL; HIGRESS_OIDC_ACCEPTED_TOKEN + HIGRESS_OIDC_WRONG_ISSUER_TOKEN + HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN; or HIGRESS_OIDC_PRIVATE_KEY_FILE/HIGRESS_OIDC_PRIVATE_KEY_PEM + HIGRESS_OIDC_KEY_ID + OIDC_ISSUER + OIDC_AUDIENCE
+
+## credentialed-delivery-smoke
+
+Status: blocked
+Description: Full P0-P3 delivery smoke requires a real external model provider key.
+Required inputs: `DELIVERY_SMOKE_DASHSCOPE_API_KEY or DASHSCOPE_API_KEY`
+Optional inputs: `none`
+
+Commands:
+
+```bash
+DELIVERY_SMOKE_DASHSCOPE_API_KEY=<provider-api-key> node scripts/delivery-local-smoke.mjs
+```
+
+Next action: provide a real external model provider key and run the full P0-P3 delivery smoke against the target environment.
+Required evidence: Credentialed delivery smoke completes P0, P1, P2, and P3 with passed status.
+
+Observed:
+- status: blocked
+- missingEnv: DELIVERY_SMOKE_DASHSCOPE_API_KEY or DASHSCOPE_API_KEY

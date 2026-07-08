@@ -126,3 +126,50 @@ test('production readiness env check treats blank env file evidence as authorita
     await rm(tempDir, { recursive: true, force: true });
   }
 });
+
+test('production readiness env check rejects local gateway URLs for production evidence', async () => {
+  const cleanEnv = { PATH: process.env.PATH };
+  const tempDir = await mkdtemp(join(tmpdir(), 'ir-readiness-env-local-gateway-'));
+  try {
+    const envFile = join(tempDir, 'production-readiness.local-gateway.env');
+    await writeFile(envFile, [
+      'HIGRESS_WAF_PLUGIN_URL=oci://registry.customer.example/platform/higress-waf:2.0.0',
+      'HIGRESS_GATEWAY_BASE_URL=http://127.0.0.1:18000',
+      'HIGRESS_TLS_GATEWAY_HOST=gateway.customer.example',
+      'HIGRESS_TLS_SERVER_NAME=gateway.customer.example',
+      'HIGRESS_OIDC_ACCEPTED_TOKEN=accepted-token-placeholder',
+      'HIGRESS_OIDC_WRONG_ISSUER_TOKEN=wrong-issuer-token-placeholder',
+      'HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN=wrong-audience-token-placeholder',
+      'DELIVERY_SMOKE_DASHSCOPE_API_KEY=provider-placeholder-token',
+      '',
+    ].join('\n'), 'utf8');
+
+    const failed = await execFileAsync('node', ['scripts/production-readiness-env-check.mjs'], {
+      env: {
+        ...cleanEnv,
+        PRODUCTION_READINESS_ENV_FILE: envFile,
+      },
+    }).catch((error) => error);
+    const output = JSON.parse(failed.stdout);
+
+    assert.equal(failed.code, 1);
+    assert.equal(output.ready, false);
+    assert.deepEqual(
+      output.missingItems.map((item) => item.name),
+      [
+        'higress-waf-blocking-policy',
+        'higress-oidc-endpoint-security',
+      ],
+    );
+    assert.deepEqual(output.missingItems[0].missingInputs, [
+      'HIGRESS_GATEWAY_BASE_URL (non-local target URL)',
+    ]);
+    assert.deepEqual(output.missingItems[1].missingInputs, [
+      'HIGRESS_GATEWAY_BASE_URL (non-local target URL)',
+    ]);
+    assert.equal(failed.stdout.includes('provider-placeholder-token'), false);
+    assert.equal(failed.stdout.includes('accepted-token-placeholder'), false);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});

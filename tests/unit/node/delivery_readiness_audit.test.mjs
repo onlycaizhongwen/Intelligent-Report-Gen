@@ -1,4 +1,4 @@
-import test from 'node:test';
+﻿import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
@@ -20,8 +20,9 @@ import {
 test('buildDeliveryReadinessChecks separates local evidence from production gates without secrets', () => {
   const checks = buildDeliveryReadinessChecks({
     env: {
-      DELIVERY_SMOKE_DASHSCOPE_API_KEY: 'secret-key',
-      HIGRESS_OIDC_PRIVATE_KEY_PEM: 'secret-pem',
+      DELIVERY_SMOKE_DASHSCOPE_API_KEY: 'provider-placeholder-key',
+      HIGRESS_GATEWAY_BASE_URL: 'https://gateway.customer.example',
+      HIGRESS_OIDC_PRIVATE_KEY_PEM: 'private-placeholder-pem',
       HIGRESS_OIDC_KEY_ID: 'kid-1',
       OIDC_ISSUER: 'https://idp.example.test',
       OIDC_AUDIENCE: 'intelligent-report',
@@ -54,23 +55,29 @@ test('buildDeliveryReadinessChecks separates local evidence from production gate
   assert.equal(checks[6].timeoutMs, 120_000);
   assert.equal(checks[7].env.DELIVERY_SMOKE_DASHSCOPE_API_KEY, '<provided>');
   assert.equal(checks[7].timeoutMs, 300_000);
-  assert.equal(JSON.stringify(checks), JSON.stringify(checks).replace('secret-key', '<leaked>'));
-  assert.equal(JSON.stringify(checks), JSON.stringify(checks).replace('secret-pem', '<leaked>'));
+  assert.equal(JSON.stringify(checks), JSON.stringify(checks).replace('provider-placeholder-key', '<leaked>'));
+  assert.equal(JSON.stringify(checks), JSON.stringify(checks).replace('private-placeholder-pem', '<leaked>'));
 });
 
 test('buildDeliveryReadinessChecks marks credential-gated production checks as blocked when inputs are missing', () => {
   const checks = buildDeliveryReadinessChecks({ env: {} });
   const oidc = checks.find((check) => check.name === 'higress-oidc-endpoint-security');
   const localOidc = checks.find((check) => check.name === 'higress-local-oidc-test-idp-smoke');
+  const wafBlocking = checks.find((check) => check.name === 'higress-waf-blocking-policy');
   const delivery = checks.find((check) => check.name === 'credentialed-delivery-smoke');
 
   assert.equal(localOidc.kind, 'command');
   assert.equal(localOidc.scope, 'local');
   assert.deepEqual(localOidc.args, ['scripts/higress-oidc-local-smoke.mjs']);
 
+  assert.equal(wafBlocking.kind, 'blocked');
+  assert.equal(wafBlocking.status, 'blocked');
+  assert.deepEqual(wafBlocking.missingEnv, ['HIGRESS_GATEWAY_BASE_URL']);
+
   assert.equal(oidc.kind, 'blocked');
   assert.equal(oidc.status, 'blocked');
   assert.deepEqual(oidc.missingEnv, [
+    'HIGRESS_GATEWAY_BASE_URL',
     'HIGRESS_OIDC_ACCEPTED_TOKEN + HIGRESS_OIDC_WRONG_ISSUER_TOKEN + HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN',
     'or HIGRESS_OIDC_PRIVATE_KEY_FILE/HIGRESS_OIDC_PRIVATE_KEY_PEM + HIGRESS_OIDC_KEY_ID + OIDC_ISSUER + OIDC_AUDIENCE',
   ]);
@@ -83,9 +90,10 @@ test('buildDeliveryReadinessChecks marks credential-gated production checks as b
 test('buildDeliveryReadinessChecks allows customer OIDC token-suite evidence without leaking tokens', () => {
   const checks = buildDeliveryReadinessChecks({
     env: {
-      HIGRESS_OIDC_ACCEPTED_TOKEN: 'accepted.jwt.value',
-      HIGRESS_OIDC_WRONG_ISSUER_TOKEN: 'wrong.issuer.jwt',
-      HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN: 'wrong.audience.jwt',
+      HIGRESS_GATEWAY_BASE_URL: 'https://gateway.customer.example',
+      HIGRESS_OIDC_ACCEPTED_TOKEN: 'accepted-token-value',
+      HIGRESS_OIDC_WRONG_ISSUER_TOKEN: 'wrong-issuer-token-value',
+      HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN: 'wrong-audience-token-value',
     },
   });
   const oidc = checks.find((check) => check.name === 'higress-oidc-endpoint-security');
@@ -94,13 +102,33 @@ test('buildDeliveryReadinessChecks allows customer OIDC token-suite evidence wit
   assert.equal(oidc.scope, 'production');
   assert.deepEqual(oidc.env, {
     HIGRESS_OIDC_ENDPOINT_SECURITY_COVERAGE: 'true',
+    HIGRESS_GATEWAY_BASE_URL: '<provided>',
     HIGRESS_OIDC_ACCEPTED_TOKEN: '<provided>',
     HIGRESS_OIDC_WRONG_ISSUER_TOKEN: '<provided>',
     HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN: '<provided>',
   });
-  assert.equal(JSON.stringify(checks), JSON.stringify(checks).replace('accepted.jwt.value', '<leaked>'));
-  assert.equal(JSON.stringify(checks), JSON.stringify(checks).replace('wrong.issuer.jwt', '<leaked>'));
-  assert.equal(JSON.stringify(checks), JSON.stringify(checks).replace('wrong.audience.jwt', '<leaked>'));
+  assert.equal(JSON.stringify(checks), JSON.stringify(checks).replace('accepted-token-value', '<leaked>'));
+  assert.equal(JSON.stringify(checks), JSON.stringify(checks).replace('wrong-issuer-token-value', '<leaked>'));
+  assert.equal(JSON.stringify(checks), JSON.stringify(checks).replace('wrong-audience-token-value', '<leaked>'));
+});
+
+test('buildDeliveryReadinessChecks blocks production gateway checks from using the local Higress default', () => {
+  const checks = buildDeliveryReadinessChecks({
+    env: {
+      HIGRESS_GATEWAY_BASE_URL: 'http://127.0.0.1:18000',
+      HIGRESS_OIDC_ACCEPTED_TOKEN: 'accepted-token-value',
+      HIGRESS_OIDC_WRONG_ISSUER_TOKEN: 'wrong-issuer-token-value',
+      HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN: 'wrong-audience-token-value',
+    },
+  });
+  const wafBlocking = checks.find((check) => check.name === 'higress-waf-blocking-policy');
+  const oidc = checks.find((check) => check.name === 'higress-oidc-endpoint-security');
+
+  assert.equal(wafBlocking.kind, 'blocked');
+  assert.equal(oidc.kind, 'blocked');
+  assert.deepEqual(wafBlocking.missingEnv, ['HIGRESS_GATEWAY_BASE_URL (non-local target URL)']);
+  assert.deepEqual(oidc.missingEnv, ['HIGRESS_GATEWAY_BASE_URL (non-local target URL)']);
+  assert.equal(JSON.stringify(checks).includes('accepted-token-value'), false);
 });
 
 test('buildDeliveryReadinessChecks marks WAF plugin URL override as provided without leaking it', () => {
@@ -492,7 +520,7 @@ test('generated production readiness env template keeps credentialed smoke provi
   assert.match(template, /# credentialed-delivery-smoke/);
   assert.match(template, /^DELIVERY_SMOKE_DASHSCOPE_API_KEY=/m);
   assert.match(template, /^DASHSCOPE_API_KEY=/m);
-  assert.equal(template.includes('provider-secret'), false);
+  assert.equal(template.includes('provider-placeholder-token'), false);
 });
 
 test('formatDeliveryReadinessAuditOutput preserves JSON default and markdown handoff mode', () => {
@@ -614,7 +642,7 @@ test('renderProductionReadinessEnvTemplate keeps required inputs for passed prod
   assert.match(template, /DELIVERY_SMOKE_DASHSCOPE_API_KEY=/);
   assert.match(template, /^DASHSCOPE_API_KEY=/m);
   assert.equal(template.match(/^DELIVERY_SMOKE_DASHSCOPE_API_KEY=/gm).length, 1);
-  assert.equal(template.includes('provider-secret'), false);
+  assert.equal(template.includes('provider-placeholder-token'), false);
 });
 
 test('validateProductionReadinessEnv reports missing production evidence inputs without leaking values', () => {
@@ -667,17 +695,64 @@ test('validateProductionReadinessEnv reports missing production evidence inputs 
       HIGRESS_GATEWAY_BASE_URL: 'https://gateway.customer.example',
       HIGRESS_TLS_GATEWAY_HOST: 'gateway.customer.example',
       HIGRESS_TLS_SERVER_NAME: 'gateway.customer.example',
-      HIGRESS_OIDC_ACCEPTED_TOKEN: 'accepted.jwt.value',
-      HIGRESS_OIDC_WRONG_ISSUER_TOKEN: 'wrong.issuer.jwt',
-      HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN: 'wrong.audience.jwt',
-      DELIVERY_SMOKE_DASHSCOPE_API_KEY: 'provider-secret',
+      HIGRESS_OIDC_ACCEPTED_TOKEN: 'accepted-token-value',
+      HIGRESS_OIDC_WRONG_ISSUER_TOKEN: 'wrong-issuer-token-value',
+      HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN: 'wrong-audience-token-value',
+      DELIVERY_SMOKE_DASHSCOPE_API_KEY: 'provider-placeholder-token',
     },
   });
 
   assert.equal(tokenSuiteValidation.ready, true);
   assert.deepEqual(tokenSuiteValidation.missingItems, []);
   assert.equal(JSON.stringify(tokenSuiteValidation).includes('secret'), false);
-  assert.equal(JSON.stringify(tokenSuiteValidation).includes('accepted.jwt.value'), false);
+  assert.equal(JSON.stringify(tokenSuiteValidation).includes('accepted-token-value'), false);
+});
+
+test('validateProductionReadinessEnv rejects local gateway URLs for production evidence', () => {
+  const validation = validateProductionReadinessEnv({
+    env: {
+      HIGRESS_WAF_PLUGIN_URL: 'oci://registry.customer.example/platform/higress-waf:2.0.0',
+      HIGRESS_GATEWAY_BASE_URL: 'http://localhost:18000',
+      HIGRESS_TLS_GATEWAY_HOST: 'gateway.customer.example',
+      HIGRESS_TLS_SERVER_NAME: 'gateway.customer.example',
+      HIGRESS_OIDC_ACCEPTED_TOKEN: 'accepted-token-value',
+      HIGRESS_OIDC_WRONG_ISSUER_TOKEN: 'wrong-issuer-token-value',
+      HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN: 'wrong-audience-token-value',
+      DELIVERY_SMOKE_DASHSCOPE_API_KEY: 'provider-placeholder-token',
+    },
+  });
+
+  assert.equal(validation.ready, false);
+  assert.deepEqual(validation.missingItems, [
+    {
+      name: 'higress-waf-blocking-policy',
+      missingInputs: ['HIGRESS_GATEWAY_BASE_URL (non-local target URL)'],
+    },
+    {
+      name: 'higress-oidc-endpoint-security',
+      missingInputs: ['HIGRESS_GATEWAY_BASE_URL (non-local target URL)'],
+      optionResults: [
+        {
+          name: 'customer-token-suite',
+          ready: false,
+          missingInputs: ['HIGRESS_GATEWAY_BASE_URL (non-local target URL)'],
+        },
+        {
+          name: 'signing-jwks-test-configuration',
+          ready: false,
+          missingInputs: [
+            'HIGRESS_GATEWAY_BASE_URL (non-local target URL)',
+            'HIGRESS_OIDC_PRIVATE_KEY_FILE or HIGRESS_OIDC_PRIVATE_KEY_PEM',
+            'HIGRESS_OIDC_KEY_ID',
+            'OIDC_ISSUER',
+            'OIDC_AUDIENCE',
+          ],
+        },
+      ],
+    },
+  ]);
+  assert.equal(JSON.stringify(validation).includes('provider-placeholder-token'), false);
+  assert.equal(JSON.stringify(validation).includes('accepted-token-value'), false);
 });
 
 test('parseEnvFileText and mergeEnvFileValues load customer evidence without overwriting shell controls', () => {
@@ -725,7 +800,7 @@ test('mergeEnvFileValues lets blank evidence file values override stale shell ev
       PRODUCTION_READINESS_ENV_FILE: 'docs/skill-chain/generated/production-readiness.env.example',
       DELIVERY_READINESS_OUTPUT: 'json',
       HIGRESS_GATEWAY_BASE_URL: 'https://stale-gateway.example',
-      DELIVERY_SMOKE_DASHSCOPE_API_KEY: 'stale-provider-key',
+      DELIVERY_SMOKE_DASHSCOPE_API_KEY: 'stale-provider-placeholder',
     },
     fileEnv: {
       HIGRESS_GATEWAY_BASE_URL: '',
@@ -752,9 +827,9 @@ test('loadDeliveryReadinessEnv reads the customer env file for full readiness au
       return [
         'DELIVERY_READINESS_OUTPUT=markdown',
         'HIGRESS_WAF_PLUGIN_URL=oci://registry.customer.example/platform/higress-waf:2.0.0',
-        'HIGRESS_OIDC_ACCEPTED_TOKEN=accepted.jwt.value',
-        'HIGRESS_OIDC_WRONG_ISSUER_TOKEN=wrong.issuer.jwt',
-        'HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN=wrong.audience.jwt',
+        'HIGRESS_OIDC_ACCEPTED_TOKEN=accepted-token-value',
+        'HIGRESS_OIDC_WRONG_ISSUER_TOKEN=wrong-issuer-token-value',
+        'HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN=wrong-audience-token-value',
         '',
       ].join('\n');
     },
@@ -762,7 +837,7 @@ test('loadDeliveryReadinessEnv reads the customer env file for full readiness au
 
   assert.equal(loaded.DELIVERY_READINESS_OUTPUT, 'json');
   assert.equal(loaded.HIGRESS_WAF_PLUGIN_URL, 'oci://registry.customer.example/platform/higress-waf:2.0.0');
-  assert.equal(loaded.HIGRESS_OIDC_ACCEPTED_TOKEN, 'accepted.jwt.value');
+  assert.equal(loaded.HIGRESS_OIDC_ACCEPTED_TOKEN, 'accepted-token-value');
 });
 
 test('writeDeliveryReadinessReportFile creates the parent directory and writes content', async () => {

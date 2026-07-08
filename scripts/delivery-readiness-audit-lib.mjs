@@ -5,6 +5,33 @@ function hasText(value) {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+function isLocalGatewayUrl(value) {
+  if (!hasText(value)) {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(value);
+    const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+    return hostname === 'localhost'
+      || hostname === '127.0.0.1'
+      || hostname === '::1'
+      || hostname === '0.0.0.0';
+  } catch {
+    return false;
+  }
+}
+
+function gatewayTargetMissingEnv(env) {
+  if (!hasText(env.HIGRESS_GATEWAY_BASE_URL)) {
+    return ['HIGRESS_GATEWAY_BASE_URL'];
+  }
+  if (isLocalGatewayUrl(env.HIGRESS_GATEWAY_BASE_URL)) {
+    return ['HIGRESS_GATEWAY_BASE_URL (non-local target URL)'];
+  }
+  return [];
+}
+
 function parseJsonObject(text) {
   if (!hasText(text)) {
     return {};
@@ -153,6 +180,8 @@ function commandCheck({
 }
 
 export function buildDeliveryReadinessChecks({ env = process.env } = {}) {
+  const gatewayMissingEnv = gatewayTargetMissingEnv(env);
+  const hasProductionGateway = gatewayMissingEnv.length === 0;
   const hasOidcPrivateKey = hasText(env.HIGRESS_OIDC_PRIVATE_KEY_FILE)
     || hasText(env.HIGRESS_OIDC_PRIVATE_KEY_PEM);
   const hasOidcConfig = hasOidcPrivateKey
@@ -162,6 +191,12 @@ export function buildDeliveryReadinessChecks({ env = process.env } = {}) {
   const hasOidcTokenSuite = hasText(env.HIGRESS_OIDC_ACCEPTED_TOKEN)
     && hasText(env.HIGRESS_OIDC_WRONG_ISSUER_TOKEN)
     && hasText(env.HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN);
+  const oidcMissingEnv = hasOidcConfig || hasOidcTokenSuite
+    ? []
+    : [
+        'HIGRESS_OIDC_ACCEPTED_TOKEN + HIGRESS_OIDC_WRONG_ISSUER_TOKEN + HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN',
+        'or HIGRESS_OIDC_PRIVATE_KEY_FILE/HIGRESS_OIDC_PRIVATE_KEY_PEM + HIGRESS_OIDC_KEY_ID + OIDC_ISSUER + OIDC_AUDIENCE',
+      ];
   const hasDeliveryModelKey = hasText(env.DELIVERY_SMOKE_DASHSCOPE_API_KEY)
     || hasText(env.DASHSCOPE_API_KEY);
 
@@ -198,17 +233,24 @@ export function buildDeliveryReadinessChecks({ env = process.env } = {}) {
         HIGRESS_WAF_PLUGIN_URL: hasText(env.HIGRESS_WAF_PLUGIN_URL) ? '<provided>' : undefined,
       },
     }),
-    commandCheck({
-      name: 'higress-waf-blocking-policy',
-      scope: 'production',
-      description: 'Gateway WAF policy must block representative SQLi, XSS, path traversal, and prompt-injection probes.',
-      args: ['scripts/higress-gateway-smoke.mjs'],
-      timeoutMs: 60_000,
-      env: {
-        HIGRESS_GATEWAY_BASE_URL: hasText(env.HIGRESS_GATEWAY_BASE_URL) ? '<provided>' : undefined,
-        HIGRESS_WAF_BLOCKING_COVERAGE: 'true',
-      },
-    }),
+    hasProductionGateway
+      ? commandCheck({
+          name: 'higress-waf-blocking-policy',
+          scope: 'production',
+          description: 'Gateway WAF policy must block representative SQLi, XSS, path traversal, and prompt-injection probes.',
+          args: ['scripts/higress-gateway-smoke.mjs'],
+          timeoutMs: 60_000,
+          env: {
+            HIGRESS_GATEWAY_BASE_URL: '<provided>',
+            HIGRESS_WAF_BLOCKING_COVERAGE: 'true',
+          },
+        })
+      : blockedCheck({
+          name: 'higress-waf-blocking-policy',
+          scope: 'production',
+          description: 'Gateway WAF blocking smoke requires an explicit non-local target gateway URL.',
+          missingEnv: gatewayMissingEnv,
+        }),
     commandCheck({
       name: 'higress-trusted-tls-certificate',
       scope: 'production',
@@ -216,7 +258,7 @@ export function buildDeliveryReadinessChecks({ env = process.env } = {}) {
       args: ['scripts/higress-tls-certificate-smoke.mjs'],
       timeoutMs: 45_000,
     }),
-    hasOidcConfig || hasOidcTokenSuite
+    hasProductionGateway && (hasOidcConfig || hasOidcTokenSuite)
       ? commandCheck({
           name: 'higress-oidc-endpoint-security',
           scope: 'production',
@@ -241,9 +283,9 @@ export function buildDeliveryReadinessChecks({ env = process.env } = {}) {
           scope: 'production',
           description: 'Gateway OIDC smoke requires either customer token-suite evidence or a customer/test IdP signing configuration.',
           missingEnv: [
-            'HIGRESS_OIDC_ACCEPTED_TOKEN + HIGRESS_OIDC_WRONG_ISSUER_TOKEN + HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN',
-            'or HIGRESS_OIDC_PRIVATE_KEY_FILE/HIGRESS_OIDC_PRIVATE_KEY_PEM + HIGRESS_OIDC_KEY_ID + OIDC_ISSUER + OIDC_AUDIENCE',
-          ],
+            ...gatewayMissingEnv,
+            ...oidcMissingEnv,
+          ].filter((value, index, values) => values.indexOf(value) === index),
         }),
     hasDeliveryModelKey
       ? commandCheck({
@@ -515,11 +557,20 @@ function renderEnvInputLines(inputs = [], renderedInputs = new Set()) {
 }
 
 function envInputSatisfied(input, env, defaults = {}) {
+  if (splitEnvAlternatives(input).includes('HIGRESS_GATEWAY_BASE_URL')) {
+    return gatewayTargetMissingEnv(env).length === 0;
+  }
   return splitEnvAlternatives(input).some((name) => hasText(env[name]) || hasText(defaults[name]));
 }
 
 function missingRequiredInputs(inputs = [], env = {}, defaults = {}) {
-  return inputs.filter((input) => !envInputSatisfied(input, env, defaults));
+  return inputs.map((input) => {
+    if (splitEnvAlternatives(input).includes('HIGRESS_GATEWAY_BASE_URL')) {
+      const gatewayMissing = gatewayTargetMissingEnv(env);
+      return gatewayMissing.length > 0 ? gatewayMissing[0] : null;
+    }
+    return envInputSatisfied(input, env, defaults) ? null : input;
+  }).filter(Boolean);
 }
 
 export function validateProductionReadinessEnv({ env = process.env } = {}) {
@@ -542,7 +593,7 @@ export function validateProductionReadinessEnv({ env = process.env } = {}) {
           ? null
           : {
               name,
-              missingInputs: action.requiredInputs ?? [],
+              missingInputs: missingRequiredInputs(action.requiredInputs ?? [], env, defaults),
               optionResults,
             };
       }

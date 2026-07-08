@@ -80,6 +80,7 @@
 - Production readiness `.env` templates now include required inputs for all production evidence gates, including passed gates such as credentialed P0-P3 smoke, so customer target-environment reruns do not miss provider-key inputs.
 - Customer readiness `.env` files are now authoritative for evidence values while shell variables only preserve output-control keys, preventing stale local gateway, OIDC, TLS, or provider credentials from making an unfilled template appear ready.
 - Production readiness precheck CLI now has regression coverage proving blank customer `.env` evidence files override stale shell WAF/TLS/OIDC/provider values in the real command path.
+- Production WAF/OIDC readiness checks now fail closed when `HIGRESS_GATEWAY_BASE_URL` is missing or points at `localhost`/loopback, preventing local Higress from being counted as customer production gateway evidence.
 
 ### 已知问题
 
