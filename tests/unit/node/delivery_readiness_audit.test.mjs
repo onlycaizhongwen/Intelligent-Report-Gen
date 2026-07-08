@@ -377,6 +377,18 @@ test('renderProductionReadinessActionPlanMarkdown creates a customer handoff che
       productionPassedItems: ['credentialed-delivery-smoke'],
       productionBlockingItems: ['higress-waf-runtime-preflight'],
     },
+    results: [
+      {
+        name: 'credentialed-delivery-smoke',
+        scope: 'production',
+        status: 'passed',
+        required: true,
+        evidence: {
+          completedSteps: ['P0', 'P1', 'P2', 'P3'],
+          resultCount: 4,
+        },
+      },
+    ],
     actionPlan: {
       ready: false,
       blockingItems: [
@@ -410,6 +422,10 @@ test('renderProductionReadinessActionPlanMarkdown creates a customer handoff che
   assert.match(markdown, /Local ready: true/);
   assert.match(markdown, /Production ready: false/);
   assert.match(markdown, /Passed production gates: credentialed-delivery-smoke/);
+  assert.match(markdown, /## Passed Production Evidence/);
+  assert.match(markdown, /### credentialed-delivery-smoke/);
+  assert.match(markdown, /- completedSteps: P0; P1; P2; P3/);
+  assert.match(markdown, /- resultCount: 4/);
   assert.match(markdown, /## higress-waf-runtime-preflight/);
   assert.match(markdown, /Required inputs: `HIGRESS_WAF_PLUGIN_URL`/);
   assert.match(markdown, /Optional inputs: `HIGRESS_WAF_PLUGIN_DIGEST`/);

@@ -398,10 +398,34 @@ function renderObserved(observed = {}) {
   return entries.length > 0 ? entries.join('\n') : '- none';
 }
 
+function renderPassedProductionEvidence(results = []) {
+  const passedItems = Array.isArray(results)
+    ? results.filter((result) => result.scope === 'production'
+      && result.required
+      && result.status === 'passed')
+    : [];
+  if (passedItems.length === 0) {
+    return [];
+  }
+
+  const lines = ['## Passed Production Evidence', ''];
+  for (const item of passedItems) {
+    lines.push(
+      `### ${item.name}`,
+      '',
+      'Evidence:',
+      renderObserved(item.evidence),
+      '',
+    );
+  }
+  return lines;
+}
+
 export function renderProductionReadinessActionPlanMarkdown({
   generatedAt = new Date().toISOString(),
   summary = {},
   actionPlan = { ready: true, blockingItems: [] },
+  results = [],
 } = {}) {
   const lines = [
     '# Production Readiness Action Plan',
@@ -414,6 +438,8 @@ export function renderProductionReadinessActionPlanMarkdown({
     `Production blockers: ${(summary.productionBlockingItems ?? []).join(', ') || 'none'}`,
     '',
   ];
+
+  lines.push(...renderPassedProductionEvidence(results));
 
   if (actionPlan.ready || !Array.isArray(actionPlan.blockingItems) || actionPlan.blockingItems.length === 0) {
     lines.push('No production readiness blockers are currently reported.', '');
@@ -459,6 +485,7 @@ export function formatDeliveryReadinessAuditOutput({
       generatedAt,
       summary: payload?.summary,
       actionPlan: payload?.actionPlan,
+      results: payload?.results,
     });
   }
   return JSON.stringify(payload, null, 2);
