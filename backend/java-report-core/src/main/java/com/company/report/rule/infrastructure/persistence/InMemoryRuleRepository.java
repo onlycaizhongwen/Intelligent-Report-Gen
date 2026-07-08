@@ -492,6 +492,7 @@ public class InMemoryRuleRepository implements RuleRepository {
                 .filter(execution -> "webhook".equals(execution.actionType()))
                 .filter(execution -> "pending_retry".equals(execution.status()) || "failed".equals(execution.status()))
                 .filter(execution -> isLatestOpenActionExecution(execution))
+                .filter(this::automaticReplayEnabled)
                 .filter(execution -> execution.nextRetryAt() == null || !execution.nextRetryAt().isAfter(now))
                 .filter(execution -> {
                     OffsetDateTime lockedUntil = actionExecutionLocks.get(execution.id());
@@ -510,6 +511,17 @@ public class InMemoryRuleRepository implements RuleRepository {
                 .max(Long::compareTo)
                 .filter(execution.id()::equals)
                 .isPresent();
+    }
+
+    private boolean automaticReplayEnabled(RuleActionExecution execution) {
+        Object value = execution.metadata().get("maxAsyncReplayAttempts");
+        if (value == null || String.valueOf(value).isBlank()) {
+            return true;
+        }
+        if (value instanceof Number number) {
+            return number.intValue() > 0;
+        }
+        return Integer.parseInt(String.valueOf(value)) > 0;
     }
 
     @Override

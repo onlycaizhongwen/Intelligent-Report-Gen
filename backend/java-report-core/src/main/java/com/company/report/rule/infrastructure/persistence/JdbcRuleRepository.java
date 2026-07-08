@@ -893,6 +893,7 @@ public class JdbcRuleRepository implements RuleRepository {
                           AND status IN ('pending_retry', 'failed')
                           AND (next_retry_at IS NULL OR next_retry_at <= ?)
                           AND (replay_locked_until IS NULL OR replay_locked_until <= CURRENT_TIMESTAMP)
+                          AND COALESCE(NULLIF(metadata_json ->> 'maxAsyncReplayAttempts', '')::integer, 3) > 0
                           AND id = (
                             SELECT MAX(latest.id)
                             FROM rule_action_executions latest

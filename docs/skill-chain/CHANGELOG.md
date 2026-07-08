@@ -61,6 +61,7 @@
 - Delivery readiness audit now runs the local Higress OIDC test-IdP smoke as a required local gate while keeping customer production OIDC as a separate blocked gate when IdP settings are absent.
 - Higress trusted TLS smoke now supports `HIGRESS_TLS_CA_FILE` for customer/private CA bundles while keeping certificate verification enabled.
 - Higress production OIDC smoke now accepts a customer pre-signed token suite (`HIGRESS_OIDC_ACCEPTED_TOKEN`, `HIGRESS_OIDC_WRONG_ISSUER_TOKEN`, `HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN`) so customers do not need to provide private signing keys for readiness validation.
+- 规则引擎 webhook 手动重试与自动重放边界补强：当 `maxAsyncReplayAttempts=0` 时，自动重放 worker 和 due-action 查询都会跳过该动作，避免后台自动重放与浏览器手动重试竞争生成重复成功记录。
 
 ### 已知问题
 

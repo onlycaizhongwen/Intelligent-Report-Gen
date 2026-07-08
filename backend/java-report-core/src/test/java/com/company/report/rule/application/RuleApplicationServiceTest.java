@@ -5206,6 +5206,59 @@ class RuleApplicationServiceTest {
     }
 
     @Test
+    void webhookActionReplayWorkerSkipsActionsWhenAsyncReplayIsDisabled() {
+        InMemoryRuleRepository ruleRepository = new InMemoryRuleRepository();
+        InMemoryAuditRepository auditRepository = new InMemoryAuditRepository();
+        FailingWebhookClient webhookClient = new FailingWebhookClient();
+        RuleApplicationService actionService = new RuleApplicationService(
+                new RuleDomainService(),
+                ruleRepository,
+                auditRepository,
+                new FakeSystemAlertRepository(),
+                webhookClient
+        );
+        Map<String, Object> definition = Map.of(
+                "nodes", java.util.List.of(
+                        Map.of("id", "start", "type", "start"),
+                        Map.of("id", "riskBranch", "type", "branch", "field", "riskScore", "operator", ">=", "value", 80),
+                        Map.of(
+                                "id", "writebackRisk",
+                                "type", "action",
+                                "actionType", "webhook",
+                                "endpoint", "https://erp.example.com/risk-events",
+                                "method", "POST",
+                                "maxRetryCount", 0,
+                                "retryBackoffSeconds", 0,
+                                "maxAsyncReplayAttempts", 0,
+                                "body", Map.of("eventType", "high_risk_report", "reportId", 88)
+                        ),
+                        Map.of("id", "end", "type", "end")
+                ),
+                "edges", java.util.List.of(
+                        Map.of("source", "start", "target", "riskBranch"),
+                        Map.of("source", "riskBranch", "target", "writebackRisk", "condition", "true"),
+                        Map.of("source", "riskBranch", "target", "end", "condition", "false"),
+                        Map.of("source", "writebackRisk", "target", "end")
+                )
+        );
+        Long ruleId = ((Number) actionService.create(Map.of("name", "Manual-only webhook rule", "definition", definition)).get("ruleId")).longValue();
+        actionService.save(ruleId, Map.of("definition", definition, "status", "draft"));
+        actionService.submitForReview(ruleId, Map.of("comment", "ready"));
+        actionService.approve(ruleId, Map.of("comment", "approved"));
+        assertThatThrownBy(() -> actionService.execute(ruleId, Map.of("sample", Map.of("riskScore", 95))))
+                .isInstanceOf(IllegalStateException.class);
+        RuleWebhookActionReplayWorker worker = new RuleWebhookActionReplayWorker(ruleRepository, actionService, false);
+
+        int processed = worker.runDueReplaysOnce();
+
+        assertThat(processed).isZero();
+        assertThat(webhookClient.calls).isEqualTo(1);
+        assertThat(ruleRepository.findActionExecutions(ruleId, 1, 10))
+                .extracting("status")
+                .containsExactly("pending_retry");
+    }
+
+    @Test
     void webhookActionReplayWorkerExhaustsActionAfterMaxAsyncReplayAttempts() {
         InMemoryRuleRepository ruleRepository = new InMemoryRuleRepository();
         InMemoryAuditRepository auditRepository = new InMemoryAuditRepository();

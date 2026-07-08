@@ -57,13 +57,17 @@ public class RuleWebhookActionReplayWorker {
         int processed = 0;
         OffsetDateTime now = OffsetDateTime.now();
         for (RuleActionExecution execution : ruleRepository.findDueWebhookActionExecutions(now, 20)) {
+            int maxAsyncReplayAttempts = maxAsyncReplayAttempts(execution);
+            if (maxAsyncReplayAttempts <= 0) {
+                recordAction("disabled");
+                continue;
+            }
             if (!ruleRepository.tryAcquireActionExecutionLease(execution.id(), OffsetDateTime.now().plusMinutes(10))) {
                 recordAction("lease_skipped");
                 continue;
             }
             try {
-                int maxAsyncReplayAttempts = maxAsyncReplayAttempts(execution);
-                if (maxAsyncReplayAttempts > 0 && asyncReplayAttempts(execution) >= maxAsyncReplayAttempts) {
+                if (asyncReplayAttempts(execution) >= maxAsyncReplayAttempts) {
                     service.exhaustWebhookActionReplay(execution.ruleId(), execution.id(), maxAsyncReplayAttempts);
                     recordAction("exhausted");
                 } else {
