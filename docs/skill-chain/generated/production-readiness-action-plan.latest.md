@@ -1,11 +1,70 @@
 # Production Readiness Action Plan
 
-Generated: 2026-07-08T06:16:14.327Z
+Generated: 2026-07-08T07:01:58.819Z
 
 Local ready: true
 Production ready: false
-Passed production gates: none
-Production blockers: higress-waf-runtime-preflight, higress-waf-blocking-policy, higress-trusted-tls-certificate, higress-oidc-endpoint-security, credentialed-delivery-smoke
+Passed local gates: frontend-browser-http, higress-default-security-smoke, higress-local-oidc-test-idp-smoke, document-parse-worker-health-smoke
+Passed production gates: credentialed-delivery-smoke
+Production blockers: higress-waf-runtime-preflight, higress-waf-blocking-policy, higress-trusted-tls-certificate, higress-oidc-endpoint-security
+
+## Passed Local Evidence
+
+### frontend-browser-http
+
+Evidence:
+- url: http://127.0.0.1:5173/
+- statusCode: 200
+- statusText: OK
+
+### higress-default-security-smoke
+
+Evidence:
+- gatewayBaseUrl: http://127.0.0.1:18000
+- passed: true
+- resultCount: 80
+- failedResults: none
+
+### higress-local-oidc-test-idp-smoke
+
+Evidence:
+- passed: true
+- keyId: local-oidc-key
+- issuer: https://idp.local.test
+- audience: intelligent-report-api
+- jwksUrl: http://host.docker.internal:18087/.well-known/jwks.json
+- gatewayBaseUrl: http://127.0.0.1:18000
+- javaHostPort: 18086
+- jwksHostPort: 18087
+- containerName: ir-java-oidc-smoke
+- privateKey: <redacted>
+- resultCount: 3
+- oidcResults: [{"name":"oidc-current-user-authorized-through-higress","status":200,"code":200,"classification":"endpoint-security-expected","passed":true},{"name":"oidc-current-user-wrong-issuer-through-higress","status":401,"code":401,"classification":"endpoint-security-expected","passed":true},{"name":"oidc-current-user-wrong-audience-through-higress","status":401,"code":401,"classification":"endpoint-security-expected","passed":true}]
+
+### document-parse-worker-health-smoke
+
+Evidence:
+- passed: true
+- classification: document-parse-worker-healthy
+- removedExistingContainer: true
+- containerName: ir-document-parse-worker-smoke
+- containerId: d6d0e6a574210c25d1b5a62f198c6dfdd042178305b64e65870f4d622a5fcb9d
+- network: intelligent-report-infra_default
+- topic: document_parse_requested
+- consumerGroup: python-ai-document-parse-smoke
+- minioEndpoint: http://ir-minio:9000
+- opensearchUrl: http://ir-opensearch:9200
+- milvusHost: ir-milvus
+- state: {"status":"running","running":true,"exitCode":0,"error":"","healthStatus":"healthy","healthFailingStreak":0}
+
+## Passed Production Evidence
+
+### credentialed-delivery-smoke
+
+Evidence:
+- completedSteps: p0-local-smoke; p1-local-smoke; p2-local-smoke; p3-local-smoke
+- plannedStepCount: 4
+- resultCount: 4
 
 ## higress-waf-runtime-preflight
 
@@ -90,23 +149,3 @@ Required evidence: OIDC endpoint security smoke returns passed=true for accepted
 Observed:
 - status: blocked
 - missingEnv: HIGRESS_GATEWAY_BASE_URL; HIGRESS_OIDC_ACCEPTED_TOKEN + HIGRESS_OIDC_WRONG_ISSUER_TOKEN + HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN; or HIGRESS_OIDC_PRIVATE_KEY_FILE/HIGRESS_OIDC_PRIVATE_KEY_PEM + HIGRESS_OIDC_KEY_ID + OIDC_ISSUER + OIDC_AUDIENCE
-
-## credentialed-delivery-smoke
-
-Status: blocked
-Description: Full P0-P3 delivery smoke requires a real external model provider key.
-Required inputs: `DELIVERY_SMOKE_DASHSCOPE_API_KEY or DASHSCOPE_API_KEY`
-Optional inputs: `none`
-
-Commands:
-
-```bash
-DELIVERY_SMOKE_DASHSCOPE_API_KEY=<provider-api-key> node scripts/delivery-local-smoke.mjs
-```
-
-Next action: provide a real external model provider key and run the full P0-P3 delivery smoke against the target environment.
-Required evidence: Credentialed delivery smoke completes P0, P1, P2, and P3 with passed status.
-
-Observed:
-- status: blocked
-- missingEnv: DELIVERY_SMOKE_DASHSCOPE_API_KEY or DASHSCOPE_API_KEY

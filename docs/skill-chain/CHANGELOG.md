@@ -83,6 +83,7 @@
 - Production WAF/OIDC readiness checks now fail closed when `HIGRESS_GATEWAY_BASE_URL` is missing or points at `localhost`/loopback, preventing local Higress from being counted as customer production gateway evidence.
 - UC-06 document parse worker smoke now fails closed unless the Docker worker remains running after startup stabilization, and records bounded redacted diagnostics when the container exits immediately.
 - UC-06 document parse worker smoke now also waits for Docker healthcheck status and requires `healthy` when the worker image exposes health evidence.
+- Delivery readiness now includes UC-06 document parse worker health as a required local gate, renders passed local evidence in the customer handoff, and gives credentialed P0-P3 smoke a 600 second timeout.
 
 ### 已知问题
 

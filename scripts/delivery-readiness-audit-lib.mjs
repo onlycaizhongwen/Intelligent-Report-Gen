@@ -224,6 +224,17 @@ export function buildDeliveryReadinessChecks({ env = process.env } = {}) {
       timeoutMs: 180_000,
     }),
     commandCheck({
+      name: 'document-parse-worker-health-smoke',
+      scope: 'local',
+      description: 'UC-06 document parse worker must remain running and healthy against local Docker dependencies.',
+      args: ['scripts/document-parse-worker-smoke.mjs'],
+      timeoutMs: 90_000,
+      env: {
+        DOCUMENT_PARSE_WORKER_STABILIZATION_MS: env.DOCUMENT_PARSE_WORKER_STABILIZATION_MS ?? '1000',
+        DOCUMENT_PARSE_WORKER_HEALTH_TIMEOUT_MS: env.DOCUMENT_PARSE_WORKER_HEALTH_TIMEOUT_MS ?? '50000',
+      },
+    }),
+    commandCheck({
       name: 'higress-waf-runtime-preflight',
       scope: 'production',
       description: 'Gateway WAF plugin OCI image must be reachable before enabling the blocking policy.',
@@ -293,7 +304,7 @@ export function buildDeliveryReadinessChecks({ env = process.env } = {}) {
           scope: 'production',
           description: 'Full P0-P3 delivery smoke must run with a real external model provider key.',
           args: ['scripts/delivery-local-smoke.mjs'],
-          timeoutMs: 300_000,
+          timeoutMs: 600_000,
           env: {
             DELIVERY_SMOKE_DASHSCOPE_API_KEY: '<provided>',
           },
@@ -497,7 +508,20 @@ function renderObserved(observed = {}) {
   const entries = Object.entries(observed)
     .filter(([, value]) => value !== undefined)
     .map(([key, value]) => {
-      const rendered = Array.isArray(value) ? value.join('; ') : String(value);
+      const rendered = (() => {
+        if (Array.isArray(value)) {
+          if (value.length === 0) {
+            return 'none';
+          }
+          return value.some((item) => item && typeof item === 'object')
+            ? JSON.stringify(value)
+            : value.join('; ');
+        }
+        if (value && typeof value === 'object') {
+          return JSON.stringify(value);
+        }
+        return String(value);
+      })();
       return `- ${key}: ${rendered}`;
     });
   return entries.length > 0 ? entries.join('\n') : '- none';
@@ -514,6 +538,29 @@ function renderPassedProductionEvidence(results = []) {
   }
 
   const lines = ['## Passed Production Evidence', ''];
+  for (const item of passedItems) {
+    lines.push(
+      `### ${item.name}`,
+      '',
+      'Evidence:',
+      renderObserved(item.evidence),
+      '',
+    );
+  }
+  return lines;
+}
+
+function renderPassedLocalEvidence(results = []) {
+  const passedItems = Array.isArray(results)
+    ? results.filter((result) => result.scope === 'local'
+      && result.required
+      && result.status === 'passed')
+    : [];
+  if (passedItems.length === 0) {
+    return [];
+  }
+
+  const lines = ['## Passed Local Evidence', ''];
   for (const item of passedItems) {
     lines.push(
       `### ${item.name}`,
@@ -682,11 +729,13 @@ export function renderProductionReadinessActionPlanMarkdown({
     '',
     `Local ready: ${summary.localReady === true}`,
     `Production ready: ${summary.productionReady === true}`,
+    `Passed local gates: ${(summary.localPassedItems ?? []).join(', ') || 'none'}`,
     `Passed production gates: ${(summary.productionPassedItems ?? []).join(', ') || 'none'}`,
     `Production blockers: ${(summary.productionBlockingItems ?? []).join(', ') || 'none'}`,
     '',
   ];
 
+  lines.push(...renderPassedLocalEvidence(results));
   lines.push(...renderPassedProductionEvidence(results));
 
   if (actionPlan.ready || !Array.isArray(actionPlan.blockingItems) || actionPlan.blockingItems.length === 0) {

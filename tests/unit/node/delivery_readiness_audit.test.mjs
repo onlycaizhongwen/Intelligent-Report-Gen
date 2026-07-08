@@ -35,6 +35,7 @@ test('buildDeliveryReadinessChecks separates local evidence from production gate
       'frontend-browser-http',
       'higress-default-security-smoke',
       'higress-local-oidc-test-idp-smoke',
+      'document-parse-worker-health-smoke',
       'higress-waf-runtime-preflight',
       'higress-waf-blocking-policy',
       'higress-trusted-tls-certificate',
@@ -47,14 +48,17 @@ test('buildDeliveryReadinessChecks separates local evidence from production gate
   assert.equal(checks[2].scope, 'local');
   assert.deepEqual(checks[2].args, ['scripts/higress-oidc-local-smoke.mjs']);
   assert.equal(checks[2].timeoutMs, 180_000);
-  assert.equal(checks[3].scope, 'production');
-  assert.deepEqual(checks[3].args, ['scripts/higress-waf-runtime-preflight.mjs']);
-  assert.equal(checks[3].timeoutMs, 45_000);
-  assert.equal(checks[6].kind, 'command');
-  assert.equal(checks[6].env.HIGRESS_OIDC_ENDPOINT_SECURITY_COVERAGE, 'true');
-  assert.equal(checks[6].timeoutMs, 120_000);
-  assert.equal(checks[7].env.DELIVERY_SMOKE_DASHSCOPE_API_KEY, '<provided>');
-  assert.equal(checks[7].timeoutMs, 300_000);
+  assert.equal(checks[3].scope, 'local');
+  assert.deepEqual(checks[3].args, ['scripts/document-parse-worker-smoke.mjs']);
+  assert.equal(checks[3].timeoutMs, 90_000);
+  assert.equal(checks[4].scope, 'production');
+  assert.deepEqual(checks[4].args, ['scripts/higress-waf-runtime-preflight.mjs']);
+  assert.equal(checks[4].timeoutMs, 45_000);
+  assert.equal(checks[7].kind, 'command');
+  assert.equal(checks[7].env.HIGRESS_OIDC_ENDPOINT_SECURITY_COVERAGE, 'true');
+  assert.equal(checks[7].timeoutMs, 120_000);
+  assert.equal(checks[8].env.DELIVERY_SMOKE_DASHSCOPE_API_KEY, '<provided>');
+  assert.equal(checks[8].timeoutMs, 600_000);
   assert.equal(JSON.stringify(checks), JSON.stringify(checks).replace('provider-placeholder-key', '<leaked>'));
   assert.equal(JSON.stringify(checks), JSON.stringify(checks).replace('private-placeholder-pem', '<leaked>'));
 });
@@ -63,12 +67,17 @@ test('buildDeliveryReadinessChecks marks credential-gated production checks as b
   const checks = buildDeliveryReadinessChecks({ env: {} });
   const oidc = checks.find((check) => check.name === 'higress-oidc-endpoint-security');
   const localOidc = checks.find((check) => check.name === 'higress-local-oidc-test-idp-smoke');
+  const documentWorker = checks.find((check) => check.name === 'document-parse-worker-health-smoke');
   const wafBlocking = checks.find((check) => check.name === 'higress-waf-blocking-policy');
   const delivery = checks.find((check) => check.name === 'credentialed-delivery-smoke');
 
   assert.equal(localOidc.kind, 'command');
   assert.equal(localOidc.scope, 'local');
   assert.deepEqual(localOidc.args, ['scripts/higress-oidc-local-smoke.mjs']);
+
+  assert.equal(documentWorker.kind, 'command');
+  assert.equal(documentWorker.scope, 'local');
+  assert.deepEqual(documentWorker.args, ['scripts/document-parse-worker-smoke.mjs']);
 
   assert.equal(wafBlocking.kind, 'blocked');
   assert.equal(wafBlocking.status, 'blocked');
@@ -437,10 +446,22 @@ test('renderProductionReadinessActionPlanMarkdown creates a customer handoff che
     summary: {
       localReady: true,
       productionReady: false,
+      localPassedItems: ['document-parse-worker-health-smoke'],
       productionPassedItems: ['credentialed-delivery-smoke'],
       productionBlockingItems: ['higress-waf-runtime-preflight'],
     },
     results: [
+      {
+        name: 'document-parse-worker-health-smoke',
+        scope: 'local',
+        status: 'passed',
+        required: true,
+        evidence: {
+          classification: 'document-parse-worker-healthy',
+          state: { healthStatus: 'healthy' },
+          failedResults: [],
+        },
+      },
       {
         name: 'credentialed-delivery-smoke',
         scope: 'production',
@@ -484,6 +505,13 @@ test('renderProductionReadinessActionPlanMarkdown creates a customer handoff che
   assert.match(markdown, /Generated: 2026-07-08T12:00:00.000Z/);
   assert.match(markdown, /Local ready: true/);
   assert.match(markdown, /Production ready: false/);
+  assert.match(markdown, /Passed local gates: document-parse-worker-health-smoke/);
+  assert.match(markdown, /## Passed Local Evidence/);
+  assert.match(markdown, /### document-parse-worker-health-smoke/);
+  assert.match(markdown, /document-parse-worker-healthy/);
+  assert.match(markdown, /"healthStatus":"healthy"/);
+  assert.match(markdown, /- failedResults: none/);
+  assert.equal(markdown.includes('[object Object]'), false);
   assert.match(markdown, /Passed production gates: credentialed-delivery-smoke/);
   assert.match(markdown, /## Passed Production Evidence/);
   assert.match(markdown, /### credentialed-delivery-smoke/);
