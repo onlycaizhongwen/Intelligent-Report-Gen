@@ -317,7 +317,7 @@ export function summarizeDeliveryReadiness(results) {
 const PRODUCTION_ACTIONS = {
   'higress-waf-runtime-preflight': {
     requiredInputs: ['HIGRESS_WAF_PLUGIN_URL'],
-    commands: ['node scripts/higress-waf-runtime-preflight.mjs'],
+    commands: ['HIGRESS_WAF_PLUGIN_URL=<plugin-oci-url> node scripts/higress-waf-runtime-preflight.mjs'],
     nextAction: 'mirror the approved Higress WAF OCI plugin into a registry reachable from the Higress runtime, set HIGRESS_WAF_PLUGIN_URL, then rerun the runtime preflight before enabling WAF.',
     requiredEvidence: 'Preflight returns passed=true and containerRegistryReachable=true for the configured plugin registry.',
   },
@@ -330,7 +330,7 @@ const PRODUCTION_ACTIONS = {
   'higress-trusted-tls-certificate': {
     requiredInputs: ['HIGRESS_TLS_GATEWAY_HOST', 'HIGRESS_TLS_SERVER_NAME'],
     optionalInputs: ['HIGRESS_TLS_CA_FILE'],
-    commands: ['node scripts/higress-tls-certificate-smoke.mjs'],
+    commands: ['HIGRESS_TLS_GATEWAY_HOST=<gateway-host> HIGRESS_TLS_SERVER_NAME=<server-name> node scripts/higress-tls-certificate-smoke.mjs'],
     nextAction: 'install a trusted gateway certificate for the customer hostname, configure hostname/servername and optional private CA bundle, then rerun the TLS smoke with verification enabled.',
     requiredEvidence: 'TLS smoke returns passed=true/classification=tls-trusted with daysRemaining above the configured minimum.',
   },
@@ -370,7 +370,7 @@ const PRODUCTION_ACTIONS = {
   },
   'credentialed-delivery-smoke': {
     requiredInputs: ['DELIVERY_SMOKE_DASHSCOPE_API_KEY or DASHSCOPE_API_KEY'],
-    commands: ['node scripts/delivery-local-smoke.mjs'],
+    commands: ['DELIVERY_SMOKE_DASHSCOPE_API_KEY=<provider-api-key> node scripts/delivery-local-smoke.mjs'],
     nextAction: 'provide a real external model provider key and run the full P0-P3 delivery smoke against the target environment.',
     requiredEvidence: 'Credentialed delivery smoke completes P0, P1, P2, and P3 with passed status.',
   },

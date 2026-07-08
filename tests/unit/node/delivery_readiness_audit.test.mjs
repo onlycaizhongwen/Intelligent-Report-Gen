@@ -336,7 +336,7 @@ test('buildProductionReadinessActionPlan converts production blockers into custo
     ],
   );
   assert.deepEqual(plan.blockingItems[0].requiredInputs, ['HIGRESS_WAF_PLUGIN_URL']);
-  assert.deepEqual(plan.blockingItems[0].commands, ['node scripts/higress-waf-runtime-preflight.mjs']);
+  assert.deepEqual(plan.blockingItems[0].commands, ['HIGRESS_WAF_PLUGIN_URL=<plugin-oci-url> node scripts/higress-waf-runtime-preflight.mjs']);
   assert.match(plan.blockingItems[0].nextAction, /mirror/);
   assert.deepEqual(plan.blockingItems[1].requiredInputs, [
     'HIGRESS_GATEWAY_BASE_URL',
@@ -348,6 +348,7 @@ test('buildProductionReadinessActionPlan converts production blockers into custo
     'HIGRESS_TLS_SERVER_NAME',
   ]);
   assert.deepEqual(plan.blockingItems[2].optionalInputs, ['HIGRESS_TLS_CA_FILE']);
+  assert.deepEqual(plan.blockingItems[2].commands, ['HIGRESS_TLS_GATEWAY_HOST=<gateway-host> HIGRESS_TLS_SERVER_NAME=<server-name> node scripts/higress-tls-certificate-smoke.mjs']);
   assert.deepEqual(plan.blockingItems[3].requiredInputs, [
     'HIGRESS_GATEWAY_BASE_URL',
     'HIGRESS_OIDC_ACCEPTED_TOKEN',
@@ -376,6 +377,27 @@ test('buildProductionReadinessActionPlan converts production blockers into custo
       ],
       requiredEvidence: 'Generated RS256/JWKS probes prove accepted issuer/audience succeeds and wrong issuer/audience are rejected through Higress.',
     },
+  ]);
+  assert.equal(JSON.stringify(plan).includes('secret'), false);
+});
+
+test('buildProductionReadinessActionPlan renders credentialed smoke command with key placeholder', () => {
+  const checks = buildDeliveryReadinessChecks({ env: {} });
+  const plan = buildProductionReadinessActionPlan({
+    checks,
+    results: [
+      {
+        name: 'credentialed-delivery-smoke',
+        scope: 'production',
+        status: 'blocked',
+        required: true,
+        evidence: { missingEnv: ['DELIVERY_SMOKE_DASHSCOPE_API_KEY or DASHSCOPE_API_KEY'] },
+      },
+    ],
+  });
+
+  assert.deepEqual(plan.blockingItems[0].commands, [
+    'DELIVERY_SMOKE_DASHSCOPE_API_KEY=<provider-api-key> node scripts/delivery-local-smoke.mjs',
   ]);
   assert.equal(JSON.stringify(plan).includes('secret'), false);
 });
@@ -417,7 +439,7 @@ test('renderProductionReadinessActionPlanMarkdown creates a customer handoff che
               requiredEvidence: 'Preflight reaches the mirrored OCI plugin.',
             },
           ],
-          commands: ['node scripts/higress-waf-runtime-preflight.mjs'],
+          commands: ['HIGRESS_WAF_PLUGIN_URL=<plugin-oci-url> node scripts/higress-waf-runtime-preflight.mjs'],
           nextAction: 'mirror the approved Higress WAF OCI plugin.',
           requiredEvidence: 'Preflight returns passed=true.',
           observed: {
@@ -443,7 +465,7 @@ test('renderProductionReadinessActionPlanMarkdown creates a customer handoff che
   assert.match(markdown, /Optional inputs: `HIGRESS_WAF_PLUGIN_DIGEST`/);
   assert.match(markdown, /Input options:/);
   assert.match(markdown, /customer-registry-mirror: `HIGRESS_WAF_PLUGIN_URL`/);
-  assert.match(markdown, /```bash\nnode scripts\/higress-waf-runtime-preflight\.mjs\n```/);
+  assert.match(markdown, /```bash\nHIGRESS_WAF_PLUGIN_URL=<plugin-oci-url> node scripts\/higress-waf-runtime-preflight\.mjs\n```/);
   assert.match(markdown, /waf-plugin-container-registry-unreachable/);
   assert.equal(markdown.includes('secret'), false);
 });
