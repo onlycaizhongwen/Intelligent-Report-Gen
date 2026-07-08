@@ -421,6 +421,73 @@ function renderPassedProductionEvidence(results = []) {
   return lines;
 }
 
+function splitEnvAlternatives(input) {
+  return String(input)
+    .split(/\s+or\s+/i)
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+function renderEnvAssignment(name, { commented = false } = {}) {
+  const defaultValues = {
+    HIGRESS_WAF_BLOCKING_COVERAGE: 'true',
+  };
+  const prefix = commented ? '# ' : '';
+  return `${prefix}${name}=${defaultValues[name] ?? ''}`;
+}
+
+function renderEnvInputLines(inputs = []) {
+  const lines = [];
+  for (const input of inputs) {
+    const alternatives = splitEnvAlternatives(input);
+    alternatives.forEach((name, index) => {
+      lines.push(renderEnvAssignment(name, { commented: index > 0 }));
+    });
+  }
+  return lines;
+}
+
+export function renderProductionReadinessEnvTemplate({
+  generatedAt = new Date().toISOString(),
+  actionPlan = { ready: true, blockingItems: [] },
+} = {}) {
+  const lines = [
+    '# Production Readiness Evidence Environment Template',
+    `# Generated: ${generatedAt}`,
+    '# Fill these values in the target/customer environment, then rerun the listed readiness commands.',
+    '',
+  ];
+
+  const blockingItems = Array.isArray(actionPlan.blockingItems) ? actionPlan.blockingItems : [];
+  if (actionPlan.ready || blockingItems.length === 0) {
+    lines.push('# No production readiness blocker inputs are currently required.', '');
+    return lines.join('\n');
+  }
+
+  for (const item of blockingItems) {
+    lines.push(`# ${item.name}`);
+    if (Array.isArray(item.inputOptions) && item.inputOptions.length > 0) {
+      for (const option of item.inputOptions) {
+        lines.push(`# Option: ${option.name}`);
+        lines.push(...renderEnvInputLines(option.requiredInputs));
+      }
+    } else {
+      lines.push(...renderEnvInputLines(item.requiredInputs));
+    }
+    if (Array.isArray(item.optionalInputs) && item.optionalInputs.length > 0) {
+      lines.push('# Optional');
+      for (const input of item.optionalInputs) {
+        for (const name of splitEnvAlternatives(input)) {
+          lines.push(renderEnvAssignment(name, { commented: true }));
+        }
+      }
+    }
+    lines.push('');
+  }
+
+  return lines.join('\n');
+}
+
 export function renderProductionReadinessActionPlanMarkdown({
   generatedAt = new Date().toISOString(),
   summary = {},

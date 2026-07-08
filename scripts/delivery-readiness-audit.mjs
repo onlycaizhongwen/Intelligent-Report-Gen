@@ -7,6 +7,7 @@ import {
   buildDeliveryReadinessChecks,
   classifyDeliveryReadinessResult,
   formatDeliveryReadinessAuditOutput,
+  renderProductionReadinessEnvTemplate,
   sanitizeCommandEnv,
   summarizeDeliveryReadiness,
   writeDeliveryReadinessReportFile,
@@ -152,6 +153,11 @@ console.log(output);
 await writeDeliveryReadinessReportFile({
   reportFile: process.env.DELIVERY_READINESS_REPORT_FILE,
   content: output,
+});
+
+await writeDeliveryReadinessReportFile({
+  reportFile: process.env.DELIVERY_READINESS_ENV_TEMPLATE_FILE,
+  content: renderProductionReadinessEnvTemplate({ actionPlan }),
 });
 
 if (!summary.localReady) {

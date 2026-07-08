@@ -7,6 +7,7 @@ import {
   classifyDeliveryReadinessResult,
   formatDeliveryReadinessAuditOutput,
   renderProductionReadinessActionPlanMarkdown,
+  renderProductionReadinessEnvTemplate,
   summarizeDeliveryReadiness,
   writeDeliveryReadinessReportFile,
 } from '../../../scripts/delivery-readiness-audit-lib.mjs';
@@ -452,6 +453,81 @@ test('formatDeliveryReadinessAuditOutput preserves JSON default and markdown han
     formatDeliveryReadinessAuditOutput({ payload, outputFormat: 'markdown', generatedAt: '2026-07-08T12:00:00.000Z' }),
     /^# Production Readiness Action Plan/,
   );
+});
+
+test('renderProductionReadinessEnvTemplate creates a customer-fillable blocker env file', () => {
+  const actionPlan = {
+    ready: false,
+    blockingItems: [
+      {
+        name: 'higress-waf-runtime-preflight',
+        requiredInputs: ['HIGRESS_WAF_PLUGIN_URL'],
+        optionalInputs: [],
+        inputOptions: [],
+      },
+      {
+        name: 'higress-waf-blocking-policy',
+        requiredInputs: ['HIGRESS_WAF_BLOCKING_COVERAGE'],
+        optionalInputs: [],
+        inputOptions: [],
+      },
+      {
+        name: 'higress-trusted-tls-certificate',
+        requiredInputs: ['HIGRESS_TLS_GATEWAY_HOST', 'HIGRESS_TLS_SERVER_NAME'],
+        optionalInputs: ['HIGRESS_TLS_CA_FILE'],
+        inputOptions: [],
+      },
+      {
+        name: 'higress-oidc-endpoint-security',
+        requiredInputs: [
+          'HIGRESS_OIDC_ACCEPTED_TOKEN',
+          'HIGRESS_OIDC_WRONG_ISSUER_TOKEN',
+          'HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN',
+        ],
+        optionalInputs: [],
+        inputOptions: [
+          {
+            name: 'customer-token-suite',
+            requiredInputs: [
+              'HIGRESS_OIDC_ACCEPTED_TOKEN',
+              'HIGRESS_OIDC_WRONG_ISSUER_TOKEN',
+              'HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN',
+            ],
+          },
+          {
+            name: 'signing-jwks-test-configuration',
+            requiredInputs: [
+              'HIGRESS_OIDC_PRIVATE_KEY_FILE or HIGRESS_OIDC_PRIVATE_KEY_PEM',
+              'HIGRESS_OIDC_KEY_ID',
+              'OIDC_ISSUER',
+              'OIDC_AUDIENCE',
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  const template = renderProductionReadinessEnvTemplate({ actionPlan });
+
+  assert.match(template, /^# Production Readiness Evidence Environment Template/);
+  assert.match(template, /HIGRESS_WAF_PLUGIN_URL=/);
+  assert.match(template, /HIGRESS_WAF_BLOCKING_COVERAGE=true/);
+  assert.match(template, /HIGRESS_TLS_GATEWAY_HOST=/);
+  assert.match(template, /HIGRESS_TLS_SERVER_NAME=/);
+  assert.match(template, /# Optional/);
+  assert.match(template, /# HIGRESS_TLS_CA_FILE=/);
+  assert.match(template, /# Option: customer-token-suite/);
+  assert.match(template, /HIGRESS_OIDC_ACCEPTED_TOKEN=/);
+  assert.match(template, /HIGRESS_OIDC_WRONG_ISSUER_TOKEN=/);
+  assert.match(template, /HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN=/);
+  assert.match(template, /# Option: signing-jwks-test-configuration/);
+  assert.match(template, /HIGRESS_OIDC_PRIVATE_KEY_FILE=/);
+  assert.match(template, /# HIGRESS_OIDC_PRIVATE_KEY_PEM=/);
+  assert.match(template, /HIGRESS_OIDC_KEY_ID=/);
+  assert.match(template, /OIDC_ISSUER=/);
+  assert.match(template, /OIDC_AUDIENCE=/);
+  assert.equal(template.includes('secret'), false);
 });
 
 test('writeDeliveryReadinessReportFile creates the parent directory and writes content', async () => {
