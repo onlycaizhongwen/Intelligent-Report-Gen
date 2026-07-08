@@ -5,6 +5,14 @@ function hasText(value) {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+function isPlaceholderValue(value) {
+  return typeof value === 'string' && /^<[^<>]+>$/.test(value.trim());
+}
+
+function hasEvidenceText(value) {
+  return hasText(value) && !isPlaceholderValue(value);
+}
+
 function isLocalGatewayUrl(value) {
   if (!hasText(value)) {
     return false;
@@ -23,8 +31,16 @@ function isLocalGatewayUrl(value) {
 }
 
 function gatewayTargetMissingEnv(env) {
-  if (!hasText(env.HIGRESS_GATEWAY_BASE_URL)) {
+  if (!hasEvidenceText(env.HIGRESS_GATEWAY_BASE_URL)) {
     return ['HIGRESS_GATEWAY_BASE_URL'];
+  }
+  try {
+    const parsed = new URL(env.HIGRESS_GATEWAY_BASE_URL);
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return ['HIGRESS_GATEWAY_BASE_URL (absolute http(s) target URL)'];
+    }
+  } catch {
+    return ['HIGRESS_GATEWAY_BASE_URL (absolute http(s) target URL)'];
   }
   if (isLocalGatewayUrl(env.HIGRESS_GATEWAY_BASE_URL)) {
     return ['HIGRESS_GATEWAY_BASE_URL (non-local target URL)'];
@@ -37,7 +53,7 @@ function tlsTargetMissingEnv(env) {
     ['HIGRESS_TLS_GATEWAY_HOST', env.HIGRESS_TLS_GATEWAY_HOST],
     ['HIGRESS_TLS_SERVER_NAME', env.HIGRESS_TLS_SERVER_NAME],
   ]
-    .filter(([, value]) => !hasText(value))
+    .filter(([, value]) => !hasEvidenceText(value))
     .map(([name]) => name);
 }
 
@@ -193,23 +209,23 @@ export function buildDeliveryReadinessChecks({ env = process.env } = {}) {
   const hasProductionGateway = gatewayMissingEnv.length === 0;
   const tlsMissingEnv = tlsTargetMissingEnv(env);
   const hasTlsTarget = tlsMissingEnv.length === 0;
-  const hasOidcPrivateKey = hasText(env.HIGRESS_OIDC_PRIVATE_KEY_FILE)
-    || hasText(env.HIGRESS_OIDC_PRIVATE_KEY_PEM);
+  const hasOidcPrivateKey = hasEvidenceText(env.HIGRESS_OIDC_PRIVATE_KEY_FILE)
+    || hasEvidenceText(env.HIGRESS_OIDC_PRIVATE_KEY_PEM);
   const hasOidcConfig = hasOidcPrivateKey
-    && hasText(env.HIGRESS_OIDC_KEY_ID)
-    && hasText(env.OIDC_ISSUER)
-    && hasText(env.OIDC_AUDIENCE);
-  const hasOidcTokenSuite = hasText(env.HIGRESS_OIDC_ACCEPTED_TOKEN)
-    && hasText(env.HIGRESS_OIDC_WRONG_ISSUER_TOKEN)
-    && hasText(env.HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN);
+    && hasEvidenceText(env.HIGRESS_OIDC_KEY_ID)
+    && hasEvidenceText(env.OIDC_ISSUER)
+    && hasEvidenceText(env.OIDC_AUDIENCE);
+  const hasOidcTokenSuite = hasEvidenceText(env.HIGRESS_OIDC_ACCEPTED_TOKEN)
+    && hasEvidenceText(env.HIGRESS_OIDC_WRONG_ISSUER_TOKEN)
+    && hasEvidenceText(env.HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN);
   const oidcMissingEnv = hasOidcConfig || hasOidcTokenSuite
     ? []
     : [
         'HIGRESS_OIDC_ACCEPTED_TOKEN + HIGRESS_OIDC_WRONG_ISSUER_TOKEN + HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN',
         'or HIGRESS_OIDC_PRIVATE_KEY_FILE/HIGRESS_OIDC_PRIVATE_KEY_PEM + HIGRESS_OIDC_KEY_ID + OIDC_ISSUER + OIDC_AUDIENCE',
       ];
-  const hasDeliveryModelKey = hasText(env.DELIVERY_SMOKE_DASHSCOPE_API_KEY)
-    || hasText(env.DASHSCOPE_API_KEY);
+  const hasDeliveryModelKey = hasEvidenceText(env.DELIVERY_SMOKE_DASHSCOPE_API_KEY)
+    || hasEvidenceText(env.DASHSCOPE_API_KEY);
 
   return [
     {
@@ -277,7 +293,7 @@ export function buildDeliveryReadinessChecks({ env = process.env } = {}) {
       args: ['scripts/higress-waf-runtime-preflight.mjs'],
       timeoutMs: 45_000,
       env: {
-        HIGRESS_WAF_PLUGIN_URL: hasText(env.HIGRESS_WAF_PLUGIN_URL) ? '<provided>' : undefined,
+        HIGRESS_WAF_PLUGIN_URL: hasEvidenceText(env.HIGRESS_WAF_PLUGIN_URL) ? '<provided>' : undefined,
       },
     }),
     hasProductionGateway
@@ -308,7 +324,7 @@ export function buildDeliveryReadinessChecks({ env = process.env } = {}) {
           env: {
             HIGRESS_TLS_GATEWAY_HOST: '<provided>',
             HIGRESS_TLS_SERVER_NAME: '<provided>',
-            HIGRESS_TLS_CA_FILE: hasText(env.HIGRESS_TLS_CA_FILE) ? '<provided>' : undefined,
+            HIGRESS_TLS_CA_FILE: hasEvidenceText(env.HIGRESS_TLS_CA_FILE) ? '<provided>' : undefined,
           },
         })
       : blockedCheck({
@@ -326,15 +342,15 @@ export function buildDeliveryReadinessChecks({ env = process.env } = {}) {
           timeoutMs: 120_000,
           env: {
             HIGRESS_OIDC_ENDPOINT_SECURITY_COVERAGE: 'true',
-            HIGRESS_GATEWAY_BASE_URL: hasText(env.HIGRESS_GATEWAY_BASE_URL) ? '<provided>' : undefined,
-            HIGRESS_OIDC_PRIVATE_KEY_FILE: hasText(env.HIGRESS_OIDC_PRIVATE_KEY_FILE) ? '<provided>' : undefined,
-            HIGRESS_OIDC_PRIVATE_KEY_PEM: hasText(env.HIGRESS_OIDC_PRIVATE_KEY_PEM) ? '<provided>' : undefined,
+            HIGRESS_GATEWAY_BASE_URL: hasEvidenceText(env.HIGRESS_GATEWAY_BASE_URL) ? '<provided>' : undefined,
+            HIGRESS_OIDC_PRIVATE_KEY_FILE: hasEvidenceText(env.HIGRESS_OIDC_PRIVATE_KEY_FILE) ? '<provided>' : undefined,
+            HIGRESS_OIDC_PRIVATE_KEY_PEM: hasEvidenceText(env.HIGRESS_OIDC_PRIVATE_KEY_PEM) ? '<provided>' : undefined,
             HIGRESS_OIDC_KEY_ID: hasOidcConfig ? '<provided>' : undefined,
             OIDC_ISSUER: hasOidcConfig ? env.OIDC_ISSUER : undefined,
             OIDC_AUDIENCE: hasOidcConfig ? env.OIDC_AUDIENCE : undefined,
-            HIGRESS_OIDC_ACCEPTED_TOKEN: hasText(env.HIGRESS_OIDC_ACCEPTED_TOKEN) ? '<provided>' : undefined,
-            HIGRESS_OIDC_WRONG_ISSUER_TOKEN: hasText(env.HIGRESS_OIDC_WRONG_ISSUER_TOKEN) ? '<provided>' : undefined,
-            HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN: hasText(env.HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN) ? '<provided>' : undefined,
+            HIGRESS_OIDC_ACCEPTED_TOKEN: hasEvidenceText(env.HIGRESS_OIDC_ACCEPTED_TOKEN) ? '<provided>' : undefined,
+            HIGRESS_OIDC_WRONG_ISSUER_TOKEN: hasEvidenceText(env.HIGRESS_OIDC_WRONG_ISSUER_TOKEN) ? '<provided>' : undefined,
+            HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN: hasEvidenceText(env.HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN) ? '<provided>' : undefined,
           },
         })
       : blockedCheck({
@@ -661,7 +677,7 @@ function envInputSatisfied(input, env, defaults = {}) {
   if (splitEnvAlternatives(input).includes('HIGRESS_GATEWAY_BASE_URL')) {
     return gatewayTargetMissingEnv(env).length === 0;
   }
-  return splitEnvAlternatives(input).some((name) => hasText(env[name]) || hasText(defaults[name]));
+  return splitEnvAlternatives(input).some((name) => hasEvidenceText(env[name]) || hasEvidenceText(defaults[name]));
 }
 
 function missingRequiredInputs(inputs = [], env = {}, defaults = {}) {
@@ -860,6 +876,7 @@ export function sanitizeCommandEnv(env = {}) {
   return Object.fromEntries(
     Object.entries(env)
       .filter(([, value]) => value !== undefined && value !== '<provided>' && String(value).trim() !== '')
+      .filter(([, value]) => !isPlaceholderValue(String(value)))
       .map(([key, value]) => [key, String(value)]),
   );
 }

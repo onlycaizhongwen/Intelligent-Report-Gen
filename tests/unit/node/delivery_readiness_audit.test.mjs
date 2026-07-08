@@ -342,6 +342,7 @@ test('sanitizeCommandEnv removes blank evidence values before child smokes run',
     sanitizeCommandEnv({
       HIGRESS_GATEWAY_BASE_URL: '',
       HIGRESS_WAF_PLUGIN_URL: '<provided>',
+      HIGRESS_TLS_GATEWAY_HOST: '<gateway-host>',
       HIGRESS_WAF_BLOCKING_COVERAGE: 'true',
       PATH: 'C:/tools',
     }),
@@ -921,6 +922,72 @@ test('validateProductionReadinessEnv rejects local gateway URLs for production e
   ]);
   assert.equal(JSON.stringify(validation).includes('provider-placeholder-token'), false);
   assert.equal(JSON.stringify(validation).includes('accepted-token-value'), false);
+});
+
+test('validateProductionReadinessEnv rejects copyable command placeholders as missing evidence', () => {
+  const validation = validateProductionReadinessEnv({
+    env: {
+      HIGRESS_WAF_PLUGIN_URL: '<plugin-oci-url>',
+      HIGRESS_GATEWAY_BASE_URL: '<target-gateway-url>',
+      HIGRESS_TLS_GATEWAY_HOST: '<gateway-host>',
+      HIGRESS_TLS_SERVER_NAME: '<server-name>',
+      HIGRESS_OIDC_ACCEPTED_TOKEN: '<accepted-token>',
+      HIGRESS_OIDC_WRONG_ISSUER_TOKEN: '<wrong-issuer-token>',
+      HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN: '<wrong-audience-token>',
+      DELIVERY_SMOKE_DASHSCOPE_API_KEY: '<provider-api-key>',
+    },
+  });
+
+  assert.equal(validation.ready, false);
+  assert.deepEqual(
+    validation.missingItems.map((item) => item.name),
+    [
+      'higress-waf-runtime-preflight',
+      'higress-waf-blocking-policy',
+      'higress-trusted-tls-certificate',
+      'higress-oidc-endpoint-security',
+      'credentialed-delivery-smoke',
+    ],
+  );
+  assert.deepEqual(validation.missingItems[0].missingInputs, ['HIGRESS_WAF_PLUGIN_URL']);
+  assert.deepEqual(validation.missingItems[1].missingInputs, [
+    'HIGRESS_GATEWAY_BASE_URL',
+  ]);
+  assert.deepEqual(validation.missingItems[2].missingInputs, [
+    'HIGRESS_TLS_GATEWAY_HOST',
+    'HIGRESS_TLS_SERVER_NAME',
+  ]);
+  assert.equal(JSON.stringify(validation).includes('<provider-api-key>'), false);
+});
+
+test('validateProductionReadinessEnv rejects non-url production gateway targets', () => {
+  const validation = validateProductionReadinessEnv({
+    env: {
+      HIGRESS_WAF_PLUGIN_URL: 'oci://registry.customer.example/platform/higress-waf:2.0.0',
+      HIGRESS_GATEWAY_BASE_URL: 'gateway.customer.example',
+      HIGRESS_TLS_GATEWAY_HOST: 'gateway.customer.example',
+      HIGRESS_TLS_SERVER_NAME: 'gateway.customer.example',
+      HIGRESS_OIDC_ACCEPTED_TOKEN: 'accepted-token-value',
+      HIGRESS_OIDC_WRONG_ISSUER_TOKEN: 'wrong-issuer-token-value',
+      HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN: 'wrong-audience-token-value',
+      DELIVERY_SMOKE_DASHSCOPE_API_KEY: 'provider-placeholder-token',
+    },
+  });
+
+  assert.equal(validation.ready, false);
+  assert.deepEqual(
+    validation.missingItems.map((item) => item.name),
+    [
+      'higress-waf-blocking-policy',
+      'higress-oidc-endpoint-security',
+    ],
+  );
+  assert.deepEqual(validation.missingItems[0].missingInputs, [
+    'HIGRESS_GATEWAY_BASE_URL (absolute http(s) target URL)',
+  ]);
+  assert.deepEqual(validation.missingItems[1].missingInputs, [
+    'HIGRESS_GATEWAY_BASE_URL (absolute http(s) target URL)',
+  ]);
 });
 
 test('parseEnvFileText and mergeEnvFileValues load customer evidence without overwriting shell controls', () => {
