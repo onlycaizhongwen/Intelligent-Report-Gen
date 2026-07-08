@@ -81,6 +81,7 @@
 - Customer readiness `.env` files are now authoritative for evidence values while shell variables only preserve output-control keys, preventing stale local gateway, OIDC, TLS, or provider credentials from making an unfilled template appear ready.
 - Production readiness precheck CLI now has regression coverage proving blank customer `.env` evidence files override stale shell WAF/TLS/OIDC/provider values in the real command path.
 - Production WAF/OIDC readiness checks now fail closed when `HIGRESS_GATEWAY_BASE_URL` is missing or points at `localhost`/loopback, preventing local Higress from being counted as customer production gateway evidence.
+- UC-06 document parse worker smoke now fails closed unless the Docker worker remains running after startup stabilization, and records bounded redacted diagnostics when the container exits immediately.
 
 ### 已知问题
 

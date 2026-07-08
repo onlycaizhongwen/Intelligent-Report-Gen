@@ -2,14 +2,28 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
 import {
+  buildDockerInspectArgs,
+  buildDockerLogsArgs,
   buildDockerRunArgs,
   buildDocumentParseWorkerConfig,
+  parseContainerState,
+  summarizeWorkerStartup,
 } from './document-parse-worker-smoke-lib.mjs';
 
 const execFileAsync = promisify(execFile);
 
 const containerName =
   process.env.DOCUMENT_PARSE_WORKER_CONTAINER ?? 'ir-document-parse-worker-smoke';
+const stabilizationMs = Number.parseInt(
+  process.env.DOCUMENT_PARSE_WORKER_STABILIZATION_MS ?? '1500',
+  10,
+);
+
+function wait(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
 
 async function removeExistingContainer(name) {
   try {
@@ -46,24 +60,53 @@ async function main() {
   const { stdout } = await execFileAsync('docker', buildDockerRunArgs(config), {
     windowsHide: true,
   });
+  const containerId = stdout.trim();
+  await wait(Number.isFinite(stabilizationMs) && stabilizationMs >= 0 ? stabilizationMs : 1500);
+
+  const inspectResult = await execFileAsync(
+    'docker',
+    buildDockerInspectArgs(config.containerName),
+    {
+      windowsHide: true,
+    },
+  );
+  const state = parseContainerState(inspectResult.stdout.trim());
+  let logs = '';
+
+  if (!state.running) {
+    try {
+      const logsResult = await execFileAsync(
+        'docker',
+        buildDockerLogsArgs(config.containerName),
+        {
+          windowsHide: true,
+        },
+      );
+      logs = `${logsResult.stdout ?? ''}${logsResult.stderr ?? ''}`;
+    } catch (error) {
+      logs = `${error.stdout ?? ''}${error.stderr ?? ''}`;
+    }
+  }
+
+  const summary = summarizeWorkerStartup({
+    config,
+    removedExistingContainer: removed,
+    containerId,
+    state,
+    logs,
+  });
 
   console.log(
     JSON.stringify(
-      {
-        removedExistingContainer: removed,
-        containerName: config.containerName,
-        containerId: stdout.trim(),
-        network: config.network,
-        topic: config.env.ROCKETMQ_DOCUMENT_TOPIC,
-        consumerGroup: config.env.ROCKETMQ_DOCUMENT_CONSUMER_GROUP,
-        minioEndpoint: config.env.MINIO_ENDPOINT,
-        opensearchUrl: config.env.OPENSEARCH_URL,
-        milvusHost: config.env.MILVUS_HOST,
-      },
+      summary,
       null,
       2,
     ),
   );
+
+  if (!summary.passed) {
+    process.exitCode = 1;
+  }
 }
 
 await main();

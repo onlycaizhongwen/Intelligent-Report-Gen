@@ -58,3 +58,66 @@ export function buildDockerRunArgs(config) {
   args.push(config.image, ...config.command);
   return args;
 }
+
+export function buildDockerInspectArgs(containerName) {
+  return ['inspect', '--format', '{{json .State}}', containerName];
+}
+
+export function buildDockerLogsArgs(containerName, tail = 80) {
+  return ['logs', '--tail', String(tail), containerName];
+}
+
+export function parseContainerState(rawState) {
+  const parsed = JSON.parse(rawState);
+  return {
+    status: parsed.Status ?? 'unknown',
+    running: parsed.Running === true,
+    exitCode: Number.isInteger(parsed.ExitCode) ? parsed.ExitCode : null,
+    error: parsed.Error ?? '',
+  };
+}
+
+function redactSensitiveText(value, config) {
+  let redacted = String(value ?? '');
+  const sensitiveValues = [
+    config.env.MINIO_ROOT_PASSWORD,
+    config.env.DATABASE_URL,
+  ].filter(Boolean);
+
+  for (const sensitiveValue of sensitiveValues) {
+    redacted = redacted.split(sensitiveValue).join('<redacted>');
+  }
+
+  redacted = redacted.replace(
+    /(PASSWORD|SECRET|TOKEN|KEY|DATABASE_URL)=([^\s]+)/gi,
+    '$1=<redacted>',
+  );
+  return redacted;
+}
+
+export function summarizeWorkerStartup({
+  config,
+  removedExistingContainer,
+  containerId,
+  state,
+  logs = '',
+}) {
+  const passed = state.running === true;
+  return {
+    passed,
+    classification: passed
+      ? 'document-parse-worker-running'
+      : 'document-parse-worker-not-running',
+    removedExistingContainer,
+    containerName: config.containerName,
+    containerId,
+    network: config.network,
+    topic: config.env.ROCKETMQ_DOCUMENT_TOPIC,
+    consumerGroup: config.env.ROCKETMQ_DOCUMENT_CONSUMER_GROUP,
+    minioEndpoint: config.env.MINIO_ENDPOINT,
+    opensearchUrl: config.env.OPENSEARCH_URL,
+    milvusHost: config.env.MILVUS_HOST,
+    state,
+    ...(logs ? { logsTail: redactSensitiveText(logs, config) } : {}),
+  };
+}
