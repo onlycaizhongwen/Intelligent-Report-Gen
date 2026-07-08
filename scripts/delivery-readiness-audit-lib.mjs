@@ -30,6 +30,18 @@ function isLocalGatewayUrl(value) {
   }
 }
 
+function isLocalHostName(value) {
+  if (!hasText(value)) {
+    return false;
+  }
+
+  const normalized = value.trim().toLowerCase().replace(/^\[|\]$/g, '');
+  return normalized === 'localhost'
+    || normalized === '127.0.0.1'
+    || normalized === '::1'
+    || normalized === '0.0.0.0';
+}
+
 function gatewayTargetMissingEnv(env) {
   if (!hasEvidenceText(env.HIGRESS_GATEWAY_BASE_URL)) {
     return ['HIGRESS_GATEWAY_BASE_URL'];
@@ -49,12 +61,20 @@ function gatewayTargetMissingEnv(env) {
 }
 
 function tlsTargetMissingEnv(env) {
-  return [
-    ['HIGRESS_TLS_GATEWAY_HOST', env.HIGRESS_TLS_GATEWAY_HOST],
-    ['HIGRESS_TLS_SERVER_NAME', env.HIGRESS_TLS_SERVER_NAME],
-  ]
-    .filter(([, value]) => !hasEvidenceText(value))
-    .map(([name]) => name);
+  const missing = [];
+  if (!hasEvidenceText(env.HIGRESS_TLS_GATEWAY_HOST)) {
+    missing.push('HIGRESS_TLS_GATEWAY_HOST');
+  } else if (isLocalHostName(env.HIGRESS_TLS_GATEWAY_HOST)) {
+    missing.push('HIGRESS_TLS_GATEWAY_HOST (non-local target host)');
+  }
+
+  if (!hasEvidenceText(env.HIGRESS_TLS_SERVER_NAME)) {
+    missing.push('HIGRESS_TLS_SERVER_NAME');
+  } else if (isLocalHostName(env.HIGRESS_TLS_SERVER_NAME)) {
+    missing.push('HIGRESS_TLS_SERVER_NAME (non-local server name)');
+  }
+
+  return missing;
 }
 
 function wafPluginUrlMissingEnv(env) {
@@ -710,6 +730,14 @@ function missingRequiredInputs(inputs = [], env = {}, defaults = {}) {
     if (splitEnvAlternatives(input).includes('HIGRESS_WAF_PLUGIN_URL')) {
       const wafMissing = wafPluginUrlMissingEnv(env);
       return wafMissing.length > 0 ? wafMissing[0] : null;
+    }
+    if (splitEnvAlternatives(input).includes('HIGRESS_TLS_GATEWAY_HOST')) {
+      const tlsMissing = tlsTargetMissingEnv(env).find((item) => item.startsWith('HIGRESS_TLS_GATEWAY_HOST'));
+      return tlsMissing ?? null;
+    }
+    if (splitEnvAlternatives(input).includes('HIGRESS_TLS_SERVER_NAME')) {
+      const tlsMissing = tlsTargetMissingEnv(env).find((item) => item.startsWith('HIGRESS_TLS_SERVER_NAME'));
+      return tlsMissing ?? null;
     }
     if (splitEnvAlternatives(input).includes('HIGRESS_GATEWAY_BASE_URL')) {
       const gatewayMissing = gatewayTargetMissingEnv(env);

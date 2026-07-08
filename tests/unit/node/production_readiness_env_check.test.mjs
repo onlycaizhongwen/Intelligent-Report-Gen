@@ -241,3 +241,45 @@ test('production readiness env check rejects invalid WAF plugin OCI URLs without
     await rm(tempDir, { recursive: true, force: true });
   }
 });
+
+test('production readiness env check rejects local TLS targets for production evidence', async () => {
+  const cleanEnv = { PATH: process.env.PATH };
+  const tempDir = await mkdtemp(join(tmpdir(), 'ir-readiness-env-local-tls-'));
+  try {
+    const envFile = join(tempDir, 'production-readiness.local-tls.env');
+    await writeFile(envFile, [
+      'HIGRESS_WAF_PLUGIN_URL=oci://registry.customer.example/platform/higress-waf:2.0.0',
+      'HIGRESS_GATEWAY_BASE_URL=https://gateway.customer.example',
+      'HIGRESS_TLS_GATEWAY_HOST=127.0.0.1',
+      'HIGRESS_TLS_SERVER_NAME=localhost',
+      'HIGRESS_OIDC_ACCEPTED_TOKEN=accepted-token-placeholder',
+      'HIGRESS_OIDC_WRONG_ISSUER_TOKEN=wrong-issuer-token-placeholder',
+      'HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN=wrong-audience-token-placeholder',
+      'DELIVERY_SMOKE_DASHSCOPE_API_KEY=provider-placeholder-token',
+      '',
+    ].join('\n'), 'utf8');
+
+    const failed = await execFileAsync('node', ['scripts/production-readiness-env-check.mjs'], {
+      env: {
+        ...cleanEnv,
+        PRODUCTION_READINESS_ENV_FILE: envFile,
+      },
+    }).catch((error) => error);
+    const output = JSON.parse(failed.stdout);
+
+    assert.equal(failed.code, 1);
+    assert.deepEqual(output.missingItems, [
+      {
+        name: 'higress-trusted-tls-certificate',
+        missingInputs: [
+          'HIGRESS_TLS_GATEWAY_HOST (non-local target host)',
+          'HIGRESS_TLS_SERVER_NAME (non-local server name)',
+        ],
+      },
+    ]);
+    assert.equal(failed.stdout.includes('provider-placeholder-token'), false);
+    assert.equal(failed.stdout.includes('accepted-token-placeholder'), false);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});

@@ -1035,6 +1035,33 @@ test('validateProductionReadinessEnv rejects invalid WAF plugin OCI evidence wit
   assert.equal(JSON.stringify(withCredentials).includes('secret'), false);
 });
 
+test('validateProductionReadinessEnv rejects local TLS targets for production evidence', () => {
+  const validation = validateProductionReadinessEnv({
+    env: {
+      HIGRESS_WAF_PLUGIN_URL: 'oci://registry.customer.example/platform/higress-waf:2.0.0',
+      HIGRESS_GATEWAY_BASE_URL: 'https://gateway.customer.example',
+      HIGRESS_TLS_GATEWAY_HOST: '127.0.0.1',
+      HIGRESS_TLS_SERVER_NAME: 'localhost',
+      HIGRESS_OIDC_ACCEPTED_TOKEN: 'accepted-token-value',
+      HIGRESS_OIDC_WRONG_ISSUER_TOKEN: 'wrong-issuer-token-value',
+      HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN: 'wrong-audience-token-value',
+      DELIVERY_SMOKE_DASHSCOPE_API_KEY: 'provider-placeholder-token',
+    },
+  });
+
+  assert.equal(validation.ready, false);
+  assert.deepEqual(validation.missingItems, [
+    {
+      name: 'higress-trusted-tls-certificate',
+      missingInputs: [
+        'HIGRESS_TLS_GATEWAY_HOST (non-local target host)',
+        'HIGRESS_TLS_SERVER_NAME (non-local server name)',
+      ],
+    },
+  ]);
+  assert.equal(JSON.stringify(validation).includes('provider-placeholder-token'), false);
+});
+
 test('parseEnvFileText and mergeEnvFileValues load customer evidence without overwriting shell controls', () => {
   const parsed = parseEnvFileText([
     '# customer evidence',
