@@ -7772,7 +7772,24 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "worker failure callback payload",
+        "properties": {
+          "errorCode": {
+            "type": "string",
+            "required": false,
+            "description": "worker supplied error code; defaults to GENERATION_FAILED"
+          },
+          "message": {
+            "type": "string",
+            "required": false,
+            "description": "human-readable failure reason; defaults to report generation failed"
+          },
+          "retryable": {
+            "type": "boolean",
+            "required": false,
+            "description": "whether the failed task may be retried; defaults to true"
+          }
+        }
       }
     },
     "responseBody": {
@@ -7883,7 +7900,97 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "worker completion callback payload",
+        "properties": {
+          "sections": {
+            "type": "array",
+            "required": true,
+            "description": "generated report sections to persist as the current report version",
+            "items": {
+              "type": "object",
+              "properties": {
+                "heading": {
+                  "type": "string",
+                  "required": false,
+                  "description": "section heading"
+                },
+                "content": {
+                  "type": "string",
+                  "required": true,
+                  "description": "section body content"
+                },
+                "citations": {
+                  "type": "array",
+                  "required": false,
+                  "description": "section citation marks",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          },
+          "references": {
+            "type": "array",
+            "required": false,
+            "description": "retrieved evidence references emitted to SSE and returned for audit",
+            "items": {
+              "type": "object"
+            }
+          },
+          "modelInvocation": {
+            "type": "object",
+            "required": false,
+            "description": "model invocation audit payload",
+            "properties": {
+              "provider": {
+                "type": "string",
+                "required": false,
+                "description": "model provider"
+              },
+              "modelName": {
+                "type": "string",
+                "required": false,
+                "description": "model name"
+              },
+              "status": {
+                "type": "string",
+                "required": false,
+                "description": "invocation status; defaults to succeeded"
+              },
+              "traceId": {
+                "type": "string",
+                "required": false,
+                "description": "worker trace id"
+              },
+              "inputTokens": {
+                "type": "integer",
+                "required": false,
+                "description": "input token count"
+              },
+              "outputTokens": {
+                "type": "integer",
+                "required": false,
+                "description": "output token count"
+              },
+              "totalTokens": {
+                "type": "integer",
+                "required": false,
+                "description": "total token count"
+              },
+              "latencyMs": {
+                "type": "integer",
+                "required": false,
+                "description": "model latency in milliseconds"
+              },
+              "responseSummary": {
+                "type": "string",
+                "required": false,
+                "description": "stored model response summary"
+              }
+            }
+          }
+        }
       }
     },
     "responseBody": {
@@ -7994,7 +8101,14 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "retry request payload",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "required": false,
+            "description": "operator or system supplied retry reason"
+          }
+        }
       }
     },
     "responseBody": {

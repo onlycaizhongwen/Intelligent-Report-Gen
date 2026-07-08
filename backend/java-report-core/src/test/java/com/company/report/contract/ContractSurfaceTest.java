@@ -165,6 +165,21 @@ class ContractSurfaceTest {
     }
 
     @Test
+    void reportGenerationWorkerCallbacksDeclareFieldLevelRequestContracts() throws IOException {
+        Map<String, Map<String, Object>> contractsByEndpoint = structuredContractsByEndpoint();
+
+        assertRequestBodyProperties(contractsByEndpoint.get(
+                "POST /api/v1/reports/generation-tasks/{taskId}/completion"),
+                "sections", "references", "modelInvocation");
+        assertRequestBodyProperties(contractsByEndpoint.get(
+                "POST /api/v1/reports/generation-tasks/{taskId}/failure"),
+                "errorCode", "message", "retryable");
+        assertRequestBodyProperties(contractsByEndpoint.get(
+                "POST /api/v1/reports/generation-tasks/{taskId}/retry"),
+                "reason");
+    }
+
+    @Test
     void reportExportEndpointsDeclareFieldLevelResponseContracts() throws IOException {
         Map<String, Map<String, Object>> contractsByEndpoint = structuredContractsByEndpoint();
 
@@ -611,6 +626,22 @@ class ContractSurfaceTest {
         Map<?, ?> properties = (Map<?, ?>) dataSchema.get("properties");
         for (String propertyName : propertyNames) {
             assertThat(properties.containsKey(propertyName)).as(endpoint + " responseBody.data." + propertyName).isTrue();
+        }
+    }
+
+    private void assertRequestBodyProperties(Map<String, Object> contract, String... propertyNames) {
+        assertThat(contract).isNotNull();
+        String endpoint = contract.get("method") + " " + contract.get("path");
+        Map<?, ?> requestBody = (Map<?, ?>) contract.get("requestBody");
+        assertThat(requestBody).as(endpoint + " requestBody").isNotNull();
+        Map<?, ?> schema = requestBody.containsKey("properties")
+                ? requestBody
+                : (Map<?, ?>) requestBody.get("payload");
+        assertThat(schema).as(endpoint + " requestBody schema").isNotNull();
+        assertThat(schema.containsKey("properties")).as(endpoint + " requestBody.properties").isTrue();
+        Map<?, ?> properties = (Map<?, ?>) schema.get("properties");
+        for (String propertyName : propertyNames) {
+            assertThat(properties.containsKey(propertyName)).as(endpoint + " requestBody." + propertyName).isTrue();
         }
     }
 
