@@ -3791,7 +3791,39 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "knowledge item batch import payload",
+        "properties": {
+          "knowledgeBaseId": {
+            "type": "integer",
+            "required": true,
+            "description": "target knowledge base id"
+          },
+          "items": {
+            "type": "array",
+            "required": true,
+            "description": "knowledge item rows to import",
+            "items": {
+              "type": "object",
+              "properties": {
+                "title": {
+                  "type": "string",
+                  "required": true,
+                  "description": "knowledge item title"
+                },
+                "content": {
+                  "type": "string",
+                  "required": true,
+                  "description": "knowledge item content"
+                },
+                "sourceType": {
+                  "type": "string",
+                  "required": false,
+                  "description": "source type; defaults to batch_import"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "responseBody": {
@@ -4828,7 +4860,27 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "data source sync trigger payload",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "required": false,
+            "description": "sync mode; defaults to manual and may be manual_retry for retry flows"
+          },
+          "sampleRows": {
+            "type": "array",
+            "required": false,
+            "description": "optional rows used by local or controlled sync validation; endpoint allowlist and saved profile checks still apply",
+            "items": {
+              "type": "object"
+            }
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "required": false,
+            "description": "extract timeout in milliseconds, between 50 and 300000; defaults to 5000"
+          }
+        }
       }
     },
     "responseBody": {
@@ -5286,7 +5338,47 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "user batch import payload",
+        "properties": {
+          "users": {
+            "type": "array",
+            "required": true,
+            "description": "users to import",
+            "items": {
+              "type": "object",
+              "properties": {
+                "username": {
+                  "type": "string",
+                  "required": true,
+                  "description": "unique login username"
+                },
+                "displayName": {
+                  "type": "string",
+                  "required": false,
+                  "description": "display name; defaults to username"
+                },
+                "department": {
+                  "type": "string",
+                  "required": false,
+                  "description": "department name"
+                },
+                "position": {
+                  "type": "string",
+                  "required": false,
+                  "description": "position name"
+                },
+                "roles": {
+                  "type": "array",
+                  "required": false,
+                  "description": "role identifiers",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "responseBody": {

@@ -206,6 +206,18 @@ class ContractSurfaceTest {
     }
 
     @Test
+    void knowledgeDataSourceAndUserMutationEndpointsDeclareFieldLevelRequestContracts() throws IOException {
+        Map<String, Map<String, Object>> contractsByEndpoint = structuredContractsByEndpoint();
+
+        assertRequestBodyProperties(contractsByEndpoint.get("POST /api/v1/knowledge-items/batch-import"),
+                "knowledgeBaseId", "items");
+        assertRequestBodyProperties(contractsByEndpoint.get("POST /api/v1/data-sources/{dataSourceId}/sync-runs"),
+                "mode", "sampleRows", "timeoutMs");
+        assertRequestBodyProperties(contractsByEndpoint.get("POST /api/v1/users/batch-import"),
+                "users");
+    }
+
+    @Test
     void dataSourceSyncRunEndpointsDeclareFieldLevelResponseContracts() throws IOException {
         Map<String, Map<String, Object>> contractsByEndpoint = structuredContractsByEndpoint();
 
