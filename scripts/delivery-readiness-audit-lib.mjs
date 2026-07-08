@@ -51,9 +51,13 @@ export function mergeEnvFileValues({ baseEnv = process.env, fileEnv = {} } = {})
   const evidenceEnv = Object.fromEntries(
     Object.entries(fileEnv).filter(([key]) => !ENV_FILE_CONTROL_KEYS.has(key)),
   );
+  const controlEnv = Object.fromEntries(
+    Object.entries(baseEnv).filter(([key]) => ENV_FILE_CONTROL_KEYS.has(key)),
+  );
   return {
-    ...evidenceEnv,
     ...baseEnv,
+    ...evidenceEnv,
+    ...controlEnv,
   };
 }
 
@@ -499,12 +503,12 @@ function renderEnvInputLines(inputs = [], renderedInputs = new Set()) {
   const lines = [];
   for (const input of inputs) {
     const alternatives = splitEnvAlternatives(input);
-    alternatives.forEach((name, index) => {
+    alternatives.forEach((name) => {
       if (renderedInputs.has(name)) {
         return;
       }
       renderedInputs.add(name);
-      lines.push(renderEnvAssignment(name, { commented: index > 0 }));
+      lines.push(renderEnvAssignment(name));
     });
   }
   return lines;

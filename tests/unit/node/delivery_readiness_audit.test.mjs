@@ -491,7 +491,7 @@ test('generated production readiness env template keeps credentialed smoke provi
 
   assert.match(template, /# credentialed-delivery-smoke/);
   assert.match(template, /^DELIVERY_SMOKE_DASHSCOPE_API_KEY=/m);
-  assert.match(template, /^# DASHSCOPE_API_KEY=/m);
+  assert.match(template, /^DASHSCOPE_API_KEY=/m);
   assert.equal(template.includes('provider-secret'), false);
 });
 
@@ -588,7 +588,7 @@ test('renderProductionReadinessEnvTemplate creates a customer-fillable blocker e
   assert.match(template, /HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN=/);
   assert.match(template, /# Option: signing-jwks-test-configuration/);
   assert.match(template, /HIGRESS_OIDC_PRIVATE_KEY_FILE=/);
-  assert.match(template, /# HIGRESS_OIDC_PRIVATE_KEY_PEM=/);
+  assert.match(template, /^HIGRESS_OIDC_PRIVATE_KEY_PEM=/m);
   assert.match(template, /HIGRESS_OIDC_KEY_ID=/);
   assert.match(template, /OIDC_ISSUER=/);
   assert.match(template, /OIDC_AUDIENCE=/);
@@ -612,6 +612,7 @@ test('renderProductionReadinessEnvTemplate keeps required inputs for passed prod
 
   assert.match(template, /# credentialed-delivery-smoke/);
   assert.match(template, /DELIVERY_SMOKE_DASHSCOPE_API_KEY=/);
+  assert.match(template, /^DASHSCOPE_API_KEY=/m);
   assert.equal(template.match(/^DELIVERY_SMOKE_DASHSCOPE_API_KEY=/gm).length, 1);
   assert.equal(template.includes('provider-secret'), false);
 });
@@ -702,6 +703,8 @@ test('parseEnvFileText and mergeEnvFileValues load customer evidence without ove
       baseEnv: {
         DELIVERY_READINESS_OUTPUT: 'json',
         DELIVERY_READINESS_REPORT_FILE: 'docs/report.json',
+        HIGRESS_TLS_GATEWAY_HOST: 'stale-shell-host.example',
+        DELIVERY_SMOKE_DASHSCOPE_API_KEY: 'stale-shell-provider-key',
       },
       fileEnv: parsed,
     }),
@@ -711,8 +714,30 @@ test('parseEnvFileText and mergeEnvFileValues load customer evidence without ove
       HIGRESS_WAF_PLUGIN_URL: 'oci://registry.customer.example/platform/higress-waf:2.0.0',
       HIGRESS_TLS_GATEWAY_HOST: 'gateway.customer.example',
       HIGRESS_TLS_SERVER_NAME: 'gateway.customer.example',
+      DELIVERY_SMOKE_DASHSCOPE_API_KEY: 'stale-shell-provider-key',
     },
   );
+});
+
+test('mergeEnvFileValues lets blank evidence file values override stale shell evidence', () => {
+  const merged = mergeEnvFileValues({
+    baseEnv: {
+      PRODUCTION_READINESS_ENV_FILE: 'docs/skill-chain/generated/production-readiness.env.example',
+      DELIVERY_READINESS_OUTPUT: 'json',
+      HIGRESS_GATEWAY_BASE_URL: 'https://stale-gateway.example',
+      DELIVERY_SMOKE_DASHSCOPE_API_KEY: 'stale-provider-key',
+    },
+    fileEnv: {
+      HIGRESS_GATEWAY_BASE_URL: '',
+      DELIVERY_SMOKE_DASHSCOPE_API_KEY: '',
+      DELIVERY_READINESS_OUTPUT: 'markdown',
+    },
+  });
+
+  assert.equal(merged.PRODUCTION_READINESS_ENV_FILE, 'docs/skill-chain/generated/production-readiness.env.example');
+  assert.equal(merged.DELIVERY_READINESS_OUTPUT, 'json');
+  assert.equal(merged.HIGRESS_GATEWAY_BASE_URL, '');
+  assert.equal(merged.DELIVERY_SMOKE_DASHSCOPE_API_KEY, '');
 });
 
 test('loadDeliveryReadinessEnv reads the customer env file for full readiness audits', async () => {

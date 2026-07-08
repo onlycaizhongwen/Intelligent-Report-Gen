@@ -18,7 +18,7 @@ Behavior:
 
 - Current production blockers are still rendered first.
 - Remaining production gates are appended with empty customer-fillable values.
-- `credentialed-delivery-smoke` now contributes `DELIVERY_SMOKE_DASHSCOPE_API_KEY=` and the compatible `# DASHSCOPE_API_KEY=` alternative even when the latest local readiness run already had a provider key.
+- `credentialed-delivery-smoke` now contributes `DELIVERY_SMOKE_DASHSCOPE_API_KEY=` and the compatible `DASHSCOPE_API_KEY=` alternative even when the latest local readiness run already had a provider key.
 - Rendered values remain empty and do not include secrets from the current shell.
 
 ## Evidence
