@@ -36,6 +36,7 @@
 - Delivery readiness now includes `knowledge-index-worker-health-smoke` as a required local gate for UC-05 knowledge item indexing and cleanup workers, and local command gates no longer inherit production evidence variables from blank customer `.env` templates.
 - Report generation worker callback endpoints now declare field-level JSON request contracts for completion, failure, and retry payloads instead of generic `business request body` placeholders.
 - Knowledge item batch import, data-source sync trigger, and user batch import endpoints now declare field-level JSON request contracts for customer API review.
+- Organization directory mutation endpoints now declare field-level JSON request contracts for unit, position, and assignment initialization.
 - RocketMQ 文档解析消息拆分物理 topic 与业务事件类型：物理 topic 使用 `document_parse_requested`，业务事件类型/tag 仍为 `document.parse.requested`。
 - RocketMQ 报告生成、导出和 AI 完成事件同样使用下划线物理 topic，保留点分业务事件类型作为 tag。
 - RocketMQ 生产者由每次发送临时创建调整为 Spring 托管生命周期，减少连接开销并提升可测试性。

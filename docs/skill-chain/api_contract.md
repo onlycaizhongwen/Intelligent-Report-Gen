@@ -5827,7 +5827,34 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "organization unit create payload",
+        "properties": {
+          "code": {
+            "type": "string",
+            "required": true,
+            "description": "unique organization unit code"
+          },
+          "name": {
+            "type": "string",
+            "required": true,
+            "description": "organization unit display name"
+          },
+          "parentId": {
+            "type": "integer",
+            "required": false,
+            "description": "parent organization unit id"
+          },
+          "unitType": {
+            "type": "string",
+            "required": false,
+            "description": "unit type; defaults to department"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "required": false,
+            "description": "sort order"
+          }
+        }
       }
     },
     "responseBody": {
@@ -6012,7 +6039,29 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "organization unit update payload",
+        "properties": {
+          "name": {
+            "type": "string",
+            "required": false,
+            "description": "organization unit display name"
+          },
+          "parentId": {
+            "type": "integer",
+            "required": false,
+            "description": "parent organization unit id; cannot be itself or a descendant"
+          },
+          "unitType": {
+            "type": "string",
+            "required": false,
+            "description": "unit type"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "required": false,
+            "description": "sort order"
+          }
+        }
       }
     },
     "responseBody": {
@@ -6303,7 +6352,42 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "organization position create payload",
+        "properties": {
+          "organizationUnitId": {
+            "type": "integer",
+            "required": true,
+            "description": "owning organization unit id"
+          },
+          "code": {
+            "type": "string",
+            "required": true,
+            "description": "unique position code"
+          },
+          "name": {
+            "type": "string",
+            "required": true,
+            "description": "position display name"
+          },
+          "roles": {
+            "type": "array",
+            "required": false,
+            "description": "roles granted by this position",
+            "items": {
+              "type": "string"
+            }
+          },
+          "managerUserId": {
+            "type": "integer",
+            "required": false,
+            "description": "manager user id"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "required": false,
+            "description": "sort order"
+          }
+        }
       }
     },
     "responseBody": {
@@ -6434,7 +6518,34 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "organization position assignment payload",
+        "properties": {
+          "userId": {
+            "type": "integer",
+            "required": true,
+            "description": "user id to assign"
+          },
+          "positionId": {
+            "type": "integer",
+            "required": true,
+            "description": "target organization position id"
+          },
+          "primary": {
+            "type": "boolean",
+            "required": false,
+            "description": "whether this is the user's primary position"
+          },
+          "activeFrom": {
+            "type": "string",
+            "required": false,
+            "description": "assignment active start time in ISO-8601 format"
+          },
+          "activeTo": {
+            "type": "string",
+            "required": false,
+            "description": "assignment active end time in ISO-8601 format"
+          }
+        }
       }
     },
     "responseBody": {
@@ -6524,7 +6635,44 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "organization position assignment batch import payload",
+        "properties": {
+          "assignments": {
+            "type": "array",
+            "required": true,
+            "description": "position assignment rows to import",
+            "items": {
+              "type": "object",
+              "properties": {
+                "userId": {
+                  "type": "integer",
+                  "required": true,
+                  "description": "user id to assign"
+                },
+                "positionId": {
+                  "type": "integer",
+                  "required": true,
+                  "description": "target organization position id"
+                },
+                "primary": {
+                  "type": "boolean",
+                  "required": false,
+                  "description": "whether this is the user's primary position"
+                },
+                "activeFrom": {
+                  "type": "string",
+                  "required": false,
+                  "description": "assignment active start time in ISO-8601 format"
+                },
+                "activeTo": {
+                  "type": "string",
+                  "required": false,
+                  "description": "assignment active end time in ISO-8601 format"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "responseBody": {
@@ -6645,7 +6793,24 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "organization position assignment update payload",
+        "properties": {
+          "primary": {
+            "type": "boolean",
+            "required": false,
+            "description": "whether this is the user's primary position"
+          },
+          "activeFrom": {
+            "type": "string",
+            "required": false,
+            "description": "assignment active start time in ISO-8601 format"
+          },
+          "activeTo": {
+            "type": "string",
+            "required": false,
+            "description": "assignment active end time in ISO-8601 format"
+          }
+        }
       }
     },
     "responseBody": {
@@ -6741,7 +6906,8 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "optional empty object; current backend ignores body fields for disabling an assignment",
+        "properties": {}
       }
     },
     "responseBody": {

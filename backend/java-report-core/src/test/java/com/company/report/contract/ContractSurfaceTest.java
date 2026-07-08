@@ -297,6 +297,24 @@ class ContractSurfaceTest {
     }
 
     @Test
+    void organizationMutationEndpointsDeclareFieldLevelRequestContracts() throws IOException {
+        Map<String, Map<String, Object>> contractsByEndpoint = structuredContractsByEndpoint();
+
+        assertRequestBodyProperties(contractsByEndpoint.get("POST /api/v1/organization-units"),
+                "code", "name", "parentId", "unitType", "sortOrder");
+        assertRequestBodyProperties(contractsByEndpoint.get("PUT /api/v1/organization-units/{unitId}"),
+                "name", "parentId", "unitType", "sortOrder");
+        assertRequestBodyProperties(contractsByEndpoint.get("POST /api/v1/organization-positions"),
+                "organizationUnitId", "code", "name", "roles", "managerUserId", "sortOrder");
+        assertRequestBodyProperties(contractsByEndpoint.get("POST /api/v1/organization-position-assignments"),
+                "userId", "positionId", "primary", "activeFrom", "activeTo");
+        assertRequestBodyProperties(contractsByEndpoint.get("POST /api/v1/organization-position-assignments/batch-import"),
+                "assignments");
+        assertRequestBodyProperties(contractsByEndpoint.get("PUT /api/v1/organization-position-assignments/{assignmentId}"),
+                "primary", "activeFrom", "activeTo");
+    }
+
+    @Test
     void notificationAndShareRevokeEndpointsDeclareFieldLevelResponseContracts() throws IOException {
         Map<String, Map<String, Object>> contractsByEndpoint = structuredContractsByEndpoint();
 
