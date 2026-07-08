@@ -305,6 +305,71 @@ export function buildProductionReadinessActionPlan({ checks = [], results = [] }
   };
 }
 
+function renderInlineCodeList(values = []) {
+  if (!Array.isArray(values) || values.length === 0) {
+    return '`none`';
+  }
+  return values.map((value) => `\`${value}\``).join(', ');
+}
+
+function renderObserved(observed = {}) {
+  const entries = Object.entries(observed)
+    .filter(([, value]) => value !== undefined)
+    .map(([key, value]) => {
+      const rendered = Array.isArray(value) ? value.join('; ') : String(value);
+      return `- ${key}: ${rendered}`;
+    });
+  return entries.length > 0 ? entries.join('\n') : '- none';
+}
+
+export function renderProductionReadinessActionPlanMarkdown({
+  generatedAt = new Date().toISOString(),
+  summary = {},
+  actionPlan = { ready: true, blockingItems: [] },
+} = {}) {
+  const lines = [
+    '# Production Readiness Action Plan',
+    '',
+    `Generated: ${generatedAt}`,
+    '',
+    `Local ready: ${summary.localReady === true}`,
+    `Production ready: ${summary.productionReady === true}`,
+    `Production blockers: ${(summary.productionBlockingItems ?? []).join(', ') || 'none'}`,
+    '',
+  ];
+
+  if (actionPlan.ready || !Array.isArray(actionPlan.blockingItems) || actionPlan.blockingItems.length === 0) {
+    lines.push('No production readiness blockers are currently reported.', '');
+    return lines.join('\n');
+  }
+
+  for (const item of actionPlan.blockingItems) {
+    lines.push(
+      `## ${item.name}`,
+      '',
+      `Status: ${item.status}`,
+      `Description: ${item.description ?? ''}`,
+      `Required inputs: ${renderInlineCodeList(item.requiredInputs)}`,
+      '',
+      'Commands:',
+      '',
+    );
+    for (const command of item.commands ?? []) {
+      lines.push('```bash', command, '```', '');
+    }
+    lines.push(
+      `Next action: ${item.nextAction}`,
+      `Required evidence: ${item.requiredEvidence}`,
+      '',
+      'Observed:',
+      renderObserved(item.observed),
+      '',
+    );
+  }
+
+  return lines.join('\n');
+}
+
 export function sanitizeCommandEnv(env = {}) {
   return Object.fromEntries(
     Object.entries(env)

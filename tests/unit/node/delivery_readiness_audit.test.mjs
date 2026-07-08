@@ -5,6 +5,7 @@ import {
   buildProductionReadinessActionPlan,
   buildDeliveryReadinessChecks,
   classifyDeliveryReadinessResult,
+  renderProductionReadinessActionPlanMarkdown,
   summarizeDeliveryReadiness,
 } from '../../../scripts/delivery-readiness-audit-lib.mjs';
 
@@ -307,4 +308,43 @@ test('buildProductionReadinessActionPlan converts production blockers into custo
     'HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN',
   ]);
   assert.equal(JSON.stringify(plan).includes('secret'), false);
+});
+
+test('renderProductionReadinessActionPlanMarkdown creates a customer handoff checklist', () => {
+  const markdown = renderProductionReadinessActionPlanMarkdown({
+    generatedAt: '2026-07-08T12:00:00.000Z',
+    summary: {
+      localReady: true,
+      productionReady: false,
+      productionBlockingItems: ['higress-waf-runtime-preflight'],
+    },
+    actionPlan: {
+      ready: false,
+      blockingItems: [
+        {
+          name: 'higress-waf-runtime-preflight',
+          status: 'failed',
+          description: 'Gateway WAF plugin OCI image must be reachable before enabling the blocking policy.',
+          requiredInputs: ['HIGRESS_WAF_PLUGIN_URL'],
+          commands: ['node scripts/higress-waf-runtime-preflight.mjs'],
+          nextAction: 'mirror the approved Higress WAF OCI plugin.',
+          requiredEvidence: 'Preflight returns passed=true.',
+          observed: {
+            status: 'failed',
+            classification: 'waf-plugin-container-registry-unreachable',
+          },
+        },
+      ],
+    },
+  });
+
+  assert.match(markdown, /^# Production Readiness Action Plan/);
+  assert.match(markdown, /Generated: 2026-07-08T12:00:00.000Z/);
+  assert.match(markdown, /Local ready: true/);
+  assert.match(markdown, /Production ready: false/);
+  assert.match(markdown, /## higress-waf-runtime-preflight/);
+  assert.match(markdown, /Required inputs: `HIGRESS_WAF_PLUGIN_URL`/);
+  assert.match(markdown, /```bash\nnode scripts\/higress-waf-runtime-preflight\.mjs\n```/);
+  assert.match(markdown, /waf-plugin-container-registry-unreachable/);
+  assert.equal(markdown.includes('secret'), false);
 });

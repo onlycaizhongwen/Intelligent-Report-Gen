@@ -6,6 +6,7 @@ import {
   buildProductionReadinessActionPlan,
   buildDeliveryReadinessChecks,
   classifyDeliveryReadinessResult,
+  renderProductionReadinessActionPlanMarkdown,
   sanitizeCommandEnv,
   summarizeDeliveryReadiness,
 } from './delivery-readiness-audit-lib.mjs';
@@ -111,29 +112,28 @@ for (const check of checks) {
 
 const summary = summarizeDeliveryReadiness(results);
 const actionPlan = buildProductionReadinessActionPlan({ checks, results });
+const outputPayload = {
+  summary,
+  actionPlan,
+  checks: checks.map((check) => ({
+    name: check.name,
+    scope: check.scope,
+    kind: check.kind,
+    description: check.description,
+    command: check.command,
+    args: check.args,
+    env: check.env,
+    url: check.url,
+    missingEnv: check.missingEnv,
+  })),
+  results,
+};
 
-console.log(
-  JSON.stringify(
-    {
-      summary,
-      actionPlan,
-      checks: checks.map((check) => ({
-        name: check.name,
-        scope: check.scope,
-        kind: check.kind,
-        description: check.description,
-        command: check.command,
-        args: check.args,
-        env: check.env,
-        url: check.url,
-        missingEnv: check.missingEnv,
-      })),
-      results,
-    },
-    null,
-    2,
-  ),
-);
+if (process.env.DELIVERY_READINESS_OUTPUT === 'markdown') {
+  console.log(renderProductionReadinessActionPlanMarkdown({ summary, actionPlan }));
+} else {
+  console.log(JSON.stringify(outputPayload, null, 2));
+}
 
 if (!summary.localReady) {
   process.exit(1);

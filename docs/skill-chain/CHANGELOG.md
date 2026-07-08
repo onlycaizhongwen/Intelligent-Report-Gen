@@ -65,6 +65,7 @@
 - Delivery readiness audit adds `higress-waf-runtime-preflight`, which checks WAF plugin OCI reachability from the Higress runtime container before the blocking policy is enabled.
 - Higress WAF runtime preflight now supports `HIGRESS_WAF_PLUGIN_URL`, allowing customer/private mirrored OCI plugin images to be probed without editing the candidate manifest; readiness reports the value as `<provided>` and preflight rejects URL userinfo with redaction.
 - Delivery readiness audit now emits a structured `actionPlan` for non-passing production gates, including required inputs, rerun commands, next action, required evidence, and compact observed failure context.
+- Delivery readiness audit can now render the production `actionPlan` as customer-readable Markdown through `DELIVERY_READINESS_OUTPUT=markdown`.
 
 ### 已知问题
 
