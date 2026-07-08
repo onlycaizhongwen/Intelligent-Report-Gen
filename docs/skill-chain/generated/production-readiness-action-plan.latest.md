@@ -1,6 +1,6 @@
 # Production Readiness Action Plan
 
-Generated: 2026-07-08T05:01:20.380Z
+Generated: 2026-07-08T05:48:35.846Z
 
 Local ready: true
 Production ready: false
@@ -26,7 +26,7 @@ Optional inputs: `none`
 Commands:
 
 ```bash
-node scripts/higress-waf-runtime-preflight.mjs
+HIGRESS_WAF_PLUGIN_URL=<plugin-oci-url> node scripts/higress-waf-runtime-preflight.mjs
 ```
 
 Next action: mirror the approved Higress WAF OCI plugin into a registry reachable from the Higress runtime, set HIGRESS_WAF_PLUGIN_URL, then rerun the runtime preflight before enabling WAF.
@@ -40,16 +40,16 @@ Observed:
 
 Status: failed
 Description: Gateway WAF policy must block representative SQLi, XSS, path traversal, and prompt-injection probes.
-Required inputs: `HIGRESS_WAF_BLOCKING_COVERAGE`
+Required inputs: `HIGRESS_GATEWAY_BASE_URL`, `HIGRESS_WAF_BLOCKING_COVERAGE`
 Optional inputs: `none`
 
 Commands:
 
 ```bash
-HIGRESS_WAF_BLOCKING_COVERAGE=true node scripts/higress-gateway-smoke.mjs
+HIGRESS_GATEWAY_BASE_URL=<target-gateway-url> HIGRESS_WAF_BLOCKING_COVERAGE=true node scripts/higress-gateway-smoke.mjs
 ```
 
-Next action: enable the approved Higress WAF policy only after the runtime plugin preflight passes, then prove SQLi, XSS, path traversal, and prompt-injection probes are blocked at the gateway.
+Next action: enable the approved Higress WAF policy only after the runtime plugin preflight passes, set the target HIGRESS_GATEWAY_BASE_URL, then prove SQLi, XSS, path traversal, and prompt-injection probes are blocked at that gateway.
 Required evidence: Gateway WAF blocking smoke returns passed=true with no waf-not-blocked failedResults.
 
 Observed:
@@ -66,7 +66,7 @@ Optional inputs: `HIGRESS_TLS_CA_FILE`
 Commands:
 
 ```bash
-node scripts/higress-tls-certificate-smoke.mjs
+HIGRESS_TLS_GATEWAY_HOST=<gateway-host> HIGRESS_TLS_SERVER_NAME=<server-name> node scripts/higress-tls-certificate-smoke.mjs
 ```
 
 Next action: install a trusted gateway certificate for the customer hostname, configure hostname/servername and optional private CA bundle, then rerun the TLS smoke with verification enabled.
@@ -81,19 +81,19 @@ Observed:
 
 Status: blocked
 Description: Gateway OIDC smoke requires either customer token-suite evidence or a customer/test IdP signing configuration.
-Required inputs: `HIGRESS_OIDC_ACCEPTED_TOKEN`, `HIGRESS_OIDC_WRONG_ISSUER_TOKEN`, `HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN`
+Required inputs: `HIGRESS_GATEWAY_BASE_URL`, `HIGRESS_OIDC_ACCEPTED_TOKEN`, `HIGRESS_OIDC_WRONG_ISSUER_TOKEN`, `HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN`
 Optional inputs: `none`
 Input options:
-- customer-token-suite: `HIGRESS_OIDC_ACCEPTED_TOKEN`, `HIGRESS_OIDC_WRONG_ISSUER_TOKEN`, `HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN`; evidence: Accepted token succeeds while wrong issuer and wrong audience tokens are rejected through Higress.
-- signing-jwks-test-configuration: `HIGRESS_OIDC_PRIVATE_KEY_FILE or HIGRESS_OIDC_PRIVATE_KEY_PEM`, `HIGRESS_OIDC_KEY_ID`, `OIDC_ISSUER`, `OIDC_AUDIENCE`; evidence: Generated RS256/JWKS probes prove accepted issuer/audience succeeds and wrong issuer/audience are rejected through Higress.
+- customer-token-suite: `HIGRESS_GATEWAY_BASE_URL`, `HIGRESS_OIDC_ACCEPTED_TOKEN`, `HIGRESS_OIDC_WRONG_ISSUER_TOKEN`, `HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN`; evidence: Accepted token succeeds while wrong issuer and wrong audience tokens are rejected through Higress.
+- signing-jwks-test-configuration: `HIGRESS_GATEWAY_BASE_URL`, `HIGRESS_OIDC_PRIVATE_KEY_FILE or HIGRESS_OIDC_PRIVATE_KEY_PEM`, `HIGRESS_OIDC_KEY_ID`, `OIDC_ISSUER`, `OIDC_AUDIENCE`; evidence: Generated RS256/JWKS probes prove accepted issuer/audience succeeds and wrong issuer/audience are rejected through Higress.
 
 Commands:
 
 ```bash
-HIGRESS_OIDC_ENDPOINT_SECURITY_COVERAGE=true node scripts/higress-gateway-smoke.mjs
+HIGRESS_GATEWAY_BASE_URL=<target-gateway-url> HIGRESS_OIDC_ENDPOINT_SECURITY_COVERAGE=true node scripts/higress-gateway-smoke.mjs
 ```
 
-Next action: provide a customer token suite or signing/JWKS test configuration, then prove accepted issuer/audience succeeds and wrong issuer/audience are rejected through Higress.
+Next action: set the target HIGRESS_GATEWAY_BASE_URL, provide a customer token suite or signing/JWKS test configuration, then prove accepted issuer/audience succeeds and wrong issuer/audience are rejected through Higress.
 Required evidence: OIDC endpoint security smoke returns passed=true for accepted-token 200 and wrong issuer/audience 401 probes.
 
 Observed:

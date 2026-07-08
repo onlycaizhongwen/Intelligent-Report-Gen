@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import {
   buildProductionReadinessActionPlan,
@@ -468,6 +469,18 @@ test('renderProductionReadinessActionPlanMarkdown creates a customer handoff che
   assert.match(markdown, /```bash\nHIGRESS_WAF_PLUGIN_URL=<plugin-oci-url> node scripts\/higress-waf-runtime-preflight\.mjs\n```/);
   assert.match(markdown, /waf-plugin-container-registry-unreachable/);
   assert.equal(markdown.includes('secret'), false);
+});
+
+test('generated latest production readiness markdown keeps copyable blocker commands', () => {
+  const markdown = readFileSync(
+    'docs/skill-chain/generated/production-readiness-action-plan.latest.md',
+    'utf8',
+  );
+
+  assert.match(markdown, /HIGRESS_WAF_PLUGIN_URL=<plugin-oci-url> node scripts\/higress-waf-runtime-preflight\.mjs/);
+  assert.match(markdown, /HIGRESS_GATEWAY_BASE_URL=<target-gateway-url> HIGRESS_WAF_BLOCKING_COVERAGE=true node scripts\/higress-gateway-smoke\.mjs/);
+  assert.match(markdown, /HIGRESS_TLS_GATEWAY_HOST=<gateway-host> HIGRESS_TLS_SERVER_NAME=<server-name> node scripts\/higress-tls-certificate-smoke\.mjs/);
+  assert.match(markdown, /HIGRESS_GATEWAY_BASE_URL=<target-gateway-url> HIGRESS_OIDC_ENDPOINT_SECURITY_COVERAGE=true node scripts\/higress-gateway-smoke\.mjs/);
 });
 
 test('formatDeliveryReadinessAuditOutput preserves JSON default and markdown handoff mode', () => {

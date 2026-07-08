@@ -76,6 +76,7 @@
 - Delivery readiness audit now supports `DELIVERY_READINESS_ENV_FILE=<path>`, letting the full audit reuse the same customer-filled production evidence `.env` file after precheck.
 - Production WAF and OIDC readiness inputs now require `HIGRESS_GATEWAY_BASE_URL`, preventing target-environment evidence from silently using the local Higress default.
 - Production readiness action plans now render copyable commands with required env placeholders for WAF, TLS, OIDC, and credentialed smoke checks.
+- Latest generated production readiness handoff artifacts are now covered by a regression test and regenerated with the current copyable command placeholders.
 
 ### 已知问题
 
