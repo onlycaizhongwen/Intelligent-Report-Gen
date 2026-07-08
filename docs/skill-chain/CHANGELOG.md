@@ -59,6 +59,7 @@
 - Higress local WAF policy is now stored as a non-active candidate manifest. The active local route omits `higress.io/enable-waf` until the WAF plugin image can be mirrored/preloaded and verified with the opt-in blocking smoke.
 - Higress OIDC local test-IdP smoke now proves `RS256`/JWKS authentication through the local gateway with accepted, wrong-issuer, and wrong-audience probes while keeping the default local `HS256` smoke unchanged.
 - Delivery readiness audit now runs the local Higress OIDC test-IdP smoke as a required local gate while keeping customer production OIDC as a separate blocked gate when IdP settings are absent.
+- Higress trusted TLS smoke now supports `HIGRESS_TLS_CA_FILE` for customer/private CA bundles while keeping certificate verification enabled.
 
 ### 已知问题
 

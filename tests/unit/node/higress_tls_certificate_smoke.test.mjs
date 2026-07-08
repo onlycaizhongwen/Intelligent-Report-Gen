@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   evaluateTlsCertificate,
+  readTlsCertificateAuthority,
   runHigressTlsCertificateSmoke,
 } from '../../../scripts/higress-tls-certificate-smoke-lib.mjs';
 
@@ -102,6 +103,56 @@ test('runHigressTlsCertificateSmoke connects with TLS verification enabled', asy
     servername: 'reports.example.com',
     rejectUnauthorized: true,
   }]);
+});
+
+test('runHigressTlsCertificateSmoke accepts a custom CA bundle for private PKI', async () => {
+  const calls = [];
+  const result = await runHigressTlsCertificateSmoke({
+    host: 'gateway.internal.example',
+    port: 443,
+    servername: 'reports.internal.example',
+    ca: '-----BEGIN CERTIFICATE-----\ncustomer-ca\n-----END CERTIFICATE-----\n',
+    now: NOW,
+    minValidDays: 14,
+    connectTls: async (options) => {
+      calls.push(options);
+      return {
+        authorized: true,
+        authorizationError: null,
+        getPeerCertificate: () => ({
+          subject: { CN: 'reports.internal.example' },
+          issuer: { CN: 'Customer Private CA' },
+          valid_to: 'Aug 10 00:00:00 2026 GMT',
+          fingerprint256: 'AA:CC',
+        }),
+        end: () => {},
+      };
+    },
+  });
+
+  assert.equal(result.passed, true);
+  assert.equal(result.caConfigured, true);
+  assert.deepEqual(calls, [{
+    host: 'gateway.internal.example',
+    port: 443,
+    servername: 'reports.internal.example',
+    rejectUnauthorized: true,
+    ca: '-----BEGIN CERTIFICATE-----\ncustomer-ca\n-----END CERTIFICATE-----\n',
+  }]);
+});
+
+test('readTlsCertificateAuthority reads optional CA files', () => {
+  const ca = readTlsCertificateAuthority({
+    caFile: 'config/certs/customer-ca.pem',
+    readFile: (path, encoding) => {
+      assert.equal(path, 'config/certs/customer-ca.pem');
+      assert.equal(encoding, 'utf8');
+      return '-----BEGIN CERTIFICATE-----\ncustomer-ca\n-----END CERTIFICATE-----\n';
+    },
+  });
+
+  assert.equal(ca, '-----BEGIN CERTIFICATE-----\ncustomer-ca\n-----END CERTIFICATE-----\n');
+  assert.equal(readTlsCertificateAuthority({ caFile: '' }), undefined);
 });
 
 test('runHigressTlsCertificateSmoke returns structured failure when TLS verification rejects', async () => {

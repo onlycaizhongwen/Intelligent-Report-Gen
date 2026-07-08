@@ -16,7 +16,7 @@ The local TLS gateway smoke already proves that `https://127.0.0.1:18443` reache
 - `scripts/higress-tls-certificate-smoke.mjs` connects with `rejectUnauthorized=true`.
 - The smoke passes only when the certificate chain is trusted by Node and the leaf certificate has at least `HIGRESS_TLS_MIN_VALID_DAYS` remaining.
 - IP hosts omit SNI unless `HIGRESS_TLS_SERVER_NAME` is explicitly provided, avoiding false local warnings.
-- `.env.example` documents `HIGRESS_TLS_GATEWAY_HOST`, `HIGRESS_TLS_GATEWAY_PORT`, `HIGRESS_TLS_SERVER_NAME`, and `HIGRESS_TLS_MIN_VALID_DAYS`.
+- `.env.example` documents `HIGRESS_TLS_GATEWAY_HOST`, `HIGRESS_TLS_GATEWAY_PORT`, `HIGRESS_TLS_SERVER_NAME`, optional `HIGRESS_TLS_CA_FILE`, and `HIGRESS_TLS_MIN_VALID_DAYS`.
 
 ## Verification
 
@@ -30,4 +30,4 @@ The local TLS gateway smoke already proves that `https://127.0.0.1:18443` reache
 ## Remaining Risk
 
 - This closure adds an executable trusted TLS contract. It does not claim the local Higress certificate is production trusted.
-- Production readiness still requires a managed certificate installed on the real gateway host, then a live run with `HIGRESS_TLS_GATEWAY_HOST`, `HIGRESS_TLS_SERVER_NAME`, and `HIGRESS_TLS_MIN_VALID_DAYS` set for that environment returning `passed=true`.
+- Production readiness still requires a managed certificate installed on the real gateway host, then a live run with `HIGRESS_TLS_GATEWAY_HOST`, `HIGRESS_TLS_SERVER_NAME`, optional `HIGRESS_TLS_CA_FILE` for customer/private CA chains, and `HIGRESS_TLS_MIN_VALID_DAYS` set for that environment returning `passed=true`.

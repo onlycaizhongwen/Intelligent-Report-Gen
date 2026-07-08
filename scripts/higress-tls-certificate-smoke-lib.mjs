@@ -1,5 +1,6 @@
 import tls from 'node:tls';
 import net from 'node:net';
+import fs from 'node:fs';
 
 function connectTlsSocket(options) {
   return new Promise((resolve, reject) => {
@@ -14,6 +15,13 @@ function wholeDaysUntil(validTo, now) {
     return null;
   }
   return Math.floor((validToTime - now.getTime()) / 86_400_000);
+}
+
+export function readTlsCertificateAuthority({ caFile, readFile = fs.readFileSync } = {}) {
+  if (typeof caFile !== 'string' || caFile.trim().length === 0) {
+    return undefined;
+  }
+  return readFile(caFile, 'utf8');
 }
 
 export function evaluateTlsCertificate({
@@ -55,16 +63,19 @@ export async function runHigressTlsCertificateSmoke({
   host = '127.0.0.1',
   port = 18443,
   servername,
+  ca,
   minValidDays = 14,
   now = new Date(),
   connectTls = connectTlsSocket,
 } = {}) {
   let socket;
   const effectiveServername = servername ?? (net.isIP(host) ? undefined : host);
+  const caConfigured = typeof ca === 'string' && ca.trim().length > 0;
   const connectionOptions = {
     host,
     port,
     rejectUnauthorized: true,
+    ...(caConfigured ? { ca } : {}),
     ...(effectiveServername ? { servername: effectiveServername } : {}),
   };
   try {
@@ -81,6 +92,7 @@ export async function runHigressTlsCertificateSmoke({
       port,
       servername: effectiveServername ?? null,
       minValidDays,
+      caConfigured,
       ...result,
     };
   } catch (error) {
@@ -89,6 +101,7 @@ export async function runHigressTlsCertificateSmoke({
       port,
       servername: effectiveServername ?? null,
       minValidDays,
+      caConfigured,
       ...evaluateTlsCertificate({
         authorized: false,
         authorizationError: error?.code ?? error?.message ?? 'TLS_CONNECTION_FAILED',
