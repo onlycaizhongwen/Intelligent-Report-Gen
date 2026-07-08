@@ -148,6 +148,20 @@ class ContractSurfaceTest {
     }
 
     @Test
+    void enterpriseExportTemplateEndpointsDeclareFieldLevelRequestContracts() throws IOException {
+        Map<String, Map<String, Object>> contractsByEndpoint = structuredContractsByEndpoint();
+
+        assertRequestBodyProperties(contractsByEndpoint.get("POST /api/v1/enterprise-export-templates"),
+                "templateId", "name", "brand");
+        assertRequestBodyProperties(contractsByEndpoint.get("PUT /api/v1/enterprise-export-templates/{templateId}"),
+                "name", "brand");
+        assertRequestBodyProperties(contractsByEndpoint.get(
+                "POST /api/v1/enterprise-export-templates/{templateId}/disable"));
+        assertRequestBodyProperties(contractsByEndpoint.get(
+                "POST /api/v1/enterprise-export-templates/{templateId}/enable"));
+    }
+
+    @Test
     void reportGenerationTaskEndpointsDeclareFieldLevelResponseContracts() throws IOException {
         Map<String, Map<String, Object>> contractsByEndpoint = structuredContractsByEndpoint();
 

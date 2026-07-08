@@ -7003,7 +7003,61 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "enterprise export template create payload",
+        "properties": {
+          "templateId": {
+            "type": "string",
+            "required": true,
+            "description": "business template id"
+          },
+          "name": {
+            "type": "string",
+            "required": true,
+            "description": "template display name"
+          },
+          "brand": {
+            "type": "object",
+            "required": false,
+            "description": "enterprise brand and layout specification",
+            "properties": {
+              "companyName": {
+                "type": "string",
+                "required": false,
+                "description": "company or brand name"
+              },
+              "logoObjectKey": {
+                "type": "string",
+                "required": false,
+                "description": "logo object storage key"
+              },
+              "header": {
+                "type": "string",
+                "required": false,
+                "description": "document header text"
+              },
+              "footer": {
+                "type": "string",
+                "required": false,
+                "description": "document footer text"
+              },
+              "fontFamily": {
+                "type": "string",
+                "required": false,
+                "description": "font family"
+              },
+              "primaryColor": {
+                "type": "string",
+                "required": false,
+                "description": "primary brand color in hex format"
+              },
+              "layout": {
+                "type": "object",
+                "required": false,
+                "description": "page, cover, table of contents, and typography settings"
+              }
+            }
+          }
+        }
       }
     },
     "responseBody": {
@@ -7360,7 +7414,61 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "enterprise export template create payload",
+        "properties": {
+          "templateId": {
+            "type": "string",
+            "required": true,
+            "description": "business template id"
+          },
+          "name": {
+            "type": "string",
+            "required": true,
+            "description": "template display name"
+          },
+          "brand": {
+            "type": "object",
+            "required": false,
+            "description": "enterprise brand and layout specification",
+            "properties": {
+              "companyName": {
+                "type": "string",
+                "required": false,
+                "description": "company or brand name"
+              },
+              "logoObjectKey": {
+                "type": "string",
+                "required": false,
+                "description": "logo object storage key"
+              },
+              "header": {
+                "type": "string",
+                "required": false,
+                "description": "document header text"
+              },
+              "footer": {
+                "type": "string",
+                "required": false,
+                "description": "document footer text"
+              },
+              "fontFamily": {
+                "type": "string",
+                "required": false,
+                "description": "font family"
+              },
+              "primaryColor": {
+                "type": "string",
+                "required": false,
+                "description": "primary brand color in hex format"
+              },
+              "layout": {
+                "type": "object",
+                "required": false,
+                "description": "page, cover, table of contents, and typography settings"
+              }
+            }
+          }
+        }
       }
     },
     "responseBody": {
@@ -7597,7 +7705,56 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "enterprise export template update payload",
+        "properties": {
+          "name": {
+            "type": "string",
+            "required": false,
+            "description": "new template display name"
+          },
+          "brand": {
+            "type": "object",
+            "required": false,
+            "description": "replacement enterprise brand and layout specification",
+            "properties": {
+              "companyName": {
+                "type": "string",
+                "required": false,
+                "description": "company or brand name"
+              },
+              "logoObjectKey": {
+                "type": "string",
+                "required": false,
+                "description": "logo object storage key"
+              },
+              "header": {
+                "type": "string",
+                "required": false,
+                "description": "document header text"
+              },
+              "footer": {
+                "type": "string",
+                "required": false,
+                "description": "document footer text"
+              },
+              "fontFamily": {
+                "type": "string",
+                "required": false,
+                "description": "font family"
+              },
+              "primaryColor": {
+                "type": "string",
+                "required": false,
+                "description": "primary brand color in hex format"
+              },
+              "layout": {
+                "type": "object",
+                "required": false,
+                "description": "page, cover, table of contents, and typography settings"
+              }
+            }
+          }
+        }
       }
     },
     "responseBody": {
@@ -7818,7 +7975,8 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "optional empty object; current backend ignores body fields when disabling an enterprise export template",
+        "properties": {}
       }
     },
     "responseBody": {
@@ -7924,7 +8082,8 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "optional empty object; current backend ignores body fields when enabling an enterprise export template",
+        "properties": {}
       }
     },
     "responseBody": {
