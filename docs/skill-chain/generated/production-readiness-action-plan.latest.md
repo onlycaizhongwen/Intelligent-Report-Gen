@@ -1,0 +1,101 @@
+# Production Readiness Action Plan
+
+Generated: 2026-07-08T05:01:20.380Z
+
+Local ready: true
+Production ready: false
+Passed production gates: credentialed-delivery-smoke
+Production blockers: higress-waf-runtime-preflight, higress-waf-blocking-policy, higress-trusted-tls-certificate, higress-oidc-endpoint-security
+
+## Passed Production Evidence
+
+### credentialed-delivery-smoke
+
+Evidence:
+- completedSteps: p0-local-smoke; p1-local-smoke; p2-local-smoke; p3-local-smoke
+- plannedStepCount: 4
+- resultCount: 4
+
+## higress-waf-runtime-preflight
+
+Status: failed
+Description: Gateway WAF plugin OCI image must be reachable before enabling the blocking policy.
+Required inputs: `HIGRESS_WAF_PLUGIN_URL`
+Optional inputs: `none`
+
+Commands:
+
+```bash
+node scripts/higress-waf-runtime-preflight.mjs
+```
+
+Next action: mirror the approved Higress WAF OCI plugin into a registry reachable from the Higress runtime, set HIGRESS_WAF_PLUGIN_URL, then rerun the runtime preflight before enabling WAF.
+Required evidence: Preflight returns passed=true and containerRegistryReachable=true for the configured plugin registry.
+
+Observed:
+- status: failed
+- classification: waf-plugin-container-registry-unreachable
+
+## higress-waf-blocking-policy
+
+Status: failed
+Description: Gateway WAF policy must block representative SQLi, XSS, path traversal, and prompt-injection probes.
+Required inputs: `HIGRESS_WAF_BLOCKING_COVERAGE`
+Optional inputs: `none`
+
+Commands:
+
+```bash
+HIGRESS_WAF_BLOCKING_COVERAGE=true node scripts/higress-gateway-smoke.mjs
+```
+
+Next action: enable the approved Higress WAF policy only after the runtime plugin preflight passes, then prove SQLi, XSS, path traversal, and prompt-injection probes are blocked at the gateway.
+Required evidence: Gateway WAF blocking smoke returns passed=true with no waf-not-blocked failedResults.
+
+Observed:
+- status: failed
+- failedResultCount: 4
+
+## higress-trusted-tls-certificate
+
+Status: failed
+Description: Gateway TLS certificate must be trusted and valid for the configured minimum window.
+Required inputs: `HIGRESS_TLS_GATEWAY_HOST`, `HIGRESS_TLS_SERVER_NAME`
+Optional inputs: `HIGRESS_TLS_CA_FILE`
+
+Commands:
+
+```bash
+node scripts/higress-tls-certificate-smoke.mjs
+```
+
+Next action: install a trusted gateway certificate for the customer hostname, configure hostname/servername and optional private CA bundle, then rerun the TLS smoke with verification enabled.
+Required evidence: TLS smoke returns passed=true/classification=tls-trusted with daysRemaining above the configured minimum.
+
+Observed:
+- status: failed
+- classification: tls-untrusted
+- authorizationError: DEPTH_ZERO_SELF_SIGNED_CERT
+
+## higress-oidc-endpoint-security
+
+Status: blocked
+Description: Gateway OIDC smoke requires either customer token-suite evidence or a customer/test IdP signing configuration.
+Required inputs: `HIGRESS_OIDC_ACCEPTED_TOKEN`, `HIGRESS_OIDC_WRONG_ISSUER_TOKEN`, `HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN`
+Optional inputs: `none`
+Input options:
+- customer-token-suite: `HIGRESS_OIDC_ACCEPTED_TOKEN`, `HIGRESS_OIDC_WRONG_ISSUER_TOKEN`, `HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN`; evidence: Accepted token succeeds while wrong issuer and wrong audience tokens are rejected through Higress.
+- signing-jwks-test-configuration: `HIGRESS_OIDC_PRIVATE_KEY_FILE or HIGRESS_OIDC_PRIVATE_KEY_PEM`, `HIGRESS_OIDC_KEY_ID`, `OIDC_ISSUER`, `OIDC_AUDIENCE`; evidence: Generated RS256/JWKS probes prove accepted issuer/audience succeeds and wrong issuer/audience are rejected through Higress.
+
+Commands:
+
+```bash
+HIGRESS_OIDC_ENDPOINT_SECURITY_COVERAGE=true node scripts/higress-gateway-smoke.mjs
+```
+
+Next action: provide a customer token suite or signing/JWKS test configuration, then prove accepted issuer/audience succeeds and wrong issuer/audience are rejected through Higress.
+Required evidence: OIDC endpoint security smoke returns passed=true for accepted-token 200 and wrong issuer/audience 401 probes.
+
+Observed:
+- status: blocked
+- missingEnv: HIGRESS_OIDC_ACCEPTED_TOKEN + HIGRESS_OIDC_WRONG_ISSUER_TOKEN + HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN; or HIGRESS_OIDC_PRIVATE_KEY_FILE/HIGRESS_OIDC_PRIVATE_KEY_PEM + HIGRESS_OIDC_KEY_ID + OIDC_ISSUER + OIDC_AUDIENCE
