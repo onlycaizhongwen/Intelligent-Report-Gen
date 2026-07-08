@@ -173,3 +173,71 @@ test('production readiness env check rejects local gateway URLs for production e
     await rm(tempDir, { recursive: true, force: true });
   }
 });
+
+test('production readiness env check rejects invalid WAF plugin OCI URLs without leaking credentials', async () => {
+  const cleanEnv = { PATH: process.env.PATH };
+  const tempDir = await mkdtemp(join(tmpdir(), 'ir-readiness-env-waf-url-'));
+  try {
+    const invalidSchemeFile = join(tempDir, 'production-readiness.invalid-waf.env');
+    await writeFile(invalidSchemeFile, [
+      'HIGRESS_WAF_PLUGIN_URL=https://registry.customer.example/platform/higress-waf:2.0.0',
+      'HIGRESS_GATEWAY_BASE_URL=https://gateway.customer.example',
+      'HIGRESS_TLS_GATEWAY_HOST=gateway.customer.example',
+      'HIGRESS_TLS_SERVER_NAME=gateway.customer.example',
+      'HIGRESS_OIDC_ACCEPTED_TOKEN=accepted-token-placeholder',
+      'HIGRESS_OIDC_WRONG_ISSUER_TOKEN=wrong-issuer-token-placeholder',
+      'HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN=wrong-audience-token-placeholder',
+      'DELIVERY_SMOKE_DASHSCOPE_API_KEY=provider-placeholder-token',
+      '',
+    ].join('\n'), 'utf8');
+
+    const invalidScheme = await execFileAsync('node', ['scripts/production-readiness-env-check.mjs'], {
+      env: {
+        ...cleanEnv,
+        PRODUCTION_READINESS_ENV_FILE: invalidSchemeFile,
+      },
+    }).catch((error) => error);
+    const invalidSchemeOutput = JSON.parse(invalidScheme.stdout);
+
+    assert.equal(invalidScheme.code, 1);
+    assert.deepEqual(invalidSchemeOutput.missingItems, [
+      {
+        name: 'higress-waf-runtime-preflight',
+        missingInputs: ['HIGRESS_WAF_PLUGIN_URL (oci://registry/repository:tag)'],
+      },
+    ]);
+
+    const credentialFile = join(tempDir, 'production-readiness.waf-credentials.env');
+    await writeFile(credentialFile, [
+      'HIGRESS_WAF_PLUGIN_URL=oci://user:secret@registry.customer.example/platform/higress-waf:2.0.0',
+      'HIGRESS_GATEWAY_BASE_URL=https://gateway.customer.example',
+      'HIGRESS_TLS_GATEWAY_HOST=gateway.customer.example',
+      'HIGRESS_TLS_SERVER_NAME=gateway.customer.example',
+      'HIGRESS_OIDC_ACCEPTED_TOKEN=accepted-token-placeholder',
+      'HIGRESS_OIDC_WRONG_ISSUER_TOKEN=wrong-issuer-token-placeholder',
+      'HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN=wrong-audience-token-placeholder',
+      'DELIVERY_SMOKE_DASHSCOPE_API_KEY=provider-placeholder-token',
+      '',
+    ].join('\n'), 'utf8');
+
+    const credentialed = await execFileAsync('node', ['scripts/production-readiness-env-check.mjs'], {
+      env: {
+        ...cleanEnv,
+        PRODUCTION_READINESS_ENV_FILE: credentialFile,
+      },
+    }).catch((error) => error);
+    const credentialedOutput = JSON.parse(credentialed.stdout);
+
+    assert.equal(credentialed.code, 1);
+    assert.deepEqual(credentialedOutput.missingItems, [
+      {
+        name: 'higress-waf-runtime-preflight',
+        missingInputs: ['HIGRESS_WAF_PLUGIN_URL (without embedded credentials)'],
+      },
+    ]);
+    assert.equal(credentialed.stdout.includes('secret'), false);
+    assert.equal(credentialed.stdout.includes('accepted-token-placeholder'), false);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});

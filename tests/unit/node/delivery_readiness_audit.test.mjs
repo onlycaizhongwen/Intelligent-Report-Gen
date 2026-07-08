@@ -860,7 +860,7 @@ test('validateProductionReadinessEnv reports missing production evidence inputs 
 
   const tokenSuiteValidation = validateProductionReadinessEnv({
     env: {
-      HIGRESS_WAF_PLUGIN_URL: 'oci://user:secret@registry.customer.example/platform/higress-waf:2.0.0',
+      HIGRESS_WAF_PLUGIN_URL: 'oci://registry.customer.example/platform/higress-waf:2.0.0',
       HIGRESS_GATEWAY_BASE_URL: 'https://gateway.customer.example',
       HIGRESS_TLS_GATEWAY_HOST: 'gateway.customer.example',
       HIGRESS_TLS_SERVER_NAME: 'gateway.customer.example',
@@ -988,6 +988,51 @@ test('validateProductionReadinessEnv rejects non-url production gateway targets'
   assert.deepEqual(validation.missingItems[1].missingInputs, [
     'HIGRESS_GATEWAY_BASE_URL (absolute http(s) target URL)',
   ]);
+});
+
+test('validateProductionReadinessEnv rejects invalid WAF plugin OCI evidence without leaking credentials', () => {
+  const invalidScheme = validateProductionReadinessEnv({
+    env: {
+      HIGRESS_WAF_PLUGIN_URL: 'https://registry.customer.example/platform/higress-waf:2.0.0',
+      HIGRESS_GATEWAY_BASE_URL: 'https://gateway.customer.example',
+      HIGRESS_TLS_GATEWAY_HOST: 'gateway.customer.example',
+      HIGRESS_TLS_SERVER_NAME: 'gateway.customer.example',
+      HIGRESS_OIDC_ACCEPTED_TOKEN: 'accepted-token-value',
+      HIGRESS_OIDC_WRONG_ISSUER_TOKEN: 'wrong-issuer-token-value',
+      HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN: 'wrong-audience-token-value',
+      DELIVERY_SMOKE_DASHSCOPE_API_KEY: 'provider-placeholder-token',
+    },
+  });
+
+  assert.equal(invalidScheme.ready, false);
+  assert.deepEqual(invalidScheme.missingItems, [
+    {
+      name: 'higress-waf-runtime-preflight',
+      missingInputs: ['HIGRESS_WAF_PLUGIN_URL (oci://registry/repository:tag)'],
+    },
+  ]);
+
+  const withCredentials = validateProductionReadinessEnv({
+    env: {
+      HIGRESS_WAF_PLUGIN_URL: 'oci://user:secret@registry.customer.example/platform/higress-waf:2.0.0',
+      HIGRESS_GATEWAY_BASE_URL: 'https://gateway.customer.example',
+      HIGRESS_TLS_GATEWAY_HOST: 'gateway.customer.example',
+      HIGRESS_TLS_SERVER_NAME: 'gateway.customer.example',
+      HIGRESS_OIDC_ACCEPTED_TOKEN: 'accepted-token-value',
+      HIGRESS_OIDC_WRONG_ISSUER_TOKEN: 'wrong-issuer-token-value',
+      HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN: 'wrong-audience-token-value',
+      DELIVERY_SMOKE_DASHSCOPE_API_KEY: 'provider-placeholder-token',
+    },
+  });
+
+  assert.equal(withCredentials.ready, false);
+  assert.deepEqual(withCredentials.missingItems, [
+    {
+      name: 'higress-waf-runtime-preflight',
+      missingInputs: ['HIGRESS_WAF_PLUGIN_URL (without embedded credentials)'],
+    },
+  ]);
+  assert.equal(JSON.stringify(withCredentials).includes('secret'), false);
 });
 
 test('parseEnvFileText and mergeEnvFileValues load customer evidence without overwriting shell controls', () => {

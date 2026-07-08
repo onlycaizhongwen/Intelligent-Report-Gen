@@ -57,6 +57,31 @@ function tlsTargetMissingEnv(env) {
     .map(([name]) => name);
 }
 
+function wafPluginUrlMissingEnv(env) {
+  if (!hasEvidenceText(env.HIGRESS_WAF_PLUGIN_URL)) {
+    return ['HIGRESS_WAF_PLUGIN_URL'];
+  }
+
+  const value = env.HIGRESS_WAF_PLUGIN_URL.trim();
+  if (!value.startsWith('oci://')) {
+    return ['HIGRESS_WAF_PLUGIN_URL (oci://registry/repository:tag)'];
+  }
+
+  const withoutScheme = value.slice('oci://'.length);
+  const slashIndex = withoutScheme.indexOf('/');
+  const tagIndex = withoutScheme.lastIndexOf(':');
+  if (slashIndex <= 0 || tagIndex <= slashIndex + 1 || tagIndex === withoutScheme.length - 1) {
+    return ['HIGRESS_WAF_PLUGIN_URL (oci://registry/repository:tag)'];
+  }
+
+  const registry = withoutScheme.slice(0, slashIndex);
+  if (registry.includes('@')) {
+    return ['HIGRESS_WAF_PLUGIN_URL (without embedded credentials)'];
+  }
+
+  return [];
+}
+
 function parseJsonObject(text) {
   if (!hasText(text)) {
     return {};
@@ -682,6 +707,10 @@ function envInputSatisfied(input, env, defaults = {}) {
 
 function missingRequiredInputs(inputs = [], env = {}, defaults = {}) {
   return inputs.map((input) => {
+    if (splitEnvAlternatives(input).includes('HIGRESS_WAF_PLUGIN_URL')) {
+      const wafMissing = wafPluginUrlMissingEnv(env);
+      return wafMissing.length > 0 ? wafMissing[0] : null;
+    }
     if (splitEnvAlternatives(input).includes('HIGRESS_GATEWAY_BASE_URL')) {
       const gatewayMissing = gatewayTargetMissingEnv(env);
       return gatewayMissing.length > 0 ? gatewayMissing[0] : null;
