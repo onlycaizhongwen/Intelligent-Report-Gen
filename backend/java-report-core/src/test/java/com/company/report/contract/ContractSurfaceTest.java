@@ -162,6 +162,32 @@ class ContractSurfaceTest {
     }
 
     @Test
+    void ruleGovernanceConfigurationEndpointsDeclareFieldLevelRequestContracts() throws IOException {
+        Map<String, Map<String, Object>> contractsByEndpoint = structuredContractsByEndpoint();
+
+        assertRequestBodyProperties(contractsByEndpoint.get("POST /api/v1/rules/approval-templates"),
+                "name", "description", "status", "steps");
+        assertRequestBodyProperties(contractsByEndpoint.get("PUT /api/v1/rules/approval-templates/{templateId}"),
+                "name", "description", "status", "steps");
+        assertRequestBodyProperties(contractsByEndpoint.get(
+                "POST /api/v1/rules/approval-templates/{templateId}/versions/{version}/rollback"));
+        assertRequestBodyProperties(contractsByEndpoint.get(
+                "POST /api/v1/rules/approval-templates/{templateId}/disable"));
+        assertRequestBodyProperties(contractsByEndpoint.get(
+                "POST /api/v1/rules/approval-templates/{templateId}/enable"));
+        assertRequestBodyProperties(contractsByEndpoint.get("POST /api/v1/rules/approval-delegate-rules"),
+                "assigneeRole", "delegateRole", "activeFrom", "activeTo", "activeWeekdays", "activeDates", "reason");
+        assertRequestBodyProperties(contractsByEndpoint.get("POST /api/v1/rules/approval-delegate-rules/batch-import"),
+                "rules");
+        assertRequestBodyProperties(contractsByEndpoint.get("PUT /api/v1/rules/approval-delegate-rules/{delegateRuleId}"),
+                "assigneeRole", "delegateRole", "activeFrom", "activeTo", "activeWeekdays", "activeDates", "reason");
+        assertRequestBodyProperties(contractsByEndpoint.get(
+                "POST /api/v1/rules/approval-delegate-rules/{delegateRuleId}/disable"), "reason");
+        assertRequestBodyProperties(contractsByEndpoint.get(
+                "POST /api/v1/rules/approval-delegate-rules/{delegateRuleId}/enable"), "reason");
+    }
+
+    @Test
     void reportGenerationTaskEndpointsDeclareFieldLevelResponseContracts() throws IOException {
         Map<String, Map<String, Object>> contractsByEndpoint = structuredContractsByEndpoint();
 

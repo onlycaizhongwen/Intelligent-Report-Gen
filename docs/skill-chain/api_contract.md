@@ -8901,7 +8901,50 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "approval delegate rule create payload",
+        "properties": {
+          "assigneeRole": {
+            "type": "string",
+            "required": true,
+            "description": "original approver role"
+          },
+          "delegateRole": {
+            "type": "string",
+            "required": true,
+            "description": "delegate approver role; must differ from assigneeRole"
+          },
+          "activeFrom": {
+            "type": "string",
+            "required": false,
+            "description": "delegate active start time in ISO-8601 offset format"
+          },
+          "activeTo": {
+            "type": "string",
+            "required": false,
+            "description": "delegate active end time in ISO-8601 offset format"
+          },
+          "activeWeekdays": {
+            "type": "array",
+            "required": false,
+            "description": "active weekdays such as MONDAY",
+            "items": {
+              "type": "string"
+            }
+          },
+          "activeDates": {
+            "type": "array",
+            "required": false,
+            "description": "specific active dates in yyyy-MM-dd format",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reason": {
+            "type": "string",
+            "required": false,
+            "description": "business reason for creation or change"
+          }
+        }
       }
     },
     "responseBody": {
@@ -9162,7 +9205,82 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "approval template create payload",
+        "properties": {
+          "name": {
+            "type": "string",
+            "required": true,
+            "description": "approval template name"
+          },
+          "description": {
+            "type": "string",
+            "required": false,
+            "description": "approval template description"
+          },
+          "status": {
+            "type": "string",
+            "required": false,
+            "description": "template status: enabled or disabled; defaults to enabled on create"
+          },
+          "steps": {
+            "type": "array",
+            "required": true,
+            "description": "ordered approval template steps",
+            "items": {
+              "type": "object",
+              "properties": {
+                "stepId": {
+                  "type": "string",
+                  "required": false,
+                  "description": "stable step id; defaults to generated stepN when omitted"
+                },
+                "approvalTitle": {
+                  "type": "string",
+                  "required": true,
+                  "description": "approval task title shown to approvers"
+                },
+                "assigneeRoles": {
+                  "type": "array",
+                  "required": true,
+                  "description": "roles that can approve this step",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "approvalMode": {
+                  "type": "string",
+                  "required": false,
+                  "description": "approval mode: all or any; defaults to all"
+                },
+                "slaHours": {
+                  "type": "integer",
+                  "required": false,
+                  "description": "SLA threshold in hours"
+                },
+                "slaEscalations": {
+                  "type": "array",
+                  "required": false,
+                  "description": "SLA escalation rules",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "afterHours": {
+                        "type": "integer",
+                        "required": true,
+                        "description": "hours after which escalation applies"
+                      },
+                      "role": {
+                        "type": "string",
+                        "required": true,
+                        "description": "role that receives escalation"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "responseBody": {
@@ -9568,7 +9686,82 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "approval template update payload; update creates a new immutable version",
+        "properties": {
+          "name": {
+            "type": "string",
+            "required": true,
+            "description": "approval template name"
+          },
+          "description": {
+            "type": "string",
+            "required": false,
+            "description": "approval template description"
+          },
+          "status": {
+            "type": "string",
+            "required": false,
+            "description": "template status: enabled or disabled; defaults to enabled on create"
+          },
+          "steps": {
+            "type": "array",
+            "required": true,
+            "description": "ordered approval template steps",
+            "items": {
+              "type": "object",
+              "properties": {
+                "stepId": {
+                  "type": "string",
+                  "required": false,
+                  "description": "stable step id; defaults to generated stepN when omitted"
+                },
+                "approvalTitle": {
+                  "type": "string",
+                  "required": true,
+                  "description": "approval task title shown to approvers"
+                },
+                "assigneeRoles": {
+                  "type": "array",
+                  "required": true,
+                  "description": "roles that can approve this step",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "approvalMode": {
+                  "type": "string",
+                  "required": false,
+                  "description": "approval mode: all or any; defaults to all"
+                },
+                "slaHours": {
+                  "type": "integer",
+                  "required": false,
+                  "description": "SLA threshold in hours"
+                },
+                "slaEscalations": {
+                  "type": "array",
+                  "required": false,
+                  "description": "SLA escalation rules",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "afterHours": {
+                        "type": "integer",
+                        "required": true,
+                        "description": "hours after which escalation applies"
+                      },
+                      "role": {
+                        "type": "string",
+                        "required": true,
+                        "description": "role that receives escalation"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "responseBody": {
@@ -9995,7 +10188,8 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "optional empty object; current backend derives rollback source from path parameters",
+        "properties": {}
       }
     },
     "responseBody": {
@@ -10229,7 +10423,8 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "optional empty object; current backend disables the template using the path parameter",
+        "properties": {}
       }
     },
     "responseBody": {
@@ -10405,7 +10600,8 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "optional empty object; current backend enables the template using the path parameter",
+        "properties": {}
       }
     },
     "responseBody": {
@@ -10575,7 +10771,60 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "approval delegate rule batch import payload",
+        "properties": {
+          "rules": {
+            "type": "array",
+            "required": true,
+            "description": "delegate rules to import",
+            "items": {
+              "type": "object",
+              "properties": {
+                "assigneeRole": {
+                  "type": "string",
+                  "required": true,
+                  "description": "original approver role"
+                },
+                "delegateRole": {
+                  "type": "string",
+                  "required": true,
+                  "description": "delegate approver role; must differ from assigneeRole"
+                },
+                "activeFrom": {
+                  "type": "string",
+                  "required": false,
+                  "description": "delegate active start time in ISO-8601 offset format"
+                },
+                "activeTo": {
+                  "type": "string",
+                  "required": false,
+                  "description": "delegate active end time in ISO-8601 offset format"
+                },
+                "activeWeekdays": {
+                  "type": "array",
+                  "required": false,
+                  "description": "active weekdays such as MONDAY",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "activeDates": {
+                  "type": "array",
+                  "required": false,
+                  "description": "specific active dates in yyyy-MM-dd format",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "reason": {
+                  "type": "string",
+                  "required": false,
+                  "description": "business reason for creation or change"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "responseBody": {
@@ -10686,7 +10935,50 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "approval delegate rule update payload",
+        "properties": {
+          "assigneeRole": {
+            "type": "string",
+            "required": true,
+            "description": "original approver role"
+          },
+          "delegateRole": {
+            "type": "string",
+            "required": true,
+            "description": "delegate approver role; must differ from assigneeRole"
+          },
+          "activeFrom": {
+            "type": "string",
+            "required": false,
+            "description": "delegate active start time in ISO-8601 offset format"
+          },
+          "activeTo": {
+            "type": "string",
+            "required": false,
+            "description": "delegate active end time in ISO-8601 offset format"
+          },
+          "activeWeekdays": {
+            "type": "array",
+            "required": false,
+            "description": "active weekdays such as MONDAY",
+            "items": {
+              "type": "string"
+            }
+          },
+          "activeDates": {
+            "type": "array",
+            "required": false,
+            "description": "specific active dates in yyyy-MM-dd format",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reason": {
+            "type": "string",
+            "required": false,
+            "description": "business reason for creation or change"
+          }
+        }
       }
     },
     "responseBody": {
@@ -10808,7 +11100,14 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "approval delegate rule disable payload",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "required": false,
+            "description": "business reason for lifecycle change"
+          }
+        }
       }
     },
     "responseBody": {
@@ -10930,7 +11229,14 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "approval delegate rule enable payload",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "required": false,
+            "description": "business reason for lifecycle change"
+          }
+        }
       }
     },
     "responseBody": {
