@@ -1,10 +1,10 @@
 # Production Readiness Action Plan
 
-Generated: 2026-07-08T07:01:58.819Z
+Generated: 2026-07-08T07:25:05.416Z
 
 Local ready: true
 Production ready: false
-Passed local gates: frontend-browser-http, higress-default-security-smoke, higress-local-oidc-test-idp-smoke, document-parse-worker-health-smoke
+Passed local gates: frontend-browser-http, higress-default-security-smoke, higress-local-oidc-test-idp-smoke, local-docker-dependency-health-smoke, document-parse-worker-health-smoke
 Passed production gates: credentialed-delivery-smoke
 Production blockers: higress-waf-runtime-preflight, higress-waf-blocking-policy, higress-trusted-tls-certificate, higress-oidc-endpoint-security
 
@@ -41,6 +41,14 @@ Evidence:
 - resultCount: 3
 - oidcResults: [{"name":"oidc-current-user-authorized-through-higress","status":200,"code":200,"classification":"endpoint-security-expected","passed":true},{"name":"oidc-current-user-wrong-issuer-through-higress","status":401,"code":401,"classification":"endpoint-security-expected","passed":true},{"name":"oidc-current-user-wrong-audience-through-higress","status":401,"code":401,"classification":"endpoint-security-expected","passed":true}]
 
+### local-docker-dependency-health-smoke
+
+Evidence:
+- passed: true
+- classification: local-docker-dependencies-healthy
+- resultCount: 10
+- failedResults: none
+
 ### document-parse-worker-health-smoke
 
 Evidence:
@@ -48,7 +56,7 @@ Evidence:
 - classification: document-parse-worker-healthy
 - removedExistingContainer: true
 - containerName: ir-document-parse-worker-smoke
-- containerId: d6d0e6a574210c25d1b5a62f198c6dfdd042178305b64e65870f4d622a5fcb9d
+- containerId: 4f03eb54e5fb4e012005fb2d58523b4a6789479f280f1fd45496c03c346742a4
 - network: intelligent-report-infra_default
 - topic: document_parse_requested
 - consumerGroup: python-ai-document-parse-smoke

@@ -35,6 +35,7 @@ test('buildDeliveryReadinessChecks separates local evidence from production gate
       'frontend-browser-http',
       'higress-default-security-smoke',
       'higress-local-oidc-test-idp-smoke',
+      'local-docker-dependency-health-smoke',
       'document-parse-worker-health-smoke',
       'higress-waf-runtime-preflight',
       'higress-waf-blocking-policy',
@@ -49,16 +50,19 @@ test('buildDeliveryReadinessChecks separates local evidence from production gate
   assert.deepEqual(checks[2].args, ['scripts/higress-oidc-local-smoke.mjs']);
   assert.equal(checks[2].timeoutMs, 180_000);
   assert.equal(checks[3].scope, 'local');
-  assert.deepEqual(checks[3].args, ['scripts/document-parse-worker-smoke.mjs']);
-  assert.equal(checks[3].timeoutMs, 90_000);
-  assert.equal(checks[4].scope, 'production');
-  assert.deepEqual(checks[4].args, ['scripts/higress-waf-runtime-preflight.mjs']);
-  assert.equal(checks[4].timeoutMs, 45_000);
-  assert.equal(checks[7].kind, 'command');
-  assert.equal(checks[7].env.HIGRESS_OIDC_ENDPOINT_SECURITY_COVERAGE, 'true');
-  assert.equal(checks[7].timeoutMs, 120_000);
-  assert.equal(checks[8].env.DELIVERY_SMOKE_DASHSCOPE_API_KEY, '<provided>');
-  assert.equal(checks[8].timeoutMs, 600_000);
+  assert.deepEqual(checks[3].args, ['scripts/local-docker-dependency-health-smoke.mjs']);
+  assert.equal(checks[3].timeoutMs, 45_000);
+  assert.equal(checks[4].scope, 'local');
+  assert.deepEqual(checks[4].args, ['scripts/document-parse-worker-smoke.mjs']);
+  assert.equal(checks[4].timeoutMs, 90_000);
+  assert.equal(checks[5].scope, 'production');
+  assert.deepEqual(checks[5].args, ['scripts/higress-waf-runtime-preflight.mjs']);
+  assert.equal(checks[5].timeoutMs, 45_000);
+  assert.equal(checks[8].kind, 'command');
+  assert.equal(checks[8].env.HIGRESS_OIDC_ENDPOINT_SECURITY_COVERAGE, 'true');
+  assert.equal(checks[8].timeoutMs, 120_000);
+  assert.equal(checks[9].env.DELIVERY_SMOKE_DASHSCOPE_API_KEY, '<provided>');
+  assert.equal(checks[9].timeoutMs, 600_000);
   assert.equal(JSON.stringify(checks), JSON.stringify(checks).replace('provider-placeholder-key', '<leaked>'));
   assert.equal(JSON.stringify(checks), JSON.stringify(checks).replace('private-placeholder-pem', '<leaked>'));
 });
@@ -67,6 +71,7 @@ test('buildDeliveryReadinessChecks marks credential-gated production checks as b
   const checks = buildDeliveryReadinessChecks({ env: {} });
   const oidc = checks.find((check) => check.name === 'higress-oidc-endpoint-security');
   const localOidc = checks.find((check) => check.name === 'higress-local-oidc-test-idp-smoke');
+  const localDocker = checks.find((check) => check.name === 'local-docker-dependency-health-smoke');
   const documentWorker = checks.find((check) => check.name === 'document-parse-worker-health-smoke');
   const wafBlocking = checks.find((check) => check.name === 'higress-waf-blocking-policy');
   const delivery = checks.find((check) => check.name === 'credentialed-delivery-smoke');
@@ -74,6 +79,10 @@ test('buildDeliveryReadinessChecks marks credential-gated production checks as b
   assert.equal(localOidc.kind, 'command');
   assert.equal(localOidc.scope, 'local');
   assert.deepEqual(localOidc.args, ['scripts/higress-oidc-local-smoke.mjs']);
+
+  assert.equal(localDocker.kind, 'command');
+  assert.equal(localDocker.scope, 'local');
+  assert.deepEqual(localDocker.args, ['scripts/local-docker-dependency-health-smoke.mjs']);
 
   assert.equal(documentWorker.kind, 'command');
   assert.equal(documentWorker.scope, 'local');
@@ -446,11 +455,23 @@ test('renderProductionReadinessActionPlanMarkdown creates a customer handoff che
     summary: {
       localReady: true,
       productionReady: false,
-      localPassedItems: ['document-parse-worker-health-smoke'],
+      localPassedItems: ['local-docker-dependency-health-smoke', 'document-parse-worker-health-smoke'],
       productionPassedItems: ['credentialed-delivery-smoke'],
       productionBlockingItems: ['higress-waf-runtime-preflight'],
     },
     results: [
+      {
+        name: 'local-docker-dependency-health-smoke',
+        scope: 'local',
+        status: 'passed',
+        required: true,
+        evidence: {
+          passed: true,
+          classification: 'local-docker-dependencies-healthy',
+          resultCount: 10,
+          failedResults: [],
+        },
+      },
       {
         name: 'document-parse-worker-health-smoke',
         scope: 'local',
@@ -505,8 +526,11 @@ test('renderProductionReadinessActionPlanMarkdown creates a customer handoff che
   assert.match(markdown, /Generated: 2026-07-08T12:00:00.000Z/);
   assert.match(markdown, /Local ready: true/);
   assert.match(markdown, /Production ready: false/);
-  assert.match(markdown, /Passed local gates: document-parse-worker-health-smoke/);
+  assert.match(markdown, /Passed local gates: local-docker-dependency-health-smoke, document-parse-worker-health-smoke/);
   assert.match(markdown, /## Passed Local Evidence/);
+  assert.match(markdown, /### local-docker-dependency-health-smoke/);
+  assert.match(markdown, /local-docker-dependencies-healthy/);
+  assert.match(markdown, /- resultCount: 10/);
   assert.match(markdown, /### document-parse-worker-health-smoke/);
   assert.match(markdown, /document-parse-worker-healthy/);
   assert.match(markdown, /"healthStatus":"healthy"/);
@@ -533,6 +557,7 @@ test('generated latest production readiness markdown keeps copyable blocker comm
     'utf8',
   );
 
+  assert.match(markdown, /local-docker-dependency-health-smoke/);
   assert.match(markdown, /HIGRESS_WAF_PLUGIN_URL=<plugin-oci-url> node scripts\/higress-waf-runtime-preflight\.mjs/);
   assert.match(markdown, /HIGRESS_GATEWAY_BASE_URL=<target-gateway-url> HIGRESS_WAF_BLOCKING_COVERAGE=true node scripts\/higress-gateway-smoke\.mjs/);
   assert.match(markdown, /HIGRESS_TLS_GATEWAY_HOST=<gateway-host> HIGRESS_TLS_SERVER_NAME=<server-name> node scripts\/higress-tls-certificate-smoke\.mjs/);

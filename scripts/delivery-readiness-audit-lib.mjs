@@ -224,6 +224,13 @@ export function buildDeliveryReadinessChecks({ env = process.env } = {}) {
       timeoutMs: 180_000,
     }),
     commandCheck({
+      name: 'local-docker-dependency-health-smoke',
+      scope: 'local',
+      description: 'Required local Docker dependencies must be running and healthy before customer handoff smokes run.',
+      args: ['scripts/local-docker-dependency-health-smoke.mjs'],
+      timeoutMs: 45_000,
+    }),
+    commandCheck({
       name: 'document-parse-worker-health-smoke',
       scope: 'local',
       description: 'UC-06 document parse worker must remain running and healthy against local Docker dependencies.',

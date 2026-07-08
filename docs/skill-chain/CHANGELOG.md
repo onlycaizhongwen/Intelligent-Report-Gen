@@ -84,6 +84,7 @@
 - UC-06 document parse worker smoke now fails closed unless the Docker worker remains running after startup stabilization, and records bounded redacted diagnostics when the container exits immediately.
 - UC-06 document parse worker smoke now also waits for Docker healthcheck status and requires `healthy` when the worker image exposes health evidence.
 - Delivery readiness now includes UC-06 document parse worker health as a required local gate, renders passed local evidence in the customer handoff, and gives credentialed P0-P3 smoke a 600 second timeout.
+- Delivery readiness now includes `local-docker-dependency-health-smoke` as a required local gate, proving PostgreSQL, Redis, MinIO, RocketMQ, OpenSearch, Milvus, Java API, Higress, and etcd container readiness before customer handoff evidence is accepted.
 
 ### 已知问题
 
