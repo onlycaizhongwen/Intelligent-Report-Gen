@@ -77,6 +77,7 @@
 - Production WAF and OIDC readiness inputs now require `HIGRESS_GATEWAY_BASE_URL`, preventing target-environment evidence from silently using the local Higress default.
 - Production readiness action plans now render copyable commands with required env placeholders for WAF, TLS, OIDC, and credentialed smoke checks.
 - Latest generated production readiness handoff artifacts are now covered by a regression test and regenerated with the current copyable command placeholders.
+- Production readiness `.env` templates now include required inputs for all production evidence gates, including passed gates such as credentialed P0-P3 smoke, so customer target-environment reruns do not miss provider-key inputs.
 
 ### 已知问题
 

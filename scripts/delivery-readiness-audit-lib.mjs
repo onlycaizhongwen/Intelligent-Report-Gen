@@ -573,13 +573,20 @@ export function renderProductionReadinessEnvTemplate({
   ];
 
   const blockingItems = Array.isArray(actionPlan.blockingItems) ? actionPlan.blockingItems : [];
-  if (actionPlan.ready || blockingItems.length === 0) {
-    lines.push('# No production readiness blocker inputs are currently required.', '');
-    return lines.join('\n');
+  const renderedItems = new Map(blockingItems.map((item) => [item.name, item]));
+  for (const [name, action] of Object.entries(PRODUCTION_ACTIONS)) {
+    if (!renderedItems.has(name)) {
+      renderedItems.set(name, {
+        name,
+        requiredInputs: action.requiredInputs ?? [],
+        optionalInputs: action.optionalInputs ?? [],
+        inputOptions: action.inputOptions ?? [],
+      });
+    }
   }
 
   const renderedInputs = new Set();
-  for (const item of blockingItems) {
+  for (const item of renderedItems.values()) {
     lines.push(`# ${item.name}`);
     if (Array.isArray(item.inputOptions) && item.inputOptions.length > 0) {
       for (const option of item.inputOptions) {

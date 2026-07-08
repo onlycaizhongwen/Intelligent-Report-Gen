@@ -483,6 +483,18 @@ test('generated latest production readiness markdown keeps copyable blocker comm
   assert.match(markdown, /HIGRESS_GATEWAY_BASE_URL=<target-gateway-url> HIGRESS_OIDC_ENDPOINT_SECURITY_COVERAGE=true node scripts\/higress-gateway-smoke\.mjs/);
 });
 
+test('generated production readiness env template keeps credentialed smoke provider inputs', () => {
+  const template = readFileSync(
+    'docs/skill-chain/generated/production-readiness.env.example',
+    'utf8',
+  );
+
+  assert.match(template, /# credentialed-delivery-smoke/);
+  assert.match(template, /^DELIVERY_SMOKE_DASHSCOPE_API_KEY=/m);
+  assert.match(template, /^# DASHSCOPE_API_KEY=/m);
+  assert.equal(template.includes('provider-secret'), false);
+});
+
 test('formatDeliveryReadinessAuditOutput preserves JSON default and markdown handoff mode', () => {
   const payload = {
     summary: { localReady: true, productionReady: false, productionBlockingItems: ['higress-waf-runtime-preflight'] },
@@ -581,6 +593,27 @@ test('renderProductionReadinessEnvTemplate creates a customer-fillable blocker e
   assert.match(template, /OIDC_ISSUER=/);
   assert.match(template, /OIDC_AUDIENCE=/);
   assert.equal(template.includes('secret'), false);
+});
+
+test('renderProductionReadinessEnvTemplate keeps required inputs for passed production gates', () => {
+  const template = renderProductionReadinessEnvTemplate({
+    actionPlan: {
+      ready: false,
+      blockingItems: [
+        {
+          name: 'higress-waf-runtime-preflight',
+          requiredInputs: ['HIGRESS_WAF_PLUGIN_URL'],
+          optionalInputs: [],
+          inputOptions: [],
+        },
+      ],
+    },
+  });
+
+  assert.match(template, /# credentialed-delivery-smoke/);
+  assert.match(template, /DELIVERY_SMOKE_DASHSCOPE_API_KEY=/);
+  assert.equal(template.match(/^DELIVERY_SMOKE_DASHSCOPE_API_KEY=/gm).length, 1);
+  assert.equal(template.includes('provider-secret'), false);
 });
 
 test('validateProductionReadinessEnv reports missing production evidence inputs without leaking values', () => {
