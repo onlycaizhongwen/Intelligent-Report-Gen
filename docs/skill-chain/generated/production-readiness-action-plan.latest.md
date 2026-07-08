@@ -1,12 +1,12 @@
 # Production Readiness Action Plan
 
-Generated: 2026-07-08T08:10:24.736Z
+Generated: 2026-07-08T09:23:50.850Z
 
 Local ready: true
 Production ready: false
 Passed local gates: frontend-browser-http, higress-default-security-smoke, higress-local-oidc-test-idp-smoke, local-docker-dependency-health-smoke, report-generation-worker-health-smoke, document-parse-worker-health-smoke, knowledge-index-worker-health-smoke
-Passed production gates: none
-Production blockers: higress-waf-runtime-preflight, higress-waf-blocking-policy, higress-trusted-tls-certificate, higress-oidc-endpoint-security, credentialed-delivery-smoke
+Passed production gates: credentialed-delivery-smoke
+Production blockers: higress-waf-runtime-preflight, higress-waf-blocking-policy, higress-trusted-tls-certificate, higress-oidc-endpoint-security
 
 ## Passed Local Evidence
 
@@ -65,7 +65,7 @@ Evidence:
 - classification: document-parse-worker-healthy
 - removedExistingContainer: true
 - containerName: ir-document-parse-worker-smoke
-- containerId: 93f4dffad43b7df9def800d9090d241df42a0ceda0d3458850bff299ef3dcd4b
+- containerId: 15bb92457d34952347add3fef94518422c73192f07d52a604036438fe97a3024
 - network: intelligent-report-infra_default
 - topic: document_parse_requested
 - consumerGroup: python-ai-document-parse-smoke
@@ -80,7 +80,16 @@ Evidence:
 - passed: true
 - classification: knowledge-index-workers-running
 - workerCount: 2
-- workers: [{"role":"knowledge-index-cleanup","passed":true,"classification":"knowledge-index-cleanup-healthy","removedExistingContainer":true,"containerName":"ir-knowledge-index-cleanup-worker-smoke","containerId":"83962fc6e483acf44b3d3c4aeb1e36681badeefad255498f088d788145e05a11","network":"intelligent-report-infra_default","opensearchUrl":"http://ir-opensearch:9200","milvusHost":"ir-milvus","state":{"status":"running","running":true,"exitCode":0,"error":"","healthStatus":"healthy","healthFailingStreak":0}},{"role":"knowledge-item-index","passed":true,"classification":"knowledge-item-index-healthy","removedExistingContainer":true,"containerName":"ir-knowledge-item-index-worker-smoke","containerId":"f3c286bcf49a675208ad3c168d903eec5b0f9db85ad2f41bebe0b04fa677bfd5","network":"intelligent-report-infra_default","opensearchUrl":"http://ir-opensearch:9200","milvusHost":"ir-milvus","state":{"status":"running","running":true,"exitCode":0,"error":"","healthStatus":"healthy","healthFailingStreak":0}}]
+- workers: [{"role":"knowledge-index-cleanup","passed":true,"classification":"knowledge-index-cleanup-healthy","removedExistingContainer":true,"containerName":"ir-knowledge-index-cleanup-worker-smoke","containerId":"dea0e36c343951b889e47d7743c7d025a2b5039d1689eb472ee78fc91b6abb6c","network":"intelligent-report-infra_default","opensearchUrl":"http://ir-opensearch:9200","milvusHost":"ir-milvus","state":{"status":"running","running":true,"exitCode":0,"error":"","healthStatus":"healthy","healthFailingStreak":0}},{"role":"knowledge-item-index","passed":true,"classification":"knowledge-item-index-healthy","removedExistingContainer":true,"containerName":"ir-knowledge-item-index-worker-smoke","containerId":"189b5c2aa31ef91d7db4e0c8ad78ed542fefa8f92b5e57193723fd23a916fbec","network":"intelligent-report-infra_default","opensearchUrl":"http://ir-opensearch:9200","milvusHost":"ir-milvus","state":{"status":"running","running":true,"exitCode":0,"error":"","healthStatus":"healthy","healthFailingStreak":0}}]
+
+## Passed Production Evidence
+
+### credentialed-delivery-smoke
+
+Evidence:
+- completedSteps: p0-local-smoke; p1-local-smoke; p2-local-smoke; p3-local-smoke
+- plannedStepCount: 4
+- resultCount: 4
 
 ## higress-waf-runtime-preflight
 
@@ -101,6 +110,11 @@ Required evidence: Preflight returns passed=true and containerRegistryReachable=
 Observed:
 - status: failed
 - classification: waf-plugin-container-registry-unreachable
+- containerRegistryReachable: false
+- hostRegistryReachable: true
+- hostManifestReachable: false
+- hostManifestStatus: 401
+- nextAction: mirror or authenticate the WAF plugin manifest in a registry reachable from the Higress runtime container, then rerun the WAF runtime preflight before enabling the blocking policy.
 
 ## higress-waf-blocking-policy
 
@@ -124,8 +138,8 @@ Observed:
 
 ## higress-trusted-tls-certificate
 
-Status: failed
-Description: Gateway TLS certificate must be trusted and valid for the configured minimum window.
+Status: blocked
+Description: Gateway TLS certificate smoke requires an explicit target host and server name.
 Required inputs: `HIGRESS_TLS_GATEWAY_HOST`, `HIGRESS_TLS_SERVER_NAME`
 Optional inputs: `HIGRESS_TLS_CA_FILE`
 
@@ -139,9 +153,8 @@ Next action: install a trusted gateway certificate for the customer hostname, co
 Required evidence: TLS smoke returns passed=true/classification=tls-trusted with daysRemaining above the configured minimum.
 
 Observed:
-- status: failed
-- classification: tls-untrusted
-- authorizationError: DEPTH_ZERO_SELF_SIGNED_CERT
+- status: blocked
+- missingEnv: HIGRESS_TLS_GATEWAY_HOST; HIGRESS_TLS_SERVER_NAME
 
 ## higress-oidc-endpoint-security
 
@@ -165,23 +178,3 @@ Required evidence: OIDC endpoint security smoke returns passed=true for accepted
 Observed:
 - status: blocked
 - missingEnv: HIGRESS_GATEWAY_BASE_URL; HIGRESS_OIDC_ACCEPTED_TOKEN + HIGRESS_OIDC_WRONG_ISSUER_TOKEN + HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN; or HIGRESS_OIDC_PRIVATE_KEY_FILE/HIGRESS_OIDC_PRIVATE_KEY_PEM + HIGRESS_OIDC_KEY_ID + OIDC_ISSUER + OIDC_AUDIENCE
-
-## credentialed-delivery-smoke
-
-Status: blocked
-Description: Full P0-P3 delivery smoke requires a real external model provider key.
-Required inputs: `DELIVERY_SMOKE_DASHSCOPE_API_KEY or DASHSCOPE_API_KEY`
-Optional inputs: `none`
-
-Commands:
-
-```bash
-DELIVERY_SMOKE_DASHSCOPE_API_KEY=<provider-api-key> node scripts/delivery-local-smoke.mjs
-```
-
-Next action: provide a real external model provider key and run the full P0-P3 delivery smoke against the target environment.
-Required evidence: Credentialed delivery smoke completes P0, P1, P2, and P3 with passed status.
-
-Observed:
-- status: blocked
-- missingEnv: DELIVERY_SMOKE_DASHSCOPE_API_KEY or DASHSCOPE_API_KEY

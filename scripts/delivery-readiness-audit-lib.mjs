@@ -32,6 +32,15 @@ function gatewayTargetMissingEnv(env) {
   return [];
 }
 
+function tlsTargetMissingEnv(env) {
+  return [
+    ['HIGRESS_TLS_GATEWAY_HOST', env.HIGRESS_TLS_GATEWAY_HOST],
+    ['HIGRESS_TLS_SERVER_NAME', env.HIGRESS_TLS_SERVER_NAME],
+  ]
+    .filter(([, value]) => !hasText(value))
+    .map(([name]) => name);
+}
+
 function parseJsonObject(text) {
   if (!hasText(text)) {
     return {};
@@ -182,6 +191,8 @@ function commandCheck({
 export function buildDeliveryReadinessChecks({ env = process.env } = {}) {
   const gatewayMissingEnv = gatewayTargetMissingEnv(env);
   const hasProductionGateway = gatewayMissingEnv.length === 0;
+  const tlsMissingEnv = tlsTargetMissingEnv(env);
+  const hasTlsTarget = tlsMissingEnv.length === 0;
   const hasOidcPrivateKey = hasText(env.HIGRESS_OIDC_PRIVATE_KEY_FILE)
     || hasText(env.HIGRESS_OIDC_PRIVATE_KEY_PEM);
   const hasOidcConfig = hasOidcPrivateKey
@@ -287,13 +298,25 @@ export function buildDeliveryReadinessChecks({ env = process.env } = {}) {
           description: 'Gateway WAF blocking smoke requires an explicit non-local target gateway URL.',
           missingEnv: gatewayMissingEnv,
         }),
-    commandCheck({
-      name: 'higress-trusted-tls-certificate',
-      scope: 'production',
-      description: 'Gateway TLS certificate must be trusted and valid for the configured minimum window.',
-      args: ['scripts/higress-tls-certificate-smoke.mjs'],
-      timeoutMs: 45_000,
-    }),
+    hasTlsTarget
+      ? commandCheck({
+          name: 'higress-trusted-tls-certificate',
+          scope: 'production',
+          description: 'Gateway TLS certificate must be trusted and valid for the configured minimum window.',
+          args: ['scripts/higress-tls-certificate-smoke.mjs'],
+          timeoutMs: 45_000,
+          env: {
+            HIGRESS_TLS_GATEWAY_HOST: '<provided>',
+            HIGRESS_TLS_SERVER_NAME: '<provided>',
+            HIGRESS_TLS_CA_FILE: hasText(env.HIGRESS_TLS_CA_FILE) ? '<provided>' : undefined,
+          },
+        })
+      : blockedCheck({
+          name: 'higress-trusted-tls-certificate',
+          scope: 'production',
+          description: 'Gateway TLS certificate smoke requires an explicit target host and server name.',
+          missingEnv: tlsMissingEnv,
+        }),
     hasProductionGateway && (hasOidcConfig || hasOidcTokenSuite)
       ? commandCheck({
           name: 'higress-oidc-endpoint-security',

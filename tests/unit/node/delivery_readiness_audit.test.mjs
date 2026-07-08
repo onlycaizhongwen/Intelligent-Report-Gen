@@ -80,6 +80,7 @@ test('buildDeliveryReadinessChecks separates local evidence from production gate
 test('buildDeliveryReadinessChecks marks credential-gated production checks as blocked when inputs are missing', () => {
   const checks = buildDeliveryReadinessChecks({ env: {} });
   const oidc = checks.find((check) => check.name === 'higress-oidc-endpoint-security');
+  const tls = checks.find((check) => check.name === 'higress-trusted-tls-certificate');
   const localOidc = checks.find((check) => check.name === 'higress-local-oidc-test-idp-smoke');
   const localDocker = checks.find((check) => check.name === 'local-docker-dependency-health-smoke');
   const reportWorker = checks.find((check) => check.name === 'report-generation-worker-health-smoke');
@@ -111,6 +112,13 @@ test('buildDeliveryReadinessChecks marks credential-gated production checks as b
   assert.equal(wafBlocking.kind, 'blocked');
   assert.equal(wafBlocking.status, 'blocked');
   assert.deepEqual(wafBlocking.missingEnv, ['HIGRESS_GATEWAY_BASE_URL']);
+
+  assert.equal(tls.kind, 'blocked');
+  assert.equal(tls.status, 'blocked');
+  assert.deepEqual(tls.missingEnv, [
+    'HIGRESS_TLS_GATEWAY_HOST',
+    'HIGRESS_TLS_SERVER_NAME',
+  ]);
 
   assert.equal(oidc.kind, 'blocked');
   assert.equal(oidc.status, 'blocked');
