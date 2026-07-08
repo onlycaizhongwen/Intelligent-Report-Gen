@@ -1,10 +1,10 @@
 # Production Readiness Action Plan
 
-Generated: 2026-07-08T07:25:05.416Z
+Generated: 2026-07-08T07:39:43.679Z
 
 Local ready: true
 Production ready: false
-Passed local gates: frontend-browser-http, higress-default-security-smoke, higress-local-oidc-test-idp-smoke, local-docker-dependency-health-smoke, document-parse-worker-health-smoke
+Passed local gates: frontend-browser-http, higress-default-security-smoke, higress-local-oidc-test-idp-smoke, local-docker-dependency-health-smoke, report-generation-worker-health-smoke, document-parse-worker-health-smoke
 Passed production gates: credentialed-delivery-smoke
 Production blockers: higress-waf-runtime-preflight, higress-waf-blocking-policy, higress-trusted-tls-certificate, higress-oidc-endpoint-security
 
@@ -49,6 +49,15 @@ Evidence:
 - resultCount: 10
 - failedResults: none
 
+### report-generation-worker-health-smoke
+
+Evidence:
+- passed: true
+- classification: report-generation-worker-healthy
+- containerName: ir-report-generation-worker-smoke
+- requiredHealthStatus: healthy
+- state: {"status":"running","running":true,"exitCode":0,"error":"","healthStatus":"healthy","healthFailingStreak":0}
+
 ### document-parse-worker-health-smoke
 
 Evidence:
@@ -56,7 +65,7 @@ Evidence:
 - classification: document-parse-worker-healthy
 - removedExistingContainer: true
 - containerName: ir-document-parse-worker-smoke
-- containerId: 4f03eb54e5fb4e012005fb2d58523b4a6789479f280f1fd45496c03c346742a4
+- containerId: a62ec31ba6865181faac90b0aa0a0763e2da70ce36c22a1d3d174000fd527272
 - network: intelligent-report-infra_default
 - topic: document_parse_requested
 - consumerGroup: python-ai-document-parse-smoke

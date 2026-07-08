@@ -231,6 +231,13 @@ export function buildDeliveryReadinessChecks({ env = process.env } = {}) {
       timeoutMs: 45_000,
     }),
     commandCheck({
+      name: 'report-generation-worker-health-smoke',
+      scope: 'local',
+      description: 'UC-01 report generation worker must be running and healthy in the local Docker stack.',
+      args: ['scripts/report-generation-worker-smoke.mjs'],
+      timeoutMs: 45_000,
+    }),
+    commandCheck({
       name: 'document-parse-worker-health-smoke',
       scope: 'local',
       description: 'UC-06 document parse worker must remain running and healthy against local Docker dependencies.',
