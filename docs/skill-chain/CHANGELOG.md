@@ -39,6 +39,7 @@
 - Organization directory mutation endpoints now declare field-level JSON request contracts for unit, position, and assignment initialization.
 - Enterprise export template governance endpoints now declare field-level JSON request contracts for brand and layout payload review.
 - Rule governance configuration endpoints now declare field-level JSON request contracts for approval templates and delegate rules.
+- Rule runtime, approval action, scheduler, and webhook action execution endpoints now declare field-level JSON request contracts; generic request-body placeholders are now zero.
 - RocketMQ 文档解析消息拆分物理 topic 与业务事件类型：物理 topic 使用 `document_parse_requested`，业务事件类型/tag 仍为 `document.parse.requested`。
 - RocketMQ 报告生成、导出和 AI 完成事件同样使用下划线物理 topic，保留点分业务事件类型作为 tag。
 - RocketMQ 生产者由每次发送临时创建调整为 Spring 托管生命周期，减少连接开销并提升可测试性。

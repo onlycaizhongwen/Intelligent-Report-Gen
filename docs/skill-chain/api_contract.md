@@ -11358,7 +11358,14 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "rule review submission payload",
+        "properties": {
+          "comment": {
+            "type": "string",
+            "required": false,
+            "description": "operator comment recorded in audit and response payload"
+          }
+        }
       }
     },
     "responseBody": {
@@ -11484,7 +11491,14 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "rule publish approval payload",
+        "properties": {
+          "comment": {
+            "type": "string",
+            "required": false,
+            "description": "operator comment recorded in audit and response payload"
+          }
+        }
       }
     },
     "responseBody": {
@@ -11610,7 +11624,14 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "rule production execution payload",
+        "properties": {
+          "sample": {
+            "type": "object",
+            "required": true,
+            "description": "runtime sample fields used by rule conditions and actions"
+          }
+        }
       }
     },
     "responseBody": {
@@ -12661,7 +12682,19 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "approval record action payload",
+        "properties": {
+          "action": {
+            "type": "string",
+            "required": true,
+            "description": "approval action: approve or reject"
+          },
+          "comment": {
+            "type": "string",
+            "required": false,
+            "description": "approval comment"
+          }
+        }
       }
     },
     "responseBody": {
@@ -12940,7 +12973,19 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "approval supplement resubmission payload",
+        "properties": {
+          "comment": {
+            "type": "string",
+            "required": false,
+            "description": "supplement comment"
+          },
+          "evidenceUrl": {
+            "type": "string",
+            "required": false,
+            "description": "supplement evidence URL or object reference"
+          }
+        }
       }
     },
     "responseBody": {
@@ -13234,7 +13279,8 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "optional empty object; current backend sends the reminder using path parameters",
+        "properties": {}
       }
     },
     "responseBody": {
@@ -13497,7 +13543,27 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "approval record batch action payload",
+        "properties": {
+          "action": {
+            "type": "string",
+            "required": true,
+            "description": "batch approval action: approve or reject"
+          },
+          "approvalRecordIds": {
+            "type": "array",
+            "required": true,
+            "description": "approval record ids to handle",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "comment": {
+            "type": "string",
+            "required": false,
+            "description": "comment applied to each handled approval record"
+          }
+        }
       }
     },
     "responseBody": {
@@ -14060,7 +14126,34 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "rule schedule configuration payload",
+        "properties": {
+          "scheduleEnabled": {
+            "type": "boolean",
+            "required": true,
+            "description": "whether scheduled production execution is enabled"
+          },
+          "scheduleIntervalSeconds": {
+            "type": "integer",
+            "required": false,
+            "description": "execution interval in seconds; must be at least 30 when enabled"
+          },
+          "maxRetryCount": {
+            "type": "integer",
+            "required": false,
+            "description": "maximum scheduler retry count between 0 and 20"
+          },
+          "nextRunAt": {
+            "type": "string",
+            "required": false,
+            "description": "next scheduled run time in ISO-8601 offset format"
+          },
+          "scheduleInput": {
+            "type": "object",
+            "required": false,
+            "description": "production execution input, usually containing sample"
+          }
+        }
       }
     },
     "responseBody": {
@@ -14181,7 +14274,19 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "rule schedule retry payload",
+        "properties": {
+          "nextRunAt": {
+            "type": "string",
+            "required": false,
+            "description": "next retry run time in ISO-8601 offset format"
+          },
+          "scheduleInput": {
+            "type": "object",
+            "required": false,
+            "description": "replacement production execution input"
+          }
+        }
       }
     },
     "responseBody": {
@@ -14307,7 +14412,8 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "optional empty object; current backend retries the action execution using path parameters",
+        "properties": {}
       }
     },
     "responseBody": {
@@ -14438,7 +14544,27 @@ data: {"type":"error","taskId":"task_001","content":"AI 服务繁忙，请稍后
       "payload": {
         "type": "object",
         "required": false,
-        "description": "business request body; fields follow backend controller contract"
+        "description": "rule action execution batch operation payload",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "required": true,
+            "description": "batch operation: retry or ignore"
+          },
+          "actionExecutionIds": {
+            "type": "array",
+            "required": true,
+            "description": "action execution ids to process",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "reason": {
+            "type": "string",
+            "required": false,
+            "description": "business reason used when ignoring failed webhook actions"
+          }
+        }
       }
     },
     "responseBody": {

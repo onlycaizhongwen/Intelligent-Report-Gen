@@ -188,6 +188,36 @@ class ContractSurfaceTest {
     }
 
     @Test
+    void ruleRuntimeEndpointsDeclareFieldLevelRequestContracts() throws IOException {
+        Map<String, Map<String, Object>> contractsByEndpoint = structuredContractsByEndpoint();
+
+        assertRequestBodyProperties(contractsByEndpoint.get("POST /api/v1/rules/{ruleId}/review-submissions"),
+                "comment");
+        assertRequestBodyProperties(contractsByEndpoint.get("POST /api/v1/rules/{ruleId}/approvals"),
+                "comment");
+        assertRequestBodyProperties(contractsByEndpoint.get("POST /api/v1/rules/{ruleId}/runs"),
+                "sample");
+        assertRequestBodyProperties(contractsByEndpoint.get(
+                "POST /api/v1/rules/{ruleId}/approval-records/{approvalRecordId}/actions"),
+                "action", "comment");
+        assertRequestBodyProperties(contractsByEndpoint.get(
+                "POST /api/v1/rules/{ruleId}/approval-records/{approvalRecordId}/supplements"),
+                "comment", "evidenceUrl");
+        assertRequestBodyProperties(contractsByEndpoint.get(
+                "POST /api/v1/rules/{ruleId}/approval-records/{approvalRecordId}/reminders"));
+        assertRequestBodyProperties(contractsByEndpoint.get("POST /api/v1/rules/approval-records/batch-actions"),
+                "action", "approvalRecordIds", "comment");
+        assertRequestBodyProperties(contractsByEndpoint.get("PUT /api/v1/rules/{ruleId}/schedule"),
+                "scheduleEnabled", "scheduleIntervalSeconds", "maxRetryCount", "nextRunAt", "scheduleInput");
+        assertRequestBodyProperties(contractsByEndpoint.get("POST /api/v1/rules/{ruleId}/schedule/retry"),
+                "nextRunAt", "scheduleInput");
+        assertRequestBodyProperties(contractsByEndpoint.get(
+                "POST /api/v1/rules/{ruleId}/action-executions/{actionExecutionId}/retry"));
+        assertRequestBodyProperties(contractsByEndpoint.get("POST /api/v1/rules/{ruleId}/action-executions/batch"),
+                "operation", "actionExecutionIds", "reason");
+    }
+
+    @Test
     void reportGenerationTaskEndpointsDeclareFieldLevelResponseContracts() throws IOException {
         Map<String, Map<String, Object>> contractsByEndpoint = structuredContractsByEndpoint();
 
