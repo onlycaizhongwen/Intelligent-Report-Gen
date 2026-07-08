@@ -1,27 +1,10 @@
 import { readFile } from 'node:fs/promises';
 
-import { validateProductionReadinessEnv } from './delivery-readiness-audit-lib.mjs';
-
-function parseEnvFile(text) {
-  const entries = {};
-  for (const line of String(text).split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) {
-      continue;
-    }
-
-    const assignment = trimmed.startsWith('export ') ? trimmed.slice('export '.length).trim() : trimmed;
-    const separator = assignment.indexOf('=');
-    if (separator <= 0) {
-      continue;
-    }
-
-    const name = assignment.slice(0, separator).trim();
-    const rawValue = assignment.slice(separator + 1).trim();
-    entries[name] = rawValue.replace(/^(['"])(.*)\1$/, '$2');
-  }
-  return entries;
-}
+import {
+  mergeEnvFileValues,
+  parseEnvFileText,
+  validateProductionReadinessEnv,
+} from './delivery-readiness-audit-lib.mjs';
 
 async function loadEnv() {
   if (!process.env.PRODUCTION_READINESS_ENV_FILE) {
@@ -29,10 +12,10 @@ async function loadEnv() {
   }
 
   const envText = await readFile(process.env.PRODUCTION_READINESS_ENV_FILE, 'utf8');
-  return {
-    ...process.env,
-    ...parseEnvFile(envText),
-  };
+  return mergeEnvFileValues({
+    baseEnv: process.env,
+    fileEnv: parseEnvFileText(envText),
+  });
 }
 
 try {

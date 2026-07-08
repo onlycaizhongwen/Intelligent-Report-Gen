@@ -7,6 +7,7 @@ import {
   buildDeliveryReadinessChecks,
   classifyDeliveryReadinessResult,
   formatDeliveryReadinessAuditOutput,
+  loadDeliveryReadinessEnv,
   renderProductionReadinessEnvTemplate,
   sanitizeCommandEnv,
   summarizeDeliveryReadiness,
@@ -46,9 +47,9 @@ async function runHttpCheck(check) {
   }
 }
 
-async function runCommandCheck(check) {
+async function runCommandCheck(check, baseEnv) {
   const env = {
-    ...process.env,
+    ...baseEnv,
     ...sanitizeCommandEnv(check.env),
   };
   const startedAt = Date.now();
@@ -95,7 +96,7 @@ async function runCommandCheck(check) {
   }
 }
 
-async function runCheck(check) {
+async function runCheck(check, baseEnv) {
   if (check.kind === 'blocked') {
     return {
       name: check.name,
@@ -113,14 +114,15 @@ async function runCheck(check) {
     return runHttpCheck(check);
   }
 
-  return runCommandCheck(check);
+  return runCommandCheck(check, baseEnv);
 }
 
-const checks = buildDeliveryReadinessChecks();
+const auditEnv = await loadDeliveryReadinessEnv();
+const checks = buildDeliveryReadinessChecks({ env: auditEnv });
 const results = [];
 
 for (const check of checks) {
-  results.push(await runCheck(check));
+  results.push(await runCheck(check, auditEnv));
 }
 
 const summary = summarizeDeliveryReadiness(results);
@@ -142,7 +144,7 @@ const outputPayload = {
   })),
   results,
 };
-const outputFormat = process.env.DELIVERY_READINESS_OUTPUT === 'markdown' ? 'markdown' : 'json';
+const outputFormat = auditEnv.DELIVERY_READINESS_OUTPUT === 'markdown' ? 'markdown' : 'json';
 const output = formatDeliveryReadinessAuditOutput({
   payload: outputPayload,
   outputFormat,
@@ -151,12 +153,12 @@ const output = formatDeliveryReadinessAuditOutput({
 console.log(output);
 
 await writeDeliveryReadinessReportFile({
-  reportFile: process.env.DELIVERY_READINESS_REPORT_FILE,
+  reportFile: auditEnv.DELIVERY_READINESS_REPORT_FILE,
   content: output,
 });
 
 await writeDeliveryReadinessReportFile({
-  reportFile: process.env.DELIVERY_READINESS_ENV_TEMPLATE_FILE,
+  reportFile: auditEnv.DELIVERY_READINESS_ENV_TEMPLATE_FILE,
   content: renderProductionReadinessEnvTemplate({ actionPlan }),
 });
 

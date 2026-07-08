@@ -6,6 +6,9 @@ import {
   buildDeliveryReadinessChecks,
   classifyDeliveryReadinessResult,
   formatDeliveryReadinessAuditOutput,
+  loadDeliveryReadinessEnv,
+  mergeEnvFileValues,
+  parseEnvFileText,
   renderProductionReadinessActionPlanMarkdown,
   renderProductionReadinessEnvTemplate,
   summarizeDeliveryReadiness,
@@ -513,6 +516,7 @@ test('renderProductionReadinessEnvTemplate creates a customer-fillable blocker e
 
   assert.match(template, /^# Production Readiness Evidence Environment Template/);
   assert.match(template, /PRODUCTION_READINESS_ENV_FILE=<this-file> node scripts\/production-readiness-env-check\.mjs/);
+  assert.match(template, /DELIVERY_READINESS_ENV_FILE=<this-file> node scripts\/delivery-readiness-audit\.mjs/);
   assert.match(template, /HIGRESS_WAF_PLUGIN_URL=/);
   assert.match(template, /HIGRESS_WAF_BLOCKING_COVERAGE=true/);
   assert.match(template, /HIGRESS_TLS_GATEWAY_HOST=/);
@@ -588,6 +592,67 @@ test('validateProductionReadinessEnv reports missing production evidence inputs 
   assert.deepEqual(tokenSuiteValidation.missingItems, []);
   assert.equal(JSON.stringify(tokenSuiteValidation).includes('secret'), false);
   assert.equal(JSON.stringify(tokenSuiteValidation).includes('accepted.jwt.value'), false);
+});
+
+test('parseEnvFileText and mergeEnvFileValues load customer evidence without overwriting shell controls', () => {
+  const parsed = parseEnvFileText([
+    '# customer evidence',
+    'export HIGRESS_WAF_PLUGIN_URL="oci://registry.customer.example/platform/higress-waf:2.0.0"',
+    'HIGRESS_TLS_GATEWAY_HOST=gateway.customer.example',
+    'HIGRESS_TLS_SERVER_NAME=gateway.customer.example',
+    'DELIVERY_READINESS_OUTPUT=markdown',
+    'MALFORMED_LINE',
+    '',
+  ].join('\n'));
+
+  assert.deepEqual(parsed, {
+    HIGRESS_WAF_PLUGIN_URL: 'oci://registry.customer.example/platform/higress-waf:2.0.0',
+    HIGRESS_TLS_GATEWAY_HOST: 'gateway.customer.example',
+    HIGRESS_TLS_SERVER_NAME: 'gateway.customer.example',
+    DELIVERY_READINESS_OUTPUT: 'markdown',
+  });
+
+  assert.deepEqual(
+    mergeEnvFileValues({
+      baseEnv: {
+        DELIVERY_READINESS_OUTPUT: 'json',
+        DELIVERY_READINESS_REPORT_FILE: 'docs/report.json',
+      },
+      fileEnv: parsed,
+    }),
+    {
+      DELIVERY_READINESS_OUTPUT: 'json',
+      DELIVERY_READINESS_REPORT_FILE: 'docs/report.json',
+      HIGRESS_WAF_PLUGIN_URL: 'oci://registry.customer.example/platform/higress-waf:2.0.0',
+      HIGRESS_TLS_GATEWAY_HOST: 'gateway.customer.example',
+      HIGRESS_TLS_SERVER_NAME: 'gateway.customer.example',
+    },
+  );
+});
+
+test('loadDeliveryReadinessEnv reads the customer env file for full readiness audits', async () => {
+  const loaded = await loadDeliveryReadinessEnv({
+    baseEnv: {
+      DELIVERY_READINESS_ENV_FILE: 'docs/skill-chain/generated/production-readiness.env',
+      DELIVERY_READINESS_OUTPUT: 'json',
+    },
+    readFileImpl: async (path, encoding) => {
+      assert.equal(path, 'docs/skill-chain/generated/production-readiness.env');
+      assert.equal(encoding, 'utf8');
+      return [
+        'DELIVERY_READINESS_OUTPUT=markdown',
+        'HIGRESS_WAF_PLUGIN_URL=oci://registry.customer.example/platform/higress-waf:2.0.0',
+        'HIGRESS_OIDC_ACCEPTED_TOKEN=accepted.jwt.value',
+        'HIGRESS_OIDC_WRONG_ISSUER_TOKEN=wrong.issuer.jwt',
+        'HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN=wrong.audience.jwt',
+        '',
+      ].join('\n');
+    },
+  });
+
+  assert.equal(loaded.DELIVERY_READINESS_OUTPUT, 'json');
+  assert.equal(loaded.HIGRESS_WAF_PLUGIN_URL, 'oci://registry.customer.example/platform/higress-waf:2.0.0');
+  assert.equal(loaded.HIGRESS_OIDC_ACCEPTED_TOKEN, 'accepted.jwt.value');
 });
 
 test('writeDeliveryReadinessReportFile creates the parent directory and writes content', async () => {

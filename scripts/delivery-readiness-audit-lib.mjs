@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
 function hasText(value) {
@@ -16,6 +16,60 @@ function parseJsonObject(text) {
   } catch {
     return { outputPreview: text.trim().slice(0, 500) };
   }
+}
+
+const ENV_FILE_CONTROL_KEYS = new Set([
+  'DELIVERY_READINESS_ENV_FILE',
+  'DELIVERY_READINESS_OUTPUT',
+  'DELIVERY_READINESS_REPORT_FILE',
+  'DELIVERY_READINESS_ENV_TEMPLATE_FILE',
+  'PRODUCTION_READINESS_ENV_FILE',
+]);
+
+export function parseEnvFileText(text) {
+  const entries = {};
+  for (const line of String(text).split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) {
+      continue;
+    }
+
+    const assignment = trimmed.startsWith('export ') ? trimmed.slice('export '.length).trim() : trimmed;
+    const separator = assignment.indexOf('=');
+    if (separator <= 0) {
+      continue;
+    }
+
+    const name = assignment.slice(0, separator).trim();
+    const rawValue = assignment.slice(separator + 1).trim();
+    entries[name] = rawValue.replace(/^(['"])(.*)\1$/, '$2');
+  }
+  return entries;
+}
+
+export function mergeEnvFileValues({ baseEnv = process.env, fileEnv = {} } = {}) {
+  const evidenceEnv = Object.fromEntries(
+    Object.entries(fileEnv).filter(([key]) => !ENV_FILE_CONTROL_KEYS.has(key)),
+  );
+  return {
+    ...evidenceEnv,
+    ...baseEnv,
+  };
+}
+
+export async function loadDeliveryReadinessEnv({
+  baseEnv = process.env,
+  readFileImpl = readFile,
+} = {}) {
+  if (!hasText(baseEnv.DELIVERY_READINESS_ENV_FILE)) {
+    return baseEnv;
+  }
+
+  const envText = await readFileImpl(baseEnv.DELIVERY_READINESS_ENV_FILE, 'utf8');
+  return mergeEnvFileValues({
+    baseEnv,
+    fileEnv: parseEnvFileText(envText),
+  });
 }
 
 function compactSmokeEvidence(evidence) {
@@ -505,6 +559,7 @@ export function renderProductionReadinessEnvTemplate({
     `# Generated: ${generatedAt}`,
     '# Fill these values in the target/customer environment, then rerun the listed readiness commands.',
     '# Precheck after filling: PRODUCTION_READINESS_ENV_FILE=<this-file> node scripts/production-readiness-env-check.mjs',
+    '# Full audit after precheck: DELIVERY_READINESS_ENV_FILE=<this-file> node scripts/delivery-readiness-audit.mjs',
     '',
   ];
 
