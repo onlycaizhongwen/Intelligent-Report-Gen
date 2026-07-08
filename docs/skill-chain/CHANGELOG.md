@@ -33,6 +33,7 @@
 - 技术栈以 S6 产物为准：Vue 3 + TypeScript、Java 17 + Spring Boot 3、MyBatis Plus、PostgreSQL 16、RocketMQ、MinIO、Milvus、OpenSearch、Higress。
 - Docker 与 CI 严格读取 S6/S7 当前选型，不生成未冻结的旧模板技术。
 - S20 上传链路由骨架升级为真实适配：Java 上传入口串联 MinIO 对象写入、PostgreSQL 元数据持久化和 RocketMQ 文档解析事件发布。
+- Delivery readiness now includes `knowledge-index-worker-health-smoke` as a required local gate for UC-05 knowledge item indexing and cleanup workers, and local command gates no longer inherit production evidence variables from blank customer `.env` templates.
 - RocketMQ 文档解析消息拆分物理 topic 与业务事件类型：物理 topic 使用 `document_parse_requested`，业务事件类型/tag 仍为 `document.parse.requested`。
 - RocketMQ 报告生成、导出和 AI 完成事件同样使用下划线物理 topic，保留点分业务事件类型作为 tag。
 - RocketMQ 生产者由每次发送临时创建调整为 Spring 托管生命周期，减少连接开销并提升可测试性。

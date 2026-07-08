@@ -249,6 +249,17 @@ export function buildDeliveryReadinessChecks({ env = process.env } = {}) {
       },
     }),
     commandCheck({
+      name: 'knowledge-index-worker-health-smoke',
+      scope: 'local',
+      description: 'UC-05 knowledge item indexing and cleanup workers must remain running and healthy against local Docker dependencies.',
+      args: ['scripts/knowledge-index-worker-smoke.mjs'],
+      timeoutMs: 90_000,
+      env: {
+        KNOWLEDGE_INDEX_WORKER_STABILIZATION_MS: env.KNOWLEDGE_INDEX_WORKER_STABILIZATION_MS ?? '1000',
+        KNOWLEDGE_INDEX_WORKER_HEALTH_TIMEOUT_MS: env.KNOWLEDGE_INDEX_WORKER_HEALTH_TIMEOUT_MS ?? '50000',
+      },
+    }),
+    commandCheck({
       name: 'higress-waf-runtime-preflight',
       scope: 'production',
       description: 'Gateway WAF plugin OCI image must be reachable before enabling the blocking policy.',
@@ -819,7 +830,44 @@ export async function writeDeliveryReadinessReportFile({
 export function sanitizeCommandEnv(env = {}) {
   return Object.fromEntries(
     Object.entries(env)
-      .filter(([, value]) => value !== undefined && value !== '<provided>')
+      .filter(([, value]) => value !== undefined && value !== '<provided>' && String(value).trim() !== '')
       .map(([key, value]) => [key, String(value)]),
   );
+}
+
+const LOCAL_COMMAND_EXCLUDED_ENV_NAMES = new Set([
+  'HIGRESS_GATEWAY_BASE_URL',
+  'HIGRESS_WAF_BLOCKING_COVERAGE',
+  'HIGRESS_TLS_GATEWAY_HOST',
+  'HIGRESS_TLS_SERVER_NAME',
+  'HIGRESS_TLS_CA_FILE',
+  'HIGRESS_OIDC_ACCEPTED_TOKEN',
+  'HIGRESS_OIDC_WRONG_ISSUER_TOKEN',
+  'HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN',
+  'HIGRESS_OIDC_PRIVATE_KEY_FILE',
+  'HIGRESS_OIDC_PRIVATE_KEY_PEM',
+  'HIGRESS_OIDC_KEY_ID',
+  'HIGRESS_OIDC_ENDPOINT_SECURITY_COVERAGE',
+  'OIDC_ISSUER',
+  'OIDC_AUDIENCE',
+  'DELIVERY_SMOKE_DASHSCOPE_API_KEY',
+  'DASHSCOPE_API_KEY',
+]);
+
+function omitLocalProductionEvidenceEnv(env = {}) {
+  return Object.fromEntries(
+    Object.entries(env).filter(([key]) => !LOCAL_COMMAND_EXCLUDED_ENV_NAMES.has(key)),
+  );
+}
+
+export function buildCommandExecutionEnv({ check = {}, baseEnv = process.env } = {}) {
+  const sanitizedBaseEnv = sanitizeCommandEnv(baseEnv);
+  const commandBaseEnv = check.scope === 'local'
+    ? omitLocalProductionEvidenceEnv(sanitizedBaseEnv)
+    : sanitizedBaseEnv;
+
+  return {
+    ...commandBaseEnv,
+    ...sanitizeCommandEnv(check.env),
+  };
 }

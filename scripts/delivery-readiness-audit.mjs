@@ -4,12 +4,12 @@ import { promisify } from 'node:util';
 
 import {
   buildProductionReadinessActionPlan,
+  buildCommandExecutionEnv,
   buildDeliveryReadinessChecks,
   classifyDeliveryReadinessResult,
   formatDeliveryReadinessAuditOutput,
   loadDeliveryReadinessEnv,
   renderProductionReadinessEnvTemplate,
-  sanitizeCommandEnv,
   summarizeDeliveryReadiness,
   writeDeliveryReadinessReportFile,
 } from './delivery-readiness-audit-lib.mjs';
@@ -48,10 +48,7 @@ async function runHttpCheck(check) {
 }
 
 async function runCommandCheck(check, baseEnv) {
-  const env = {
-    ...baseEnv,
-    ...sanitizeCommandEnv(check.env),
-  };
+  const env = buildCommandExecutionEnv({ check, baseEnv });
   const startedAt = Date.now();
 
   try {

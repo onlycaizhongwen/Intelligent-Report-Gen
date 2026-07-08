@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import {
   buildProductionReadinessActionPlan,
   buildDeliveryReadinessChecks,
+  buildCommandExecutionEnv,
   classifyDeliveryReadinessResult,
   formatDeliveryReadinessAuditOutput,
   loadDeliveryReadinessEnv,
@@ -12,6 +13,7 @@ import {
   parseEnvFileText,
   renderProductionReadinessActionPlanMarkdown,
   renderProductionReadinessEnvTemplate,
+  sanitizeCommandEnv,
   summarizeDeliveryReadiness,
   validateProductionReadinessEnv,
   writeDeliveryReadinessReportFile,
@@ -38,6 +40,7 @@ test('buildDeliveryReadinessChecks separates local evidence from production gate
       'local-docker-dependency-health-smoke',
       'report-generation-worker-health-smoke',
       'document-parse-worker-health-smoke',
+      'knowledge-index-worker-health-smoke',
       'higress-waf-runtime-preflight',
       'higress-waf-blocking-policy',
       'higress-trusted-tls-certificate',
@@ -59,14 +62,17 @@ test('buildDeliveryReadinessChecks separates local evidence from production gate
   assert.equal(checks[5].scope, 'local');
   assert.deepEqual(checks[5].args, ['scripts/document-parse-worker-smoke.mjs']);
   assert.equal(checks[5].timeoutMs, 90_000);
-  assert.equal(checks[6].scope, 'production');
-  assert.deepEqual(checks[6].args, ['scripts/higress-waf-runtime-preflight.mjs']);
-  assert.equal(checks[6].timeoutMs, 45_000);
-  assert.equal(checks[9].kind, 'command');
-  assert.equal(checks[9].env.HIGRESS_OIDC_ENDPOINT_SECURITY_COVERAGE, 'true');
-  assert.equal(checks[9].timeoutMs, 120_000);
-  assert.equal(checks[10].env.DELIVERY_SMOKE_DASHSCOPE_API_KEY, '<provided>');
-  assert.equal(checks[10].timeoutMs, 600_000);
+  assert.equal(checks[6].scope, 'local');
+  assert.deepEqual(checks[6].args, ['scripts/knowledge-index-worker-smoke.mjs']);
+  assert.equal(checks[6].timeoutMs, 90_000);
+  assert.equal(checks[7].scope, 'production');
+  assert.deepEqual(checks[7].args, ['scripts/higress-waf-runtime-preflight.mjs']);
+  assert.equal(checks[7].timeoutMs, 45_000);
+  assert.equal(checks[10].kind, 'command');
+  assert.equal(checks[10].env.HIGRESS_OIDC_ENDPOINT_SECURITY_COVERAGE, 'true');
+  assert.equal(checks[10].timeoutMs, 120_000);
+  assert.equal(checks[11].env.DELIVERY_SMOKE_DASHSCOPE_API_KEY, '<provided>');
+  assert.equal(checks[11].timeoutMs, 600_000);
   assert.equal(JSON.stringify(checks), JSON.stringify(checks).replace('provider-placeholder-key', '<leaked>'));
   assert.equal(JSON.stringify(checks), JSON.stringify(checks).replace('private-placeholder-pem', '<leaked>'));
 });
@@ -78,6 +84,7 @@ test('buildDeliveryReadinessChecks marks credential-gated production checks as b
   const localDocker = checks.find((check) => check.name === 'local-docker-dependency-health-smoke');
   const reportWorker = checks.find((check) => check.name === 'report-generation-worker-health-smoke');
   const documentWorker = checks.find((check) => check.name === 'document-parse-worker-health-smoke');
+  const knowledgeWorkers = checks.find((check) => check.name === 'knowledge-index-worker-health-smoke');
   const wafBlocking = checks.find((check) => check.name === 'higress-waf-blocking-policy');
   const delivery = checks.find((check) => check.name === 'credentialed-delivery-smoke');
 
@@ -96,6 +103,10 @@ test('buildDeliveryReadinessChecks marks credential-gated production checks as b
   assert.equal(documentWorker.kind, 'command');
   assert.equal(documentWorker.scope, 'local');
   assert.deepEqual(documentWorker.args, ['scripts/document-parse-worker-smoke.mjs']);
+
+  assert.equal(knowledgeWorkers.kind, 'command');
+  assert.equal(knowledgeWorkers.scope, 'local');
+  assert.deepEqual(knowledgeWorkers.args, ['scripts/knowledge-index-worker-smoke.mjs']);
 
   assert.equal(wafBlocking.kind, 'blocked');
   assert.equal(wafBlocking.status, 'blocked');
@@ -318,6 +329,45 @@ test('classifyDeliveryReadinessResult records command timeout evidence', () => {
   );
 });
 
+test('sanitizeCommandEnv removes blank evidence values before child smokes run', () => {
+  assert.deepEqual(
+    sanitizeCommandEnv({
+      HIGRESS_GATEWAY_BASE_URL: '',
+      HIGRESS_WAF_PLUGIN_URL: '<provided>',
+      HIGRESS_WAF_BLOCKING_COVERAGE: 'true',
+      PATH: 'C:/tools',
+    }),
+    {
+      HIGRESS_WAF_BLOCKING_COVERAGE: 'true',
+      PATH: 'C:/tools',
+    },
+  );
+});
+
+test('buildCommandExecutionEnv isolates production evidence from local command gates', () => {
+  assert.deepEqual(
+    buildCommandExecutionEnv({
+      check: {
+        scope: 'local',
+        env: {
+          DOCUMENT_PARSE_WORKER_STABILIZATION_MS: '1000',
+        },
+      },
+      baseEnv: {
+        PATH: 'C:/tools',
+        HIGRESS_GATEWAY_BASE_URL: 'https://gateway.customer.example',
+        HIGRESS_WAF_BLOCKING_COVERAGE: 'true',
+        HIGRESS_OIDC_ACCEPTED_TOKEN: 'accepted-token',
+        DELIVERY_SMOKE_DASHSCOPE_API_KEY: 'provider-key',
+      },
+    }),
+    {
+      PATH: 'C:/tools',
+      DOCUMENT_PARSE_WORKER_STABILIZATION_MS: '1000',
+    },
+  );
+});
+
 test('summarizeDeliveryReadiness keeps production readiness false for blocked production gates', () => {
   const summary = summarizeDeliveryReadiness([
     { name: 'frontend-browser-http', scope: 'local', status: 'passed', required: true },
@@ -468,6 +518,7 @@ test('renderProductionReadinessActionPlanMarkdown creates a customer handoff che
         'local-docker-dependency-health-smoke',
         'report-generation-worker-health-smoke',
         'document-parse-worker-health-smoke',
+        'knowledge-index-worker-health-smoke',
       ],
       productionPassedItems: ['credentialed-delivery-smoke'],
       productionBlockingItems: ['higress-waf-runtime-preflight'],
@@ -506,6 +557,20 @@ test('renderProductionReadinessActionPlanMarkdown creates a customer handoff che
           classification: 'document-parse-worker-healthy',
           state: { healthStatus: 'healthy' },
           failedResults: [],
+        },
+      },
+      {
+        name: 'knowledge-index-worker-health-smoke',
+        scope: 'local',
+        status: 'passed',
+        required: true,
+        evidence: {
+          classification: 'knowledge-index-workers-running',
+          workerCount: 2,
+          workers: [
+            { role: 'knowledge-index-cleanup', classification: 'knowledge-index-cleanup-running' },
+            { role: 'knowledge-item-index', classification: 'knowledge-item-index-running' },
+          ],
         },
       },
       {
@@ -551,7 +616,7 @@ test('renderProductionReadinessActionPlanMarkdown creates a customer handoff che
   assert.match(markdown, /Generated: 2026-07-08T12:00:00.000Z/);
   assert.match(markdown, /Local ready: true/);
   assert.match(markdown, /Production ready: false/);
-  assert.match(markdown, /Passed local gates: local-docker-dependency-health-smoke, report-generation-worker-health-smoke, document-parse-worker-health-smoke/);
+  assert.match(markdown, /Passed local gates: local-docker-dependency-health-smoke, report-generation-worker-health-smoke, document-parse-worker-health-smoke, knowledge-index-worker-health-smoke/);
   assert.match(markdown, /## Passed Local Evidence/);
   assert.match(markdown, /### local-docker-dependency-health-smoke/);
   assert.match(markdown, /local-docker-dependencies-healthy/);
@@ -560,6 +625,9 @@ test('renderProductionReadinessActionPlanMarkdown creates a customer handoff che
   assert.match(markdown, /report-generation-worker-healthy/);
   assert.match(markdown, /### document-parse-worker-health-smoke/);
   assert.match(markdown, /document-parse-worker-healthy/);
+  assert.match(markdown, /### knowledge-index-worker-health-smoke/);
+  assert.match(markdown, /knowledge-index-workers-running/);
+  assert.match(markdown, /knowledge-item-index-running/);
   assert.match(markdown, /"healthStatus":"healthy"/);
   assert.match(markdown, /- failedResults: none/);
   assert.equal(markdown.includes('[object Object]'), false);
@@ -586,6 +654,7 @@ test('generated latest production readiness markdown keeps copyable blocker comm
 
   assert.match(markdown, /local-docker-dependency-health-smoke/);
   assert.match(markdown, /report-generation-worker-health-smoke/);
+  assert.match(markdown, /knowledge-index-worker-health-smoke/);
   assert.match(markdown, /HIGRESS_WAF_PLUGIN_URL=<plugin-oci-url> node scripts\/higress-waf-runtime-preflight\.mjs/);
   assert.match(markdown, /HIGRESS_GATEWAY_BASE_URL=<target-gateway-url> HIGRESS_WAF_BLOCKING_COVERAGE=true node scripts\/higress-gateway-smoke\.mjs/);
   assert.match(markdown, /HIGRESS_TLS_GATEWAY_HOST=<gateway-host> HIGRESS_TLS_SERVER_NAME=<server-name> node scripts\/higress-tls-certificate-smoke\.mjs/);
