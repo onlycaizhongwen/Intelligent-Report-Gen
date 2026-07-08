@@ -3,6 +3,7 @@ import os from 'node:os';
 import { promisify } from 'node:util';
 
 import {
+  buildProductionReadinessActionPlan,
   buildDeliveryReadinessChecks,
   classifyDeliveryReadinessResult,
   sanitizeCommandEnv,
@@ -109,11 +110,13 @@ for (const check of checks) {
 }
 
 const summary = summarizeDeliveryReadiness(results);
+const actionPlan = buildProductionReadinessActionPlan({ checks, results });
 
 console.log(
   JSON.stringify(
     {
       summary,
+      actionPlan,
       checks: checks.map((check) => ({
         name: check.name,
         scope: check.scope,

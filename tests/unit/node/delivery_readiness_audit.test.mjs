@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  buildProductionReadinessActionPlan,
   buildDeliveryReadinessChecks,
   classifyDeliveryReadinessResult,
   summarizeDeliveryReadiness,
@@ -239,4 +240,71 @@ test('summarizeDeliveryReadiness keeps production readiness false for blocked pr
     localBlockingItems: [],
     productionBlockingItems: ['higress-waf-blocking-policy', 'higress-trusted-tls-certificate'],
   });
+});
+
+test('buildProductionReadinessActionPlan converts production blockers into customer evidence steps', () => {
+  const checks = buildDeliveryReadinessChecks({ env: {} });
+  const results = [
+    { name: 'frontend-browser-http', scope: 'local', status: 'passed', required: true, evidence: { statusCode: 200 } },
+    {
+      name: 'higress-waf-runtime-preflight',
+      scope: 'production',
+      status: 'failed',
+      required: true,
+      evidence: { classification: 'waf-plugin-container-registry-unreachable' },
+    },
+    {
+      name: 'higress-waf-blocking-policy',
+      scope: 'production',
+      status: 'failed',
+      required: true,
+      evidence: { failedResults: [{ name: 'report-list-sqli-waf-block-through-higress' }] },
+    },
+    {
+      name: 'higress-trusted-tls-certificate',
+      scope: 'production',
+      status: 'failed',
+      required: true,
+      evidence: { authorizationError: 'DEPTH_ZERO_SELF_SIGNED_CERT' },
+    },
+    {
+      name: 'higress-oidc-endpoint-security',
+      scope: 'production',
+      status: 'blocked',
+      required: true,
+      evidence: {
+        missingEnv: [
+          'HIGRESS_OIDC_ACCEPTED_TOKEN + HIGRESS_OIDC_WRONG_ISSUER_TOKEN + HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN',
+        ],
+      },
+    },
+  ];
+
+  const plan = buildProductionReadinessActionPlan({ checks, results });
+
+  assert.equal(plan.ready, false);
+  assert.deepEqual(
+    plan.blockingItems.map((item) => item.name),
+    [
+      'higress-waf-runtime-preflight',
+      'higress-waf-blocking-policy',
+      'higress-trusted-tls-certificate',
+      'higress-oidc-endpoint-security',
+    ],
+  );
+  assert.deepEqual(plan.blockingItems[0].requiredInputs, ['HIGRESS_WAF_PLUGIN_URL']);
+  assert.deepEqual(plan.blockingItems[0].commands, ['node scripts/higress-waf-runtime-preflight.mjs']);
+  assert.match(plan.blockingItems[0].nextAction, /mirror/);
+  assert.deepEqual(plan.blockingItems[1].commands, ['HIGRESS_WAF_BLOCKING_COVERAGE=true node scripts/higress-gateway-smoke.mjs']);
+  assert.deepEqual(plan.blockingItems[2].requiredInputs, [
+    'HIGRESS_TLS_GATEWAY_HOST',
+    'HIGRESS_TLS_SERVER_NAME',
+    'HIGRESS_TLS_CA_FILE',
+  ]);
+  assert.deepEqual(plan.blockingItems[3].requiredInputs, [
+    'HIGRESS_OIDC_ACCEPTED_TOKEN',
+    'HIGRESS_OIDC_WRONG_ISSUER_TOKEN',
+    'HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN',
+  ]);
+  assert.equal(JSON.stringify(plan).includes('secret'), false);
 });

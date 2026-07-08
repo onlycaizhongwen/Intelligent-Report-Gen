@@ -64,6 +64,7 @@
 - 规则引擎 webhook 手动重试与自动重放边界补强：当 `maxAsyncReplayAttempts=0` 时，自动重放 worker 和 due-action 查询都会跳过该动作，避免后台自动重放与浏览器手动重试竞争生成重复成功记录。
 - Delivery readiness audit adds `higress-waf-runtime-preflight`, which checks WAF plugin OCI reachability from the Higress runtime container before the blocking policy is enabled.
 - Higress WAF runtime preflight now supports `HIGRESS_WAF_PLUGIN_URL`, allowing customer/private mirrored OCI plugin images to be probed without editing the candidate manifest; readiness reports the value as `<provided>` and preflight rejects URL userinfo with redaction.
+- Delivery readiness audit now emits a structured `actionPlan` for non-passing production gates, including required inputs, rerun commands, next action, required evidence, and compact observed failure context.
 
 ### 已知问题
 

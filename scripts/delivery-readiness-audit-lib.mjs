@@ -220,6 +220,91 @@ export function summarizeDeliveryReadiness(results) {
   };
 }
 
+const PRODUCTION_ACTIONS = {
+  'higress-waf-runtime-preflight': {
+    requiredInputs: ['HIGRESS_WAF_PLUGIN_URL'],
+    commands: ['node scripts/higress-waf-runtime-preflight.mjs'],
+    nextAction: 'mirror the approved Higress WAF OCI plugin into a registry reachable from the Higress runtime, set HIGRESS_WAF_PLUGIN_URL, then rerun the runtime preflight before enabling WAF.',
+    requiredEvidence: 'Preflight returns passed=true and containerRegistryReachable=true for the configured plugin registry.',
+  },
+  'higress-waf-blocking-policy': {
+    requiredInputs: ['HIGRESS_WAF_BLOCKING_COVERAGE'],
+    commands: ['HIGRESS_WAF_BLOCKING_COVERAGE=true node scripts/higress-gateway-smoke.mjs'],
+    nextAction: 'enable the approved Higress WAF policy only after the runtime plugin preflight passes, then prove SQLi, XSS, path traversal, and prompt-injection probes are blocked at the gateway.',
+    requiredEvidence: 'Gateway WAF blocking smoke returns passed=true with no waf-not-blocked failedResults.',
+  },
+  'higress-trusted-tls-certificate': {
+    requiredInputs: ['HIGRESS_TLS_GATEWAY_HOST', 'HIGRESS_TLS_SERVER_NAME', 'HIGRESS_TLS_CA_FILE'],
+    commands: ['node scripts/higress-tls-certificate-smoke.mjs'],
+    nextAction: 'install a trusted gateway certificate for the customer hostname, configure hostname/servername and optional private CA bundle, then rerun the TLS smoke with verification enabled.',
+    requiredEvidence: 'TLS smoke returns passed=true/classification=tls-trusted with daysRemaining above the configured minimum.',
+  },
+  'higress-oidc-endpoint-security': {
+    requiredInputs: [
+      'HIGRESS_OIDC_ACCEPTED_TOKEN',
+      'HIGRESS_OIDC_WRONG_ISSUER_TOKEN',
+      'HIGRESS_OIDC_WRONG_AUDIENCE_TOKEN',
+    ],
+    commands: ['HIGRESS_OIDC_ENDPOINT_SECURITY_COVERAGE=true node scripts/higress-gateway-smoke.mjs'],
+    nextAction: 'provide a customer token suite or signing/JWKS test configuration, then prove accepted issuer/audience succeeds and wrong issuer/audience are rejected through Higress.',
+    requiredEvidence: 'OIDC endpoint security smoke returns passed=true for accepted-token 200 and wrong issuer/audience 401 probes.',
+  },
+  'credentialed-delivery-smoke': {
+    requiredInputs: ['DELIVERY_SMOKE_DASHSCOPE_API_KEY or DASHSCOPE_API_KEY'],
+    commands: ['node scripts/delivery-local-smoke.mjs'],
+    nextAction: 'provide a real external model provider key and run the full P0-P3 delivery smoke against the target environment.',
+    requiredEvidence: 'Credentialed delivery smoke completes P0, P1, P2, and P3 with passed status.',
+  },
+};
+
+function buildDefaultProductionAction(result, check) {
+  return {
+    requiredInputs: [],
+    commands: check?.kind === 'command' && Array.isArray(check.args)
+      ? [`${check.command ?? 'node'} ${check.args.join(' ')}`]
+      : [],
+    nextAction: check?.description ?? 'collect target-environment evidence and rerun this production readiness check.',
+    requiredEvidence: 'The production readiness check returns status=passed.',
+    observed: {
+      status: result.status,
+      classification: result.evidence?.classification,
+    },
+  };
+}
+
+export function buildProductionReadinessActionPlan({ checks = [], results = [] } = {}) {
+  const checksByName = new Map(checks.map((check) => [check.name, check]));
+  const blockingItems = results
+    .filter((result) => result.scope === 'production' && result.required && result.status !== 'passed')
+    .map((result) => {
+      const check = checksByName.get(result.name);
+      const action = PRODUCTION_ACTIONS[result.name] ?? buildDefaultProductionAction(result, check);
+      return {
+        name: result.name,
+        status: result.status,
+        description: check?.description,
+        requiredInputs: action.requiredInputs,
+        commands: action.commands,
+        nextAction: action.nextAction,
+        requiredEvidence: action.requiredEvidence,
+        observed: {
+          status: result.status,
+          classification: result.evidence?.classification,
+          authorizationError: result.evidence?.authorizationError,
+          failedResultCount: Array.isArray(result.evidence?.failedResults)
+            ? result.evidence.failedResults.length
+            : undefined,
+          missingEnv: result.evidence?.missingEnv,
+        },
+      };
+    });
+
+  return {
+    ready: blockingItems.length === 0,
+    blockingItems,
+  };
+}
+
 export function sanitizeCommandEnv(env = {}) {
   return Object.fromEntries(
     Object.entries(env)
