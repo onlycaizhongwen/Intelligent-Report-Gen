@@ -231,6 +231,12 @@ export function classifyDeliveryReadinessResult(check, result) {
 
 export function summarizeDeliveryReadiness(results) {
   const count = (status) => results.filter((result) => result.status === status).length;
+  const localPassedItems = results
+    .filter((result) => result.scope === 'local' && result.required && result.status === 'passed')
+    .map((result) => result.name);
+  const productionPassedItems = results
+    .filter((result) => result.scope === 'production' && result.required && result.status === 'passed')
+    .map((result) => result.name);
   const localBlockingItems = results
     .filter((result) => result.scope === 'local' && result.required && result.status !== 'passed')
     .map((result) => result.name);
@@ -245,6 +251,8 @@ export function summarizeDeliveryReadiness(results) {
     passed: count('passed'),
     failed: count('failed'),
     blocked: count('blocked'),
+    localPassedItems,
+    productionPassedItems,
     localBlockingItems,
     productionBlockingItems,
   };
@@ -402,6 +410,7 @@ export function renderProductionReadinessActionPlanMarkdown({
     '',
     `Local ready: ${summary.localReady === true}`,
     `Production ready: ${summary.productionReady === true}`,
+    `Passed production gates: ${(summary.productionPassedItems ?? []).join(', ') || 'none'}`,
     `Production blockers: ${(summary.productionBlockingItems ?? []).join(', ') || 'none'}`,
     '',
   ];

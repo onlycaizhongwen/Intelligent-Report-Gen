@@ -69,6 +69,7 @@
 - Delivery readiness audit can now persist the JSON or Markdown report to `DELIVERY_READINESS_REPORT_FILE`, creating parent directories automatically.
 - Delivery readiness action plans now distinguish optional inputs and alternative OIDC/TLS evidence paths, so customer handoff reports no longer imply private CA files or IdP signing keys are always mandatory.
 - Delivery readiness command checks now have explicit timeouts, timeout evidence classification, and stderr progress markers so long smoke checks cannot leave customer handoff audits waiting silently.
+- Delivery readiness Markdown now renders passed production gates, making credentialed P0-P3 delivery evidence visible even when WAF/TLS/OIDC gates remain open.
 
 ### 已知问题
 

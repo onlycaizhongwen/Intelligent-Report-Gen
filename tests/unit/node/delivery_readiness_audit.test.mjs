@@ -261,6 +261,7 @@ test('summarizeDeliveryReadiness keeps production readiness false for blocked pr
   const summary = summarizeDeliveryReadiness([
     { name: 'frontend-browser-http', scope: 'local', status: 'passed', required: true },
     { name: 'higress-default-security-smoke', scope: 'local', status: 'passed', required: true },
+    { name: 'credentialed-delivery-smoke', scope: 'production', status: 'passed', required: true },
     { name: 'higress-waf-blocking-policy', scope: 'production', status: 'blocked', required: true },
     { name: 'higress-trusted-tls-certificate', scope: 'production', status: 'failed', required: true },
   ]);
@@ -268,10 +269,12 @@ test('summarizeDeliveryReadiness keeps production readiness false for blocked pr
   assert.deepEqual(summary, {
     localReady: true,
     productionReady: false,
-    total: 4,
-    passed: 2,
+    total: 5,
+    passed: 3,
     failed: 1,
     blocked: 1,
+    localPassedItems: ['frontend-browser-http', 'higress-default-security-smoke'],
+    productionPassedItems: ['credentialed-delivery-smoke'],
     localBlockingItems: [],
     productionBlockingItems: ['higress-waf-blocking-policy', 'higress-trusted-tls-certificate'],
   });
@@ -371,6 +374,7 @@ test('renderProductionReadinessActionPlanMarkdown creates a customer handoff che
     summary: {
       localReady: true,
       productionReady: false,
+      productionPassedItems: ['credentialed-delivery-smoke'],
       productionBlockingItems: ['higress-waf-runtime-preflight'],
     },
     actionPlan: {
@@ -405,6 +409,7 @@ test('renderProductionReadinessActionPlanMarkdown creates a customer handoff che
   assert.match(markdown, /Generated: 2026-07-08T12:00:00.000Z/);
   assert.match(markdown, /Local ready: true/);
   assert.match(markdown, /Production ready: false/);
+  assert.match(markdown, /Passed production gates: credentialed-delivery-smoke/);
   assert.match(markdown, /## higress-waf-runtime-preflight/);
   assert.match(markdown, /Required inputs: `HIGRESS_WAF_PLUGIN_URL`/);
   assert.match(markdown, /Optional inputs: `HIGRESS_WAF_PLUGIN_DIGEST`/);
