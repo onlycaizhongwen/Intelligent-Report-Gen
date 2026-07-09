@@ -2,78 +2,78 @@
   <section class="page enterprise-export-template-page">
     <header class="page-header">
       <div>
-        <h2>Enterprise Export Templates</h2>
-        <p>Manage governed brand and layout templates for report export.</p>
+        <h2>企业导出模板</h2>
+        <p>统一维护报告导出的企业品牌、版式和模板版本。</p>
       </div>
-      <el-button :loading="loading" @click="loadTemplates">Refresh</el-button>
+      <el-button :loading="loading" @click="loadTemplates">刷新</el-button>
     </header>
 
     <el-alert v-if="errorMessage" :title="errorMessage" type="error" show-icon :closable="false" />
     <el-alert v-if="successMessage" :title="successMessage" type="success" show-icon :closable="false" />
 
-    <section class="template-form" aria-label="Enterprise export template form">
+    <section class="template-form" aria-label="企业导出模板表单">
       <label>
-        <span>Template ID</span>
-        <el-input v-model="form.templateId" aria-label="Template ID" :disabled="Boolean(editingTemplate)" placeholder="board-standard" />
+        <span>模板编码</span>
+        <el-input v-model="form.templateId" aria-label="模板编码" :disabled="Boolean(editingTemplate)" placeholder="board-standard" />
       </label>
       <label>
-        <span>Name</span>
-        <el-input v-model="form.name" aria-label="Template name" placeholder="Board standard export" />
+        <span>模板名称</span>
+        <el-input v-model="form.name" aria-label="模板名称" placeholder="董事会标准导出模板" />
       </label>
       <label>
-        <span>Status</span>
-        <select v-model="form.status" aria-label="Template status">
-          <option value="active">active</option>
-          <option value="disabled">disabled</option>
+        <span>状态</span>
+        <select v-model="form.status" aria-label="模板状态">
+          <option value="active">启用</option>
+          <option value="disabled">停用</option>
         </select>
       </label>
       <label>
-        <span>Company name</span>
-        <el-input v-model="form.companyName" aria-label="Company name" placeholder="Acme Finance" />
+        <span>企业名称</span>
+        <el-input v-model="form.companyName" aria-label="企业名称" placeholder="集团财务中心" />
       </label>
       <label>
-        <span>Logo object key</span>
-        <el-input v-model="form.logoObjectKey" aria-label="Logo object key" placeholder="logos/acme.svg" />
+        <span>标识对象键</span>
+        <el-input v-model="form.logoObjectKey" aria-label="标识对象键" placeholder="logos/company.svg" />
       </label>
       <label>
-        <span>Header</span>
-        <el-input v-model="form.header" aria-label="Header" placeholder="Board Pack" />
+        <span>页眉</span>
+        <el-input v-model="form.header" aria-label="页眉" placeholder="集团经营分析报告" />
       </label>
       <label>
-        <span>Footer</span>
-        <el-input v-model="form.footer" aria-label="Footer" placeholder="Confidential" />
+        <span>页脚</span>
+        <el-input v-model="form.footer" aria-label="页脚" placeholder="内部资料" />
       </label>
       <label>
-        <span>Font family</span>
-        <el-input v-model="form.fontFamily" aria-label="Font family" placeholder="Microsoft YaHei" />
+        <span>字体</span>
+        <el-input v-model="form.fontFamily" aria-label="字体" placeholder="Microsoft YaHei" />
       </label>
       <label>
-        <span>Primary color</span>
-        <el-input v-model="form.primaryColor" aria-label="Primary color" placeholder="#1F4E79" />
+        <span>主色</span>
+        <el-input v-model="form.primaryColor" aria-label="主色" placeholder="#1F4E79" />
       </label>
       <label>
-        <span>Cover title</span>
-        <el-input v-model="form.coverTitle" aria-label="Cover title" placeholder="Board Strategy Pack" />
+        <span>封面标题</span>
+        <el-input v-model="form.coverTitle" aria-label="封面标题" placeholder="经营分析报告" />
       </label>
       <label>
-        <span>TOC title</span>
-        <el-input v-model="form.tocTitle" aria-label="TOC title" placeholder="Report Outline" />
+        <span>目录标题</span>
+        <el-input v-model="form.tocTitle" aria-label="目录标题" placeholder="目录" />
       </label>
       <label>
-        <span>Section title prefix</span>
-        <el-input v-model="form.bodyTitlePrefix" aria-label="Section title prefix" placeholder="Section" />
+        <span>章节标题前缀</span>
+        <el-input v-model="form.bodyTitlePrefix" aria-label="章节标题前缀" placeholder="章节" />
       </label>
       <div class="form-actions">
         <el-button type="primary" :loading="submitting" @click="submitTemplate">
-          {{ editingTemplate ? 'Save enterprise export template changes' : 'Create enterprise export template' }}
+          {{ editingTemplate ? '保存企业导出模板' : '创建企业导出模板' }}
         </el-button>
-        <el-button v-if="editingTemplate" @click="cancelEdit">Cancel edit</el-button>
+        <el-button v-if="editingTemplate" @click="cancelEdit">取消编辑</el-button>
       </div>
     </section>
 
-    <section class="template-list" aria-label="Enterprise export templates">
-      <h3>Existing templates</h3>
-      <el-empty v-if="!loading && templates.length === 0" description="No enterprise export templates" />
+    <section class="template-list" aria-label="企业导出模板列表">
+      <h3>已有模板</h3>
+      <el-empty v-if="!loading && templates.length === 0" description="暂无企业导出模板" />
       <article
         v-for="template in templates"
         :key="template.templateId"
@@ -81,10 +81,10 @@
       >
         <div class="template-summary">
           <strong>{{ template.name }}</strong>
-          <span>Template {{ template.templateId }}</span>
-          <span>Status {{ template.status }}</span>
-          <span>Version {{ template.version }}</span>
-          <span>Company {{ template.brandSnapshot.companyName }}</span>
+          <span>模板编码 {{ template.templateId }}</span>
+          <span>状态 {{ statusLabel(template.status) }}</span>
+          <span>版本 {{ template.version }}</span>
+          <span>企业 {{ template.brandSnapshot.companyName }}</span>
           <span>{{ template.brandSnapshot.header }}</span>
           <span>{{ template.brandSnapshot.footer }}</span>
           <span>{{ template.brandSnapshot.fontFamily }}</span>
@@ -93,47 +93,47 @@
             <el-button
               v-if="template.status === 'active'"
               size="small"
-              :aria-label="`Disable ${template.name}`"
+              :aria-label="`停用 ${template.name}`"
               @click="disableTemplate(template)"
             >
-              Disable
+              停用
             </el-button>
             <el-button
               v-else
               size="small"
-              :aria-label="`Enable ${template.name}`"
+              :aria-label="`启用 ${template.name}`"
               @click="enableTemplate(template)"
             >
-              Enable
+              启用
             </el-button>
             <el-button
               size="small"
-              :aria-label="`Edit ${template.name}`"
+              :aria-label="`编辑 ${template.name}`"
               @click="editTemplate(template)"
             >
-              Edit
+              编辑
             </el-button>
             <el-button
               size="small"
               :loading="versionLoadingTemplateId === template.templateId"
-              :aria-label="`View versions ${template.name}`"
+              :aria-label="`查看版本 ${template.name}`"
               @click="loadVersions(template)"
             >
-              View versions
+              查看版本
             </el-button>
           </div>
         </div>
         <dl class="layout-grid">
           <div>
-            <dt>Cover</dt>
+            <dt>封面</dt>
             <dd>{{ template.brandSnapshot.layout?.coverTitle || '-' }}</dd>
           </div>
           <div>
-            <dt>TOC</dt>
+            <dt>目录</dt>
             <dd>{{ template.brandSnapshot.layout?.tocTitle || '-' }}</dd>
           </div>
           <div>
-            <dt>Section prefix</dt>
+            <dt>章节前缀</dt>
             <dd>{{ template.brandSnapshot.layout?.bodyTitlePrefix || '-' }}</dd>
           </div>
           <div>
@@ -144,12 +144,12 @@
         <section
           v-if="versionHistory?.templateId === template.templateId"
           class="version-panel"
-          :aria-label="`Version history for ${template.name}`"
+          :aria-label="`${template.name} 的版本历史`"
         >
-          <h4>Version history for {{ template.name }}</h4>
+          <h4>{{ template.name }} 的版本历史</h4>
           <ol>
             <li v-for="version in versionHistory.items" :key="`${template.templateId}-${version.version}`">
-              <strong>Version snapshot {{ version.version }}</strong>
+              <strong>版本快照 {{ version.version }}</strong>
               <span>{{ version.name }}</span>
               <span>{{ version.brandSnapshot.footer }}</span>
               <span>{{ version.brandSnapshot.layout?.coverTitle || '-' }}</span>
@@ -169,6 +169,7 @@ import {
   type EnterpriseExportTemplate,
   type EnterpriseExportTemplateRequest
 } from '../../api/reportApi';
+import { isLocalPreviewUnauthorizedError } from '../../api/client';
 
 interface TemplateForm {
   templateId: string;
@@ -221,7 +222,11 @@ async function loadTemplates() {
     const result = await reportApi.listEnterpriseExportTemplates({ page: 1, pageSize: 20 });
     templates.value = result.items ?? [];
   } catch (error) {
-    errorMessage.value = errorText(error, 'Failed to load enterprise export templates');
+    if (isLocalPreviewUnauthorizedError(error)) {
+      templates.value = [];
+      return;
+    }
+    errorMessage.value = errorText(error, '企业导出模板加载失败');
   } finally {
     loading.value = false;
   }
@@ -238,12 +243,12 @@ async function submitTemplate() {
       : await reportApi.createEnterpriseExportTemplate(payload);
     upsertTemplate(saved);
     successMessage.value = editingTemplate.value
-      ? `Enterprise export template updated to version ${saved.version}: ${saved.name}`
-      : `Enterprise export template created: ${saved.name}`;
+      ? `企业导出模板已更新到版本 ${saved.version}：${saved.name}`
+      : `企业导出模板已创建：${saved.name}`;
     editingTemplate.value = null;
     resetForm();
   } catch (error) {
-    errorMessage.value = errorText(error, 'Failed to save enterprise export template');
+    errorMessage.value = errorText(error, '企业导出模板保存失败');
   } finally {
     submitting.value = false;
   }
@@ -266,10 +271,10 @@ async function changeStatus(template: EnterpriseExportTemplate, status: 'active'
       : await reportApi.disableEnterpriseExportTemplate(template.templateId);
     upsertTemplate(updated);
     successMessage.value = status === 'active'
-      ? `Enterprise export template enabled: ${updated.name}`
-      : `Enterprise export template disabled: ${updated.name}`;
+      ? `企业导出模板已启用：${updated.name}`
+      : `企业导出模板已停用：${updated.name}`;
   } catch (error) {
-    errorMessage.value = errorText(error, 'Failed to change enterprise export template status');
+    errorMessage.value = errorText(error, '企业导出模板状态变更失败');
   }
 }
 
@@ -280,7 +285,7 @@ async function loadVersions(template: EnterpriseExportTemplate) {
     const items = await reportApi.listEnterpriseExportTemplateVersions(template.templateId);
     versionHistory.value = { templateId: template.templateId, items };
   } catch (error) {
-    errorMessage.value = errorText(error, 'Failed to load enterprise export template versions');
+    errorMessage.value = errorText(error, '企业导出模板版本加载失败');
   } finally {
     versionLoadingTemplateId.value = '';
   }
@@ -352,6 +357,10 @@ function upsertTemplate(template: EnterpriseExportTemplate) {
 
 function errorText(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
+}
+
+function statusLabel(status: string) {
+  return status === 'active' ? '启用' : '停用';
 }
 </script>
 

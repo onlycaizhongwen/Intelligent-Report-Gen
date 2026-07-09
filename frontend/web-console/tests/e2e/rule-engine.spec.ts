@@ -1,6 +1,112 @@
 import { expect, test, type Locator } from '@playwright/test';
 
 test.describe('规则编排 E2E', () => {
+  test('P0：本地预览登录态下规则接口 401 不在页面展示登录错误', async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem('accessToken', 'local-preview-token');
+      window.localStorage.setItem('authMode', 'local-preview');
+    });
+    await page.route('**/api/v1/rules?page=1&pageSize=10', async (route) => {
+      await route.fulfill({ status: 401, json: { code: 401, message: '请登录后继续操作', data: null } });
+    });
+    await page.route('**/api/v1/reports?page=1&pageSize=20', async (route) => {
+      await route.fulfill({ status: 401, json: { code: 401, message: '请登录后继续操作', data: null } });
+    });
+    await page.route('**/api/v1/users?page=1&pageSize=20', async (route) => {
+      await route.fulfill({ status: 401, json: { code: 401, message: '请登录后继续操作', data: null } });
+    });
+    await page.route('**/api/v1/organization-directory', async (route) => {
+      await route.fulfill({ status: 401, json: { code: 401, message: '请登录后继续操作', data: null } });
+    });
+    await page.route('**/api/v1/rules/approval-templates**', async (route) => {
+      await route.fulfill({ status: 401, json: { code: 401, message: '请登录后继续操作', data: null } });
+    });
+
+    await page.goto('/rules');
+
+    await expect(page).toHaveURL(/\/rules$/);
+    await expect(page.getByRole('heading', { name: '规则编排' })).toBeVisible();
+    await expect(page.getByText('销售考核规则')).toBeVisible();
+    await expect(page.getByText('节点库')).toBeVisible();
+    await expect(page.getByText('调试面板')).toBeVisible();
+    await expect(page.getByText('请登录后继续操作')).toHaveCount(0);
+  });
+
+  test('P0：规则编排页面核心控件使用中文业务文案', async ({ page }) => {
+    await page.route('**/api/v1/rules?page=1&pageSize=10', async (route) => {
+      await route.fulfill({
+        json: {
+          code: 200,
+          message: 'ok',
+          data: {
+            items: [
+              {
+                ruleId: 12,
+                name: '应收账款风险规则',
+                status: 'draft',
+                versionId: 3,
+                definition: {
+                  nodes: [
+                    { id: 'start', type: 'start' },
+                    { id: 'approvalNode', type: 'approval', assigneeRoles: ['finance_manager'], approvalMode: 'all', approvalTitle: '财务审批' },
+                    { id: 'end', type: 'end' }
+                  ],
+                  edges: [
+                    { source: 'start', target: 'approvalNode' },
+                    { source: 'approvalNode', target: 'end' }
+                  ]
+                }
+              }
+            ],
+            page: 1,
+            pageSize: 10,
+            total: 1
+          }
+        }
+      });
+    });
+    await page.route('**/api/v1/reports?page=1&pageSize=20', async (route) => {
+      await route.fulfill({ json: { code: 200, message: 'ok', data: { items: [], page: 1, pageSize: 20, total: 0 } } });
+    });
+    await page.route('**/api/v1/users?page=1&pageSize=20', async (route) => {
+      await route.fulfill({ json: { code: 200, message: 'ok', data: { items: [], page: 1, pageSize: 20, total: 0 } } });
+    });
+    await page.route('**/api/v1/organization-directory', async (route) => {
+      await route.fulfill({ json: { code: 200, message: 'ok', data: { departments: [], roles: [] } } });
+    });
+    await page.route('**/api/v1/rules/approval-templates**', async (route) => {
+      await route.fulfill({ json: { code: 200, message: 'ok', data: { items: [], page: 1, pageSize: 50, total: 0 } } });
+    });
+    await page.route('**/api/v1/rules/12/runs**', async (route) => {
+      await route.fulfill({ json: { code: 200, message: 'ok', data: { items: [], page: 1, pageSize: 5, total: 0 } } });
+    });
+    await page.route('**/api/v1/rules/12/approval-records**', async (route) => {
+      await route.fulfill({ json: { code: 200, message: 'ok', data: { items: [], page: 1, pageSize: 10, total: 0 } } });
+    });
+    await page.route('**/api/v1/rules/12/action-executions**', async (route) => {
+      await route.fulfill({ json: { code: 200, message: 'ok', data: { items: [], page: 1, pageSize: 10, total: 0 } } });
+    });
+
+    await page.goto('/rules');
+
+    await expect(page.getByRole('heading', { name: '规则编排' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '交互式规则画布' })).toBeVisible();
+    await expect(page.getByText('拖拽节点调整执行流程。')).toBeVisible();
+    await expect(page.getByRole('heading', { name: '规则画布编辑器' })).toBeVisible();
+    await expect(page.getByLabel('规则节点摘要列表')).toBeVisible();
+    await expect(page.getByLabel('审批模板应用')).toBeVisible();
+    await expect(page.getByLabel('新增节点编号')).toBeVisible();
+    await expect(page.getByRole('button', { name: '新增节点' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '运行历史' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '审批记录' })).toBeVisible();
+    await expect(page.getByText('暂无审批记录')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Webhook 执行台账' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /应收账款风险规则/ }).getByText('草稿 · v3')).toBeVisible();
+
+    const visibleText = await page.locator('body').innerText();
+    expect(visibleText).not.toMatch(/Interactive rule canvas|Rule canvas editor|Drag nodes|Approval template application|New node id|Add node|Run topology|Subprocess topology|Approval records|No approval records|Webhook action ledger|Refresh|杩愯|\bdraft\b|\bpending_review\b|\bpublished\b/);
+  });
+
   test('REQ-RULE-001：展示规则画布并执行调试样本', async ({ page }) => {
     let currentStatus = 'draft';
     let reviewPayload: Record<string, unknown> | null = null;
@@ -309,6 +415,20 @@ test.describe('规则编排 E2E', () => {
         }
       });
     });
+    await page.route('**/api/v1/rules/approval-templates**', async (route) => {
+      await route.fulfill({
+        json: {
+          code: 200,
+          message: 'ok',
+          data: {
+            items: [],
+            page: 1,
+            pageSize: 50,
+            total: 0
+          }
+        }
+      });
+    });
     await page.route('**/api/v1/rules/12/review-submissions', async (route) => {
       reviewPayload = await route.request().postDataJSON();
       currentStatus = 'pending_review';
@@ -553,15 +673,15 @@ test.describe('规则编排 E2E', () => {
 
     await expect(page.getByRole('heading', { name: '规则编排' })).toBeVisible();
     await expect(page.getByText('应收账款风险规则')).toBeVisible();
-    await expect(page.getByText('draft · v3')).toBeVisible();
+    await expect(page.getByText('草稿 · v3')).toBeVisible();
     await expect(page.getByText('start -> sumOverdue')).toBeVisible();
     await expect(page.getByText('sumOverdue -> riskBranch')).toBeVisible();
     await expect(page.getByText('riskBranch -> writebackRisk')).toBeVisible();
     await expect(page.getByText('riskBranch -> notifyHighRisk')).toBeVisible();
-    await expect(page.getByLabel('Rule node summary list').getByText('sum invoices.overdueAmount -> totalOverdueAmount')).toBeVisible();
-    await expect(page.getByLabel('Rule node summary list').getByText('totalOverdueAmount >= 10000 ? true/false')).toBeVisible();
-    await expect(page.getByLabel('Rule node summary list').getByText('daysOverdue > 30')).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Interactive rule canvas' })).toBeVisible();
+    await expect(page.getByLabel('规则节点摘要列表').getByText('sum invoices.overdueAmount -> totalOverdueAmount')).toBeVisible();
+    await expect(page.getByLabel('规则节点摘要列表').getByText('totalOverdueAmount >= 10000 ? true/false')).toBeVisible();
+    await expect(page.getByLabel('规则节点摘要列表').getByText('daysOverdue > 30')).toBeVisible();
+    await expect(page.getByRole('heading', { name: '交互式规则画布' })).toBeVisible();
     const startCanvasNode = page.getByTestId('rule-flow-node-start');
     await expect(startCanvasNode).toBeVisible();
     const startNodeBoxBeforeMove = await startCanvasNode.boundingBox();
@@ -580,93 +700,93 @@ test.describe('规则编排 E2E', () => {
       { steps: 8 }
     );
     await page.mouse.up();
-    await expect(page.getByRole('heading', { name: 'Rule canvas editor' })).toBeVisible();
-    await page.getByLabel('New node id').fill('escalateFinance');
-    await page.getByLabel('New node type').selectOption('action');
-    await page.getByLabel('New action type').fill('notify');
-    await page.getByLabel('New action message').fill('finance escalation required');
-    await page.getByRole('button', { name: 'Add node' }).click();
+    await expect(page.getByRole('heading', { name: '规则画布编辑器' })).toBeVisible();
+    await page.getByLabel('新增节点编号').fill('escalateFinance');
+    await page.getByLabel('新增节点类型').selectOption('action');
+    await page.getByLabel('新增动作类型').fill('notify');
+    await page.getByLabel('新增动作消息').fill('finance escalation required');
+    await page.getByRole('button', { name: '新增节点' }).click();
     await expect(page.getByTestId('rule-flow-node-escalateFinance')).toBeVisible();
-    await page.getByLabel('New edge source').selectOption('escalateFinance');
-    await page.getByLabel('New edge target').selectOption('aging');
-    await page.getByLabel('New edge condition').fill('manual');
-    await page.getByRole('button', { name: 'Add edge' }).click();
+    await page.getByLabel('新增连线源节点').selectOption('escalateFinance');
+    await page.getByLabel('新增连线目标节点').selectOption('aging');
+    await page.getByLabel('新增连线条件').fill('manual');
+    await page.getByRole('button', { name: '新增连线' }).click();
     await expect(page.getByText('escalateFinance -> aging')).toBeVisible();
-    await page.getByLabel('New node id').fill('invalidCondition');
-    await page.getByLabel('New node type').selectOption('condition');
-    await page.getByRole('button', { name: 'Add node' }).click();
-    await expect(page.getByText('New condition field is required')).toBeVisible();
+    await page.getByLabel('新增节点编号').fill('invalidCondition');
+    await page.getByLabel('新增节点类型').selectOption('condition');
+    await page.getByRole('button', { name: '新增节点' }).click();
+    await expect(page.getByText('新增条件字段必填')).toBeVisible();
     await expect(page.getByTestId('rule-flow-node-invalidCondition')).toBeHidden();
-    await page.getByLabel('New node id').fill('creditHold');
-    await page.getByLabel('New node type').selectOption('condition');
-    await page.getByLabel('New condition field').fill('creditStatus');
-    await page.getByLabel('New condition operator').fill('=');
-    await page.getByLabel('New condition value').fill('hold');
-    await page.getByRole('button', { name: 'Add node' }).click();
+    await page.getByLabel('新增节点编号').fill('creditHold');
+    await page.getByLabel('新增节点类型').selectOption('condition');
+    await page.getByLabel('新增条件字段').fill('creditStatus');
+    await page.getByLabel('新增条件操作符').fill('=');
+    await page.getByLabel('新增条件值').fill('hold');
+    await page.getByRole('button', { name: '新增节点' }).click();
     await expect(page.getByTestId('rule-flow-node-creditHold')).toBeVisible();
     await expect(page.getByTestId('rule-flow-node-creditHold').getByText('creditStatus = hold')).toBeVisible();
-    await page.getByLabel('New node id').fill('financeApproval');
-    await page.getByLabel('New node type').selectOption('approval');
-    await page.getByRole('combobox', { name: 'New approval assignee organization role' }).click();
+    await page.getByLabel('新增节点编号').fill('financeApproval');
+    await page.getByLabel('新增节点类型').selectOption('approval');
+    await page.getByRole('combobox', { name: '新增审批处理组织角色' }).click();
     await page
       .locator('.el-select-dropdown:visible')
       .getByRole('option', { name: 'Finance Center / Finance Manager / finance_manager / Fiona Manager' })
       .click();
-    await expect(page.getByLabel('New approval assignee roles')).toHaveValue('finance_manager');
-    await page.getByLabel('New approval assignee roles').fill('finance_manager, legal_manager');
-    await page.getByLabel('New approval mode').selectOption('all');
-    await page.getByRole('combobox', { name: 'New approval delegate organization role' }).click();
+    await expect(page.getByLabel('新增审批处理角色')).toHaveValue('finance_manager');
+    await page.getByLabel('新增审批处理角色').fill('finance_manager, legal_manager');
+    await page.getByLabel('新增审批模式').selectOption('all');
+    await page.getByRole('combobox', { name: '新增审批代理组织角色' }).click();
     await expect(page.locator('.el-select-dropdown:visible').getByRole('option', {
       name: 'Finance Center / Backup Approver / finance_delegate / Derek Delegate'
     })).toBeVisible();
-    await page.getByLabel('New approval delegate role').fill('finance_delegate');
-    await page.getByLabel('New approval delegate active from').fill('2026-06-26T08:00:00Z');
-    await page.getByLabel('New approval delegate active to').fill('2026-06-26T18:00:00Z');
-    await page.getByLabel('New approval title').fill('Finance approval required');
-    await page.getByLabel('New approval SLA hours').fill('4');
-    await page.getByLabel('New approval SLA escalation role').fill('finance_director');
-    await page.getByLabel('New approval SLA escalation policies').fill('4:finance_director, 8:risk_vp');
-    await page.getByRole('button', { name: 'Add node' }).click();
+    await page.getByLabel('新增审批代理角色').fill('finance_delegate');
+    await page.getByLabel('新增审批代理生效开始').fill('2026-06-26T08:00:00Z');
+    await page.getByLabel('新增审批代理生效结束').fill('2026-06-26T18:00:00Z');
+    await page.getByLabel('新增审批标题').fill('Finance approval required');
+    await page.getByLabel('新增审批 SLA 小时').fill('4');
+    await page.getByLabel('新增审批 SLA 升级角色').fill('finance_director');
+    await page.getByLabel('新增审批 SLA 升级策略').fill('4:finance_director, 8:risk_vp');
+    await page.getByRole('button', { name: '新增节点' }).click();
     await expect(page.getByTestId('rule-flow-node-financeApproval')).toBeVisible();
-    await expect(page.getByTestId('rule-flow-node-financeApproval').getByText('approval all finance_manager, legal_manager delegate finance_delegate 2026-06-26T08:00:00Z..2026-06-26T18:00:00Z escalate finance_director policies 4h:finance_director, 8h:risk_vp -> Finance approval required')).toBeVisible();
-    await page.getByLabel('New node id').fill('createReviewTask');
-    await page.getByLabel('New node type').selectOption('action');
-    await page.getByLabel('New action type').fill('create_task');
-    await page.getByLabel('New task report selector').selectOption('88');
-    await page.getByLabel('New task assignee selector').selectOption('2');
-    await expect(page.getByLabel('New task report id')).toHaveValue('88');
-    await expect(page.getByLabel('New task assignee user id')).toHaveValue('2');
-    await page.getByLabel('New task content').fill('Review high risk evidence');
+    await expect(page.getByTestId('rule-flow-node-financeApproval').getByText('审批 全部审批 finance_manager, legal_manager 代理 finance_delegate 2026-06-26T08:00:00Z..2026-06-26T18:00:00Z 升级 finance_director 策略 4h:finance_director, 8h:risk_vp -> Finance approval required')).toBeVisible();
+    await page.getByLabel('新增节点编号').fill('createReviewTask');
+    await page.getByLabel('新增节点类型').selectOption('action');
+    await page.getByLabel('新增动作类型').fill('create_task');
+    await page.getByLabel('新增任务报告选择').selectOption('88');
+    await page.getByLabel('新增任务处理人选择').selectOption('2');
+    await expect(page.getByLabel('新增任务报告编号')).toHaveValue('88');
+    await expect(page.getByLabel('新增任务处理人编号')).toHaveValue('2');
+    await page.getByLabel('新增任务内容').fill('Review high risk evidence');
     await expect(page.getByText('Risk summary')).toBeVisible();
     const anchorText = page.getByText('High risk evidence requires finance review before export.');
     await selectText(anchorText, 'High risk');
-    await page.getByRole('button', { name: 'Use selected text as task anchor' }).click();
-    await expect(page.getByLabel('New task section id')).toHaveValue('summary');
-    await expect(page.getByLabel('New task start offset')).toHaveValue('0');
-    await expect(page.getByLabel('New task end offset')).toHaveValue('9');
-    await expect(page.getByLabel('New task selected text')).toHaveValue('High risk');
-    await page.getByRole('button', { name: 'Add node' }).click();
+    await page.getByRole('button', { name: '使用选中文本作为任务锚点' }).click();
+    await expect(page.getByLabel('新增任务章节编号')).toHaveValue('summary');
+    await expect(page.getByLabel('新增任务起始位置')).toHaveValue('0');
+    await expect(page.getByLabel('新增任务结束位置')).toHaveValue('9');
+    await expect(page.getByLabel('新增任务选中文本')).toHaveValue('High risk');
+    await page.getByRole('button', { name: '新增节点' }).click();
     await expect(page.getByTestId('rule-flow-node-createReviewTask')).toBeVisible();
-    await expect(page.getByTestId('rule-flow-node-createReviewTask').getByText('task report 88 -> user 2')).toBeVisible();
-    await page.getByLabel('New node id').fill('riskSubprocess');
-    await page.getByLabel('New node type').selectOption('subprocess');
-    await page.getByLabel('New subprocess rule id').fill('42');
-    await page.getByLabel('New subprocess name').fill('Risk review flow');
-    await page.getByRole('button', { name: 'Add node' }).click();
+    await expect(page.getByTestId('rule-flow-node-createReviewTask').getByText('任务报告 88 -> 用户 2')).toBeVisible();
+    await page.getByLabel('新增节点编号').fill('riskSubprocess');
+    await page.getByLabel('新增节点类型').selectOption('subprocess');
+    await page.getByLabel('新增子流程规则编号').fill('42');
+    await page.getByLabel('新增子流程名称').fill('Risk review flow');
+    await page.getByRole('button', { name: '新增节点' }).click();
     await expect(page.getByTestId('rule-flow-node-riskSubprocess')).toBeVisible();
-    await expect(page.getByTestId('rule-flow-node-riskSubprocess').getByText('subprocess 42 -> Risk review flow')).toBeVisible();
-    await page.getByLabel('New edge source').selectOption('financeApproval');
-    await page.getByLabel('New edge target').selectOption('createReviewTask');
-    await page.getByLabel('New edge condition').fill('rejected');
-    await page.getByRole('button', { name: 'Add edge' }).click();
+    await expect(page.getByTestId('rule-flow-node-riskSubprocess').getByText('子流程 42 -> Risk review flow')).toBeVisible();
+    await page.getByLabel('新增连线源节点').selectOption('financeApproval');
+    await page.getByLabel('新增连线目标节点').selectOption('createReviewTask');
+    await page.getByLabel('新增连线条件').fill('rejected');
+    await page.getByRole('button', { name: '新增连线' }).click();
     await expect(page.getByText('financeApproval -> createReviewTask')).toBeVisible();
-    await page.getByLabel('Delete edge').selectOption('riskBranch->notifyHighRisk');
-    await page.getByRole('button', { name: 'Delete edge' }).click();
+    await page.getByLabel('删除连线').selectOption('riskBranch->notifyHighRisk');
+    await page.getByRole('button', { name: '删除连线' }).click();
     await expect(page.getByText('riskBranch -> notifyHighRisk')).toBeHidden();
-    await page.getByLabel('Delete node').selectOption('archiveLowRisk');
-    await page.getByRole('button', { name: 'Delete node' }).click();
+    await page.getByLabel('删除节点').selectOption('archiveLowRisk');
+    await page.getByRole('button', { name: '删除节点' }).click();
     await expect(page.getByTestId('rule-flow-node-archiveLowRisk')).toBeHidden();
-    await page.getByRole('button', { name: 'Save canvas changes' }).click();
+    await page.getByRole('button', { name: '保存画布变更' }).click();
     expect(savePayload).toMatchObject({
       status: 'draft',
       definition: {
@@ -752,24 +872,24 @@ test.describe('规则编排 E2E', () => {
     }).nodes.find((node) => node.id === 'start');
     expect(savedStartNode?.position?.x).toBeGreaterThan(20);
     expect(savedStartNode?.position?.y).toBeGreaterThan(20);
-    await expect(page.getByRole('heading', { name: 'Webhook node configuration' })).toBeVisible();
-    await expect(page.getByLabel('Webhook endpoint')).toHaveValue('https://erp.example.com/risk-events');
-    await expect(page.getByLabel('Webhook method')).toHaveValue('POST');
-    await expect(page.getByLabel('Webhook max retry count')).toHaveValue('0');
-    await expect(page.getByLabel('Webhook retry backoff seconds')).toHaveValue('0');
-    await expect(page.getByLabel('Webhook max async replay attempts')).toHaveValue('3');
-    await expect(page.getByLabel('Webhook headers JSON')).toHaveValue(JSON.stringify({ 'X-System': 'risk-center' }, null, 2));
-    await expect(page.getByLabel('Webhook body JSON')).toHaveValue(JSON.stringify({ eventType: 'risk_overdue', source: 'rule-engine' }, null, 2));
-    await page.getByLabel('Webhook endpoint').fill('https://erp.example.com/risk-events-v2');
-    await page.getByLabel('Webhook method').fill('PUT');
-    await page.getByLabel('Webhook max retry count').fill('2');
-    await page.getByLabel('Webhook retry backoff seconds').fill('30');
-    await page.getByLabel('Webhook max async replay attempts').fill('5');
-    await page.getByLabel('Webhook signature secret').fill('secret-v2');
-    await page.getByLabel('Webhook headers JSON').fill(JSON.stringify({ 'X-System': 'risk-center-v2', 'X-Trace': 'enabled' }, null, 2));
-    await page.getByLabel('Webhook body JSON').fill(JSON.stringify({ eventType: 'risk_overdue_v2', source: 'rule-engine', severity: 'high' }, null, 2));
-    await page.getByRole('button', { name: 'Save webhook config' }).click();
-    await expect(page.getByLabel('Webhook endpoint')).toHaveValue('https://erp.example.com/risk-events-v2');
+    await expect(page.getByRole('heading', { name: 'Webhook 节点配置' })).toBeVisible();
+    await expect(page.getByLabel('Webhook 地址')).toHaveValue('https://erp.example.com/risk-events');
+    await expect(page.getByLabel('Webhook 方法')).toHaveValue('POST');
+    await expect(page.getByLabel('Webhook 最大重试次数')).toHaveValue('0');
+    await expect(page.getByLabel('Webhook 重试退避秒数')).toHaveValue('0');
+    await expect(page.getByLabel('Webhook 最大异步重放次数')).toHaveValue('3');
+    await expect(page.getByLabel('Webhook 请求头 JSON')).toHaveValue(JSON.stringify({ 'X-System': 'risk-center' }, null, 2));
+    await expect(page.getByLabel('Webhook 请求体 JSON')).toHaveValue(JSON.stringify({ eventType: 'risk_overdue', source: 'rule-engine' }, null, 2));
+    await page.getByLabel('Webhook 地址').fill('https://erp.example.com/risk-events-v2');
+    await page.getByLabel('Webhook 方法').fill('PUT');
+    await page.getByLabel('Webhook 最大重试次数').fill('2');
+    await page.getByLabel('Webhook 重试退避秒数').fill('30');
+    await page.getByLabel('Webhook 最大异步重放次数').fill('5');
+    await page.getByLabel('Webhook 签名密钥').fill('secret-v2');
+    await page.getByLabel('Webhook 请求头 JSON').fill(JSON.stringify({ 'X-System': 'risk-center-v2', 'X-Trace': 'enabled' }, null, 2));
+    await page.getByLabel('Webhook 请求体 JSON').fill(JSON.stringify({ eventType: 'risk_overdue_v2', source: 'rule-engine', severity: 'high' }, null, 2));
+    await page.getByRole('button', { name: '保存 Webhook 配置' }).click();
+    await expect(page.getByLabel('Webhook 地址')).toHaveValue('https://erp.example.com/risk-events-v2');
     expect(savePayload).toMatchObject({
       status: 'draft',
       definition: {
@@ -792,12 +912,12 @@ test.describe('规则编排 E2E', () => {
 
     await expect(page.getByRole('button', { name: '生产运行' })).toBeDisabled();
     await page.getByRole('button', { name: '提交审核' }).click();
-    await expect(page.getByText('pending_review · v3')).toBeVisible();
+    await expect(page.getByText('待审核 · v3')).toBeVisible();
     await page.getByRole('button', { name: '审批发布' }).click();
-    await expect(page.getByText('published · v3')).toBeVisible();
+    await expect(page.getByText('已发布 · v3')).toBeVisible();
     await page.getByRole('button', { name: '生产运行' }).click();
     await expect(page.getByText('生产运行：命中')).toBeVisible();
-    await expect(page.getByText('runType: production · versionId: 3')).toBeVisible();
+    await expect(page.getByText('运行类型：生产运行 · 版本编号：3')).toBeVisible();
 
     await page.getByLabel('调试样本 JSON').fill('{"daysOverdue":12}');
     await page.getByRole('button', { name: '调试运行' }).click();
@@ -806,43 +926,43 @@ test.describe('规则编排 E2E', () => {
     await expect(page.getByText('sumOverdue · aggregate · true · totalOverdueAmount: 11000')).toBeVisible();
     await expect(page.getByText('aging · condition · false')).toBeVisible();
     await expect(page.getByText(/riskBranch.*branch.*true.*notifyHighRisk/)).toBeVisible();
-    await expect(page.getByText('evaluatedNodes: 6')).toBeVisible();
-    await expect(page.getByText(/#100.*production.*succeeded/)).toBeVisible();
-    await page.getByRole('button', { name: 'Topology 100' }).click();
-    await expect(page.getByRole('heading', { name: 'Subprocess topology' })).toBeVisible();
-    await expect(page.getByText('parent run 100')).toBeVisible();
-    await expect(page.getByText('subprocess run 200')).toBeVisible();
+    await expect(page.getByText('已评估节点数：6')).toBeVisible();
+    await expect(page.getByText(/#100.*生产运行.*成功/)).toBeVisible();
+    await page.getByRole('button', { name: '拓扑 100' }).click();
+    await expect(page.getByRole('heading', { name: '子流程拓扑' })).toBeVisible();
+    await expect(page.getByText('parent 运行 100')).toBeVisible();
+    await expect(page.getByText('subprocess 运行 200')).toBeVisible();
     await expect(page.getByText(/riskSubprocess.*100.*200/)).toBeVisible();
     expect(subprocessTopologyCalls).toBeGreaterThan(0);
-    await expect(page.getByRole('button', { name: 'Approve' })).toBeVisible();
-    await page.getByRole('button', { name: 'Approve' }).click();
-    await expect(page.getByText('financeApproval 路 finance_manager 路 approved')).toBeVisible();
-    await expect(page.getByText('approved from rule page')).toBeVisible();
+    await expect(page.getByRole('button', { name: '通过' })).toBeVisible();
+    await page.getByRole('button', { name: '通过' }).click();
+    await expect(page.getByText('financeApproval · finance_manager · 已通过')).toBeVisible();
+    await expect(page.getByText('在规则页面通过')).toBeVisible();
     expect(approvalActionPayload).toMatchObject({
       action: 'approve',
-      comment: 'approved from rule page'
+      comment: '在规则页面通过'
     });
-    await expect(page.getByRole('heading', { name: 'Webhook action ledger' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Webhook 执行台账' })).toBeVisible();
     expect(actionExecutionListCalls).toBeGreaterThan(0);
-    await expect(page.getByText('Compensation operations')).toBeVisible();
-    await expect(page.getByText('Pending 1')).toBeVisible();
-    await expect(page.getByText('Succeeded 1')).toBeVisible();
-    await expect(page.getByText('Exhausted 1')).toBeVisible();
-    await expect(page.getByText('Ignored 1')).toBeVisible();
-    await expect(page.getByText('Success rate 25%')).toBeVisible();
+    await expect(page.getByText('补偿操作')).toBeVisible();
+    await expect(page.getByText('待处理 1')).toBeVisible();
+    await expect(page.getByText('已成功 1')).toBeVisible();
+    await expect(page.getByText('已耗尽 1')).toBeVisible();
+    await expect(page.getByText('已忽略 1')).toBeVisible();
+    await expect(page.getByText('成功率 25%')).toBeVisible();
     await expect(page.locator('.ledger-row').filter({ hasText: 'writebackRisk' })).toBeVisible();
-    await expect(page.getByText('pending_retry')).toBeVisible();
+    await expect(page.getByText('待重试')).toBeVisible();
     await expect(page.locator('.ledger-row').filter({ hasText: 'https://erp.example.com/risk-events' })).toBeVisible();
-    await page.getByRole('button', { name: 'Only pending/failed' }).click();
+    await page.getByRole('button', { name: '仅待处理/失败' }).click();
     await expect(page.getByText('auditHook')).toBeHidden();
-    await page.getByLabel('Select action 501').check();
-    await page.getByRole('button', { name: 'Batch ignore' }).click();
-    await page.getByRole('button', { name: 'Only pending/failed' }).click();
-    await expect(page.locator('.ledger-row').filter({ hasText: 'writebackRisk' }).filter({ hasText: 'compensation_ignored' })).toBeVisible();
+    await page.getByLabel('选择动作 501').check();
+    await page.getByRole('button', { name: '批量忽略' }).click();
+    await page.getByRole('button', { name: '仅待处理/失败' }).click();
+    await expect(page.locator('.ledger-row').filter({ hasText: 'writebackRisk' }).filter({ hasText: '已忽略' })).toBeVisible();
     expect(batchActionPayload).toMatchObject({
       operation: 'ignore',
       actionExecutionIds: [501],
-      reason: 'ignored from rule action ledger'
+      reason: '从规则动作台账忽略'
     });
     actionExecutions = [
       {
@@ -862,9 +982,9 @@ test.describe('规则编排 E2E', () => {
       },
       ...actionExecutions.filter((execution) => execution.actionExecutionId !== 501)
     ];
-    await page.getByRole('button', { name: 'Refresh' }).click();
-    await page.getByRole('button', { name: 'Retry 501' }).click();
-    await expect(page.getByText(/succeeded.*attempt 2/)).toBeVisible();
+    await page.getByRole('button', { name: '刷新' }).click();
+    await page.getByRole('button', { name: '重试 501' }).click();
+    await expect(page.getByText(/succeeded.*尝试 2/)).toBeVisible();
     expect(retriedActionExecutionId).toBe('501');
     expect(reviewPayload).toMatchObject({ comment: 'ready for approval' });
     expect(approvalPayload).toMatchObject({ comment: 'approved for production' });

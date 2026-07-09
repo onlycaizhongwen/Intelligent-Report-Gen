@@ -35,6 +35,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { auditApi, type AuditLogPage, type AuditLogRow } from '../../api/auditApi';
+import { isLocalPreviewUnauthorizedError } from '../../api/client';
 
 interface DisplayAuditLog {
   id: string;
@@ -88,7 +89,12 @@ async function loadLogs(
     const page = await request() as AuditLogPage;
     target.value = (page.items ?? []).map(normalizeLog);
     loaded.value = true;
-  } catch {
+  } catch (caught) {
+    if (isLocalPreviewUnauthorizedError(caught)) {
+      target.value = [];
+      loaded.value = true;
+      return;
+    }
     error.value = '审计日志加载失败';
   }
 }

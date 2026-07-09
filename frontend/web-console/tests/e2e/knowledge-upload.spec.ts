@@ -1,6 +1,41 @@
 ﻿import { expect, test } from '@playwright/test';
 
 test.describe('知识库导入 E2E', () => {
+  test('P0：文档上传解析状态使用中文文案', async ({ page }) => {
+    await page.route('**/api/v1/knowledge-bases?page=1&pageSize=20', async (route) => {
+      await route.fulfill({
+        json: {
+          code: 200,
+          message: 'ok',
+          data: {
+            items: [{ knowledgeBaseId: 9, name: '财务知识库', ownerUserId: 7, status: 'enabled' }],
+            page: 1,
+            pageSize: 20,
+            total: 1
+          }
+        }
+      });
+    });
+
+    await page.route('**/api/v1/documents/upload*', async (route) => {
+      await route.fulfill({
+        json: {
+          code: 200,
+          message: 'ok',
+          data: { documentId: '301', filename: 'scan.pdf', parseStatus: 'processed' }
+        }
+      });
+    });
+
+    await page.goto('/knowledge/upload');
+    await expect(page.getByRole('heading', { name: '文档上传' })).toBeVisible();
+    await page.setInputFiles('input[type="file"]', '../../tests/e2e/fixtures/sample.txt');
+
+    await expect(page.getByText('scan.pdf 解析完成')).toBeVisible();
+    const visibleText = await page.locator('body').innerText();
+    expect(visibleText).not.toMatch(/\bprocessed\b|\bfailed\b|\bpending\b/);
+  });
+
   test('REQ-KB-002：上传请求使用当前用户可用知识库，而不是硬编码 1', async ({ page }) => {
     await page.route('**/api/v1/knowledge-bases?page=1&pageSize=20', async (route) => {
       await route.fulfill({
@@ -31,7 +66,7 @@ test.describe('知识库导入 E2E', () => {
     await page.goto('/knowledge/upload');
     await page.setInputFiles('input[type="file"]', '../../tests/e2e/fixtures/sample.txt');
 
-    await expect(page.getByText('scan.pdf processed')).toBeVisible();
+    await expect(page.getByText('scan.pdf 解析完成')).toBeVisible();
   });
 
   test('REQ-KB-002：上传文件后轮询展示解析失败原因', async ({ page }) => {
@@ -82,7 +117,7 @@ test.describe('知识库导入 E2E', () => {
     await page.goto('/knowledge/upload');
     await page.setInputFiles('input[type="file"]', '../../tests/e2e/fixtures/sample.txt');
 
-    await expect(page.getByText('scan.pdf failed')).toBeVisible();
+    await expect(page.getByText('scan.pdf 解析失败')).toBeVisible();
     await expect(page.getByText('document knowledge/scan.pdf requires OCR or table extraction before text parsing')).toBeVisible();
   });
 
@@ -133,6 +168,6 @@ test.describe('知识库导入 E2E', () => {
     await page.goto('/knowledge/upload');
     await page.setInputFiles('input[type="file"]', '../../tests/e2e/fixtures/sample.txt');
 
-    await expect(page.getByText('scan-success.pdf processed')).toBeVisible();
+    await expect(page.getByText('scan-success.pdf 解析完成')).toBeVisible();
   });
 });

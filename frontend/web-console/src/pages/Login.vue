@@ -7,10 +7,40 @@
 </template>
 
 <script setup lang="ts">
-const redirectToOidc = () => {
-  const fallback = `/api/v1/auth/oidc/login?redirect_uri=${encodeURIComponent(window.location.origin)}`;
-  window.location.href = import.meta.env.VITE_OIDC_LOGIN_URL || fallback;
+import { useRouter } from 'vue-router';
+
+const router = useRouter();
+
+type DevLoginResponse = {
+  code: number;
+  data?: {
+    accessToken?: string;
+  };
 };
+
+const redirectToOidc = async () => {
+  const oidcLoginUrl = import.meta.env.VITE_OIDC_LOGIN_URL;
+  if (oidcLoginUrl) {
+    window.location.href = oidcLoginUrl;
+    return;
+  }
+
+  const devToken = await requestDevToken();
+  window.localStorage.setItem('accessToken', devToken || 'local-preview-token');
+  window.localStorage.setItem('authMode', devToken ? 'local-dev' : 'local-preview');
+  await router.push('/reports/create');
+};
+
+async function requestDevToken() {
+  try {
+    const response = await fetch('/api/v1/auth/dev-login', { method: 'POST' });
+    if (!response.ok) return '';
+    const body = await response.json() as DevLoginResponse;
+    return body.code === 200 ? body.data?.accessToken ?? '' : '';
+  } catch {
+    return '';
+  }
+}
 </script>
 
 <style scoped>

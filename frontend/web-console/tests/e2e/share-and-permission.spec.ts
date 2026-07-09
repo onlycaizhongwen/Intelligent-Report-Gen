@@ -1,6 +1,35 @@
 ﻿import { expect, test } from '@playwright/test';
 
 test.describe('分享与权限 E2E', () => {
+  test('P0：用户权限页面状态使用中文文案', async ({ page }) => {
+    await page.route('**/api/v1/users?page=1&pageSize=20', async (route) => {
+      await route.fulfill({
+        status: 200,
+        json: {
+          code: 200,
+          message: 'success',
+          data: {
+            items: [
+              { userId: 1, username: 'admin.demo', displayName: '系统管理员', status: 'enabled', roles: ['system_admin'] },
+              { userId: 2, username: 'stopped.demo', displayName: '停用账号', status: 'disabled', roles: ['viewer'] }
+            ],
+            page: 1,
+            pageSize: 20,
+            total: 2
+          }
+        }
+      });
+    });
+
+    await page.goto('/admin/users');
+
+    await expect(page.getByRole('heading', { name: '用户权限' })).toBeVisible();
+    await expect(page.getByRole('row', { name: /admin\.demo/ }).getByText('已启用')).toBeVisible();
+    await expect(page.getByRole('row', { name: /stopped\.demo/ }).getByText('已禁用')).toBeVisible();
+    const visibleText = await page.locator('body').innerText();
+    expect(visibleText).not.toMatch(/\benabled\b|\bdisabled\b/);
+  });
+
   test('REQ-COLLAB-001：分享链接过期时展示拒绝访问', async ({ page }) => {
     await page.route('**/api/v1/share-links/expired-token/report', async (route) => {
       await route.fulfill({ status: 403, json: { code: 403, message: '分享链接已过期', data: null } });
@@ -75,6 +104,7 @@ test.describe('分享与权限 E2E', () => {
     await page.getByRole('button', { name: /访问|打开/ }).click();
 
     await expect(page.getByRole('heading', { name: '挑战保护报告' })).toBeVisible();
+    await expect(page.getByText('已完成')).toBeVisible();
     expect(payloads[1]).toMatchObject({ password: 'secret', challengeAnswer: 'REPORT' });
   });
 
@@ -111,6 +141,7 @@ test.describe('分享与权限 E2E', () => {
     await page.getByRole('button', { name: /访问|打开/ }).click();
 
     await expect(page.getByRole('heading', { name: '季度经营分析报告' })).toBeVisible();
+    await expect(page.getByText('已完成')).toBeVisible();
     await expect(page.getByText('收入增长 12%，但应收账款风险上升。')).toBeVisible();
     await expect(page.getByText('doc_1_chunk_0')).toBeVisible();
     await expect(page.getByTestId('external-share-watermark')).toContainText('外部只读');
@@ -311,6 +342,6 @@ test.describe('分享与权限 E2E', () => {
     await page.getByRole('row', { name: /analyst\.one/ }).getByRole('button', { name: '禁用' }).click();
 
     await expect.poll(() => disableCalled).toBe(true);
-    await expect(page.getByRole('row', { name: /analyst\.one/ }).getByText('disabled')).toBeVisible();
+    await expect(page.getByRole('row', { name: /analyst\.one/ }).getByText('已禁用')).toBeVisible();
   });
 });

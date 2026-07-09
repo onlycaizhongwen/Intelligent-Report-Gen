@@ -2,10 +2,10 @@
   <section class="page approval-template-page">
     <header class="page-header">
       <div>
-        <h2>Approval Templates</h2>
-        <p>Manage reusable approval steps for rule workflows.</p>
+        <h2>审批模板</h2>
+        <p>维护规则流程可复用的审批步骤、角色和 SLA。</p>
       </div>
-      <el-button :loading="loadingTemplates" @click="loadApprovalTemplates">Refresh</el-button>
+      <el-button :loading="loadingTemplates" @click="loadApprovalTemplates">刷新</el-button>
     </header>
 
     <el-alert v-if="errorMessage" :title="errorMessage" type="error" show-icon :closable="false" />
@@ -16,18 +16,18 @@
       class="confirm-panel"
       role="dialog"
       aria-modal="true"
-      aria-label="Disable referenced approval template"
+      aria-label="停用被引用的审批模板"
     >
-      <h3>Disable referenced approval template?</h3>
-      <p>{{ disableCandidate.name }} is used by {{ disableCandidate.usageCount ?? 0 }} rule(s).</p>
+      <h3>确认停用被引用的审批模板？</h3>
+      <p>{{ disableCandidate.name }} 正被 {{ disableCandidate.usageCount ?? 0 }} 条规则使用。</p>
       <ul>
         <li v-for="usageRule in disableCandidate.usageRules ?? []" :key="String(usageRule.ruleId)">
-          {{ usageRule.name }} ({{ usageRule.status }})
+          {{ usageRule.name }}（{{ statusLabel(usageRule.status) }}）
         </li>
       </ul>
       <div class="confirm-actions">
-        <el-button @click="disableCandidate = null">Cancel</el-button>
-        <el-button type="danger" @click="confirmDisableTemplate">Confirm disable</el-button>
+        <el-button @click="disableCandidate = null">取消</el-button>
+        <el-button type="danger" @click="confirmDisableTemplate">确认停用</el-button>
       </div>
     </section>
 
@@ -36,59 +36,59 @@
       class="confirm-panel"
       role="dialog"
       aria-modal="true"
-      aria-label="Rollback approval template version"
+      aria-label="回滚审批模板版本"
     >
-      <h3>Rollback approval template version?</h3>
-      <p>{{ rollbackCandidate.template.name }} will restore version {{ rollbackCandidate.version }} as a new current version.</p>
+      <h3>确认回滚审批模板版本？</h3>
+      <p>{{ rollbackCandidate.template.name }} 将把版本 {{ rollbackCandidate.version }} 恢复为新的当前版本。</p>
       <div class="confirm-actions">
-        <el-button @click="rollbackCandidate = null">Cancel</el-button>
+        <el-button @click="rollbackCandidate = null">取消</el-button>
         <el-button type="warning" :loading="rollbackLoadingTemplateId === rollbackCandidate.template.approvalTemplateId" @click="confirmRollbackTemplateVersion">
-          Confirm rollback
+          确认回滚
         </el-button>
       </div>
     </section>
 
-    <section class="template-form" aria-label="Approval template form">
+    <section class="template-form" aria-label="审批模板表单">
       <label>
-        <span>Name</span>
-        <el-input v-model="form.name" aria-label="Template name" placeholder="Finance two-level approval" />
+        <span>模板名称</span>
+        <el-input v-model="form.name" aria-label="模板名称" placeholder="财务两级审批" />
       </label>
       <label>
-        <span>Description</span>
+        <span>模板描述</span>
         <el-input
           v-model="form.description"
-          aria-label="Template description"
-          placeholder="Finance manager then finance director"
+          aria-label="模板描述"
+          placeholder="财务经理审批后提交财务总监"
         />
       </label>
       <label>
-        <span>Status</span>
-        <select v-model="form.status" aria-label="Template status">
-          <option value="enabled">enabled</option>
-          <option value="disabled">disabled</option>
+        <span>状态</span>
+        <select v-model="form.status" aria-label="模板状态">
+          <option value="enabled">启用</option>
+          <option value="disabled">停用</option>
         </select>
       </label>
       <label class="steps-field">
-        <span>Steps</span>
+        <span>审批步骤</span>
         <el-input
           v-model="form.stepsText"
-          aria-label="Approval template steps"
+          aria-label="审批步骤"
           type="textarea"
           :rows="5"
-          placeholder="stepId|approvalTitle|roleA,roleB|all|4|8:finance_director"
+          placeholder="步骤编码|审批标题|roleA,roleB|all|4|8:finance_director"
         />
       </label>
       <div class="form-actions">
         <el-button type="primary" :loading="submitting" @click="submitTemplate">
-          {{ editingTemplate ? 'Save approval template changes' : 'Create approval template' }}
+          {{ editingTemplate ? '保存审批模板' : '创建审批模板' }}
         </el-button>
-        <el-button v-if="editingTemplate" @click="cancelEditTemplate">Cancel edit</el-button>
+        <el-button v-if="editingTemplate" @click="cancelEditTemplate">取消编辑</el-button>
       </div>
     </section>
 
-    <section class="template-list" aria-label="Approval templates">
-      <h3>Existing templates</h3>
-      <el-empty v-if="!loadingTemplates && templates.length === 0" description="No approval templates" />
+    <section class="template-list" aria-label="审批模板列表">
+      <h3>已有模板</h3>
+      <el-empty v-if="!loadingTemplates && templates.length === 0" description="暂无审批模板" />
       <article
         v-for="template in templates"
         :key="String(template.approvalTemplateId)"
@@ -96,57 +96,57 @@
       >
         <div class="template-summary">
           <strong>{{ template.name }}</strong>
-          <span>Status {{ template.status }}</span>
-          <span>Version {{ template.version ?? 1 }}</span>
-          <span>Usage {{ template.usageCount ?? 0 }} {{ (template.usageCount ?? 0) === 1 ? 'rule' : 'rules' }}</span>
+          <span>状态 {{ statusLabel(template.status) }}</span>
+          <span>版本 {{ template.version ?? 1 }}</span>
+          <span>使用 {{ template.usageCount ?? 0 }} 条规则</span>
           <span
             v-for="usageRule in template.usageRules ?? []"
             :key="`${template.approvalTemplateId}-${usageRule.ruleId}`"
           >
-            Used by {{ usageRule.name }} ({{ usageRule.status }})
+            被 {{ usageRule.name }} 引用（{{ statusLabel(usageRule.status) }}）
           </span>
-          <span v-if="template.description">Description {{ template.description }}</span>
-          <span v-if="template.createdAt">Created {{ template.createdAt }}</span>
+          <span v-if="template.description">描述 {{ template.description }}</span>
+          <span v-if="template.createdAt">创建时间 {{ template.createdAt }}</span>
           <div class="template-actions">
             <el-button
               v-if="template.status === 'enabled'"
               size="small"
-              :aria-label="`Disable ${template.name}`"
+              :aria-label="`停用 ${template.name}`"
               @click="disableTemplate(template)"
             >
-              Disable
+              停用
             </el-button>
             <el-button
               v-else
               size="small"
-              :aria-label="`Enable ${template.name}`"
+              :aria-label="`启用 ${template.name}`"
               @click="enableTemplate(template)"
             >
-              Enable
+              启用
             </el-button>
             <el-button
               size="small"
-              :aria-label="`Edit ${template.name}`"
+              :aria-label="`编辑 ${template.name}`"
               @click="editTemplate(template)"
             >
-              Edit
+              编辑
             </el-button>
             <el-button
               v-if="(template.version ?? 1) > 1"
               size="small"
               :loading="versionLoadingTemplateId === template.approvalTemplateId"
-              :aria-label="`View versions ${template.name}`"
+              :aria-label="`查看版本 ${template.name}`"
               @click="loadTemplateVersions(template)"
             >
-              View versions
+              查看版本
             </el-button>
             <el-button
               size="small"
               :loading="usageLoadingTemplateId === template.approvalTemplateId"
-              :aria-label="`View usage ${template.name}`"
+              :aria-label="`查看使用情况 ${template.name}`"
               @click="loadTemplateUsage(template, 1)"
             >
-              View usage
+              查看使用情况
             </el-button>
           </div>
         </div>
@@ -155,26 +155,26 @@
             <strong>{{ step.approvalTitle }}</strong>
             <span>{{ step.stepId }}</span>
             <span>{{ step.assigneeRoles.join(', ') }}</span>
-            <span>Mode {{ step.approvalMode || 'all' }}</span>
+            <span>审批模式 {{ approvalModeLabel(step.approvalMode || 'all') }}</span>
             <span v-if="step.slaHours">SLA {{ step.slaHours }}h</span>
             <small
               v-for="escalation in step.slaEscalations ?? []"
               :key="`${step.stepId}-${escalation.afterHours}-${escalation.role}`"
             >
-              Escalate after {{ escalation.afterHours }}h to {{ escalation.role }}
+              {{ escalation.afterHours }}h 后升级给 {{ escalation.role }}
             </small>
           </li>
         </ol>
         <section
           v-if="usagePanel?.templateId === template.approvalTemplateId"
           class="usage-panel"
-          :aria-label="`Usage details for ${template.name}`"
+          :aria-label="`${template.name} 的使用明细`"
         >
-          <h4>Usage details for {{ template.name }}</h4>
-          <span>Page {{ usagePanel.page }} of {{ usageTotalPages }}</span>
+          <h4>{{ template.name }} 的使用明细</h4>
+          <span>第 {{ usagePanel.page }} / {{ usageTotalPages }} 页</span>
           <ul>
             <li v-for="rule in usagePanel.items" :key="String(rule.ruleId)">
-              Referenced by {{ rule.name }} ({{ rule.status }})
+              被 {{ rule.name }} 引用（{{ statusLabel(rule.status) }}）
             </li>
           </ul>
           <div class="usage-actions">
@@ -183,84 +183,84 @@
               :disabled="usagePanel.page <= 1"
               @click="loadTemplateUsage(template, usagePanel.page - 1)"
             >
-              Previous usage page
+              上一页
             </el-button>
             <el-button
               size="small"
               :disabled="usagePanel.page >= usageTotalPages"
               @click="loadTemplateUsage(template, usagePanel.page + 1)"
             >
-              Next usage page
+              下一页
             </el-button>
           </div>
         </section>
         <section
           v-if="versionHistory?.templateId === template.approvalTemplateId"
           class="version-panel"
-          :aria-label="`Version history for ${template.name}`"
+          :aria-label="`${template.name} 的版本历史`"
         >
-          <h4>Version history for {{ template.name }}</h4>
+          <h4>{{ template.name }} 的版本历史</h4>
           <div class="version-actions">
             <el-button
               v-if="versionHistory.items.length >= 2"
               size="small"
               :loading="versionDiffLoadingTemplateId === template.approvalTemplateId"
-              :aria-label="`Compare version ${oldestVersion(versionHistory.items)} to ${newestVersion(versionHistory.items)} ${template.name}`"
+              :aria-label="`比较版本 ${oldestVersion(versionHistory.items)} 到 ${newestVersion(versionHistory.items)} ${template.name}`"
               @click="compareTemplateVersions(template, oldestVersion(versionHistory.items), newestVersion(versionHistory.items))"
             >
-              Compare {{ oldestVersion(versionHistory.items) }} to {{ newestVersion(versionHistory.items) }}
+              比较 {{ oldestVersion(versionHistory.items) }} 到 {{ newestVersion(versionHistory.items) }}
             </el-button>
             <el-button
               v-for="version in versionHistory.items"
               :key="`${template.approvalTemplateId}-${version.version}`"
               size="small"
-              :aria-label="`Open version ${version.version ?? 1} ${template.name}`"
+              :aria-label="`打开版本 ${version.version ?? 1} ${template.name}`"
               @click="loadTemplateVersion(template, version.version ?? 1)"
             >
-              Version {{ version.version ?? 1 }}
+              版本 {{ version.version ?? 1 }}
             </el-button>
             <el-button
               v-for="version in rollbackVersions(template, versionHistory.items)"
               :key="`${template.approvalTemplateId}-rollback-${version.version}`"
               size="small"
               :loading="rollbackLoadingTemplateId === template.approvalTemplateId"
-              :aria-label="`Rollback version ${version.version ?? 1} ${template.name}`"
+              :aria-label="`回滚版本 ${version.version ?? 1} ${template.name}`"
               @click="rollbackCandidate = { template, version: version.version ?? 1 }"
             >
-              Rollback version {{ version.version ?? 1 }}
+              回滚版本 {{ version.version ?? 1 }}
             </el-button>
           </div>
         </section>
         <section
           v-if="versionDiff?.templateId === template.approvalTemplateId"
           class="version-panel"
-          :aria-label="`Version diff for ${template.name}`"
+          :aria-label="`${template.name} 的版本差异`"
         >
-          <h4>Version diff {{ versionDiff.baseVersion }} -> {{ versionDiff.targetVersion }} for {{ template.name }}</h4>
+          <h4>{{ template.name }} 的版本差异 {{ versionDiff.baseVersion }} -> {{ versionDiff.targetVersion }}</h4>
           <p>
-            Added {{ versionDiff.summary.added }}, removed {{ versionDiff.summary.removed }},
-            modified {{ versionDiff.summary.modified }}, unchanged {{ versionDiff.summary.unchanged }}
+            新增 {{ versionDiff.summary.added }}，删除 {{ versionDiff.summary.removed }}，
+            修改 {{ versionDiff.summary.modified }}，未变 {{ versionDiff.summary.unchanged }}
           </p>
           <ul>
             <li v-for="change in versionDiff.changes" :key="`${change.changeType}-${change.stepId}`">
               <strong>{{ changeLabel(change.changeType) }} {{ change.stepId }}</strong>
-              <span v-if="change.baseStep">Base {{ change.baseStep.approvalTitle }}</span>
-              <span v-if="change.targetStep">Target {{ change.targetStep.approvalTitle }}</span>
+              <span v-if="change.baseStep">原版本 {{ change.baseStep.approvalTitle }}</span>
+              <span v-if="change.targetStep">目标版本 {{ change.targetStep.approvalTitle }}</span>
             </li>
           </ul>
         </section>
         <section
           v-if="versionSnapshot?.approvalTemplateId === template.approvalTemplateId"
           class="version-panel"
-          :aria-label="`Version snapshot for ${template.name}`"
+          :aria-label="`${template.name} 的版本快照`"
         >
-          <h4>Version snapshot {{ versionSnapshot.version }} for {{ template.name }}</h4>
+          <h4>{{ template.name }} 的版本快照 {{ versionSnapshot.version }}</h4>
           <ol class="step-list compact">
             <li v-for="step in versionSnapshot.steps" :key="step.stepId">
               <strong>{{ step.approvalTitle }}</strong>
               <span>{{ step.stepId }}</span>
               <span>{{ step.assigneeRoles.join(', ') }}</span>
-              <span>Mode {{ step.approvalMode || 'all' }}</span>
+              <span>审批模式 {{ approvalModeLabel(step.approvalMode || 'all') }}</span>
               <span v-if="step.slaHours">SLA {{ step.slaHours }}h</span>
             </li>
           </ol>
@@ -272,6 +272,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
+import { isLocalPreviewUnauthorizedError } from '../../api/client';
 import { ruleApi, type ApprovalTemplatePayload, type ApprovalTemplateStepPayload } from '../../api/ruleApi';
 
 interface ApprovalTemplateResponse {
@@ -381,7 +382,11 @@ async function loadApprovalTemplates() {
     };
     templates.value = result.items ?? result.data?.items ?? [];
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Failed to load approval templates';
+    if (isLocalPreviewUnauthorizedError(error)) {
+      templates.value = [];
+      return;
+    }
+    errorMessage.value = error instanceof Error ? error.message : '审批模板加载失败';
   } finally {
     loadingTemplates.value = false;
   }
@@ -391,12 +396,12 @@ async function submitTemplate() {
   errorMessage.value = '';
   successMessage.value = '';
   if (!form.name.trim()) {
-    errorMessage.value = 'Template name is required.';
+    errorMessage.value = '请填写模板名称。';
     return;
   }
   const steps = parseSteps(form.stepsText);
   if (steps.length === 0) {
-    errorMessage.value = 'At least one approval template step is required.';
+    errorMessage.value = '至少需要配置一个审批步骤。';
     return;
   }
   submitting.value = true;
@@ -415,17 +420,17 @@ async function submitTemplate() {
       templates.value = templates.value.map((item) =>
         item.approvalTemplateId === updated.approvalTemplateId ? updated : item
       );
-      successMessage.value = `Approval template updated to version ${updated.version ?? 1}: ${updated.name}`;
+      successMessage.value = `审批模板已更新到版本 ${updated.version ?? 1}：${updated.name}`;
       cancelEditTemplate();
     } else {
       const created = await ruleApi.createApprovalTemplate(payload) as unknown as ApprovalTemplateResponse;
-      successMessage.value = `Approval template created: ${created.name}`;
+      successMessage.value = `审批模板已创建：${created.name}`;
       resetForm();
       templates.value = [created, ...templates.value.filter((item) => item.approvalTemplateId !== created.approvalTemplateId)];
     }
     await loadApprovalTemplates();
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Failed to save approval template';
+    errorMessage.value = error instanceof Error ? error.message : '审批模板保存失败';
   } finally {
     submitting.value = false;
   }
@@ -501,7 +506,7 @@ async function loadTemplateUsage(template: ApprovalTemplateResponse, page: numbe
       total: data.total ?? 0
     };
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Failed to load approval template usage';
+    errorMessage.value = error instanceof Error ? error.message : '审批模板使用情况加载失败';
   } finally {
     usageLoadingTemplateId.value = null;
   }
@@ -521,7 +526,7 @@ async function loadTemplateVersions(template: ApprovalTemplateResponse) {
       items
     };
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Failed to load approval template versions';
+    errorMessage.value = error instanceof Error ? error.message : '审批模板版本加载失败';
   } finally {
     versionLoadingTemplateId.value = null;
   }
@@ -540,7 +545,7 @@ async function loadTemplateVersion(template: ApprovalTemplateResponse, version: 
       approvalTemplateId: template.approvalTemplateId
     };
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Failed to load approval template version';
+    errorMessage.value = error instanceof Error ? error.message : '审批模板版本快照加载失败';
   } finally {
     versionLoadingTemplateId.value = null;
   }
@@ -560,7 +565,7 @@ async function compareTemplateVersions(template: ApprovalTemplateResponse, baseV
       templateId: template.approvalTemplateId
     };
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Failed to compare approval template versions';
+    errorMessage.value = error instanceof Error ? error.message : '审批模板版本差异加载失败';
   } finally {
     versionDiffLoadingTemplateId.value = null;
   }
@@ -582,13 +587,13 @@ async function rollbackTemplateVersion(template: ApprovalTemplateResponse, versi
       };
     };
     const data = result.data ?? result;
-    successMessage.value = `Approval template rolled back to version ${data.sourceVersion ?? version} as version ${data.newVersion ?? ''}`.trim();
+    successMessage.value = `审批模板已从版本 ${data.sourceVersion ?? version} 回滚，新版本 ${data.newVersion ?? ''}`.trim();
     versionHistory.value = null;
     versionDiff.value = null;
     versionSnapshot.value = null;
     await loadApprovalTemplates();
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Failed to rollback approval template version';
+    errorMessage.value = error instanceof Error ? error.message : '审批模板版本回滚失败';
   } finally {
     rollbackLoadingTemplateId.value = null;
   }
@@ -611,9 +616,11 @@ async function changeTemplateStatus(template: ApprovalTemplateResponse, status: 
     templates.value = templates.value.map((item) =>
       item.approvalTemplateId === updated.approvalTemplateId ? updated : item
     );
-    successMessage.value = `Approval template ${status}: ${updated.name}`;
+    successMessage.value = status === 'enabled'
+      ? `审批模板已启用：${updated.name}`
+      : `审批模板已停用：${updated.name}`;
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : `Failed to ${status} approval template`;
+    errorMessage.value = error instanceof Error ? error.message : '审批模板状态变更失败';
   }
 }
 
@@ -628,7 +635,7 @@ function parseSteps(value: string): ApprovalTemplateStepPayload[] {
       const slaHours = positiveInteger(columns[4] ?? '');
       return {
         stepId: columns[0] || `step${index + 1}`,
-        approvalTitle: columns[1] || `Approval step ${index + 1}`,
+        approvalTitle: columns[1] || `审批步骤 ${index + 1}`,
         assigneeRoles: roles,
         approvalMode: columns[3] === 'any' ? 'any' : 'all',
         slaHours,
@@ -675,10 +682,22 @@ function rollbackVersions(template: ApprovalTemplateResponse, items: ApprovalTem
 }
 
 function changeLabel(changeType: string) {
-  if (changeType === 'added') return 'Added';
-  if (changeType === 'removed') return 'Removed';
-  if (changeType === 'modified') return 'Modified';
+  if (changeType === 'added') return '新增';
+  if (changeType === 'removed') return '删除';
+  if (changeType === 'modified') return '修改';
   return changeType;
+}
+
+function statusLabel(status: string) {
+  if (status === 'enabled' || status === 'active') return '启用';
+  if (status === 'disabled') return '停用';
+  if (status === 'draft') return '草稿';
+  if (status === 'published') return '已发布';
+  return status;
+}
+
+function approvalModeLabel(mode: string) {
+  return mode === 'any' ? '任一审批' : '全部审批';
 }
 
 function splitValues(value: string) {

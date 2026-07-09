@@ -1,6 +1,53 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('Organization management E2E', () => {
+  test('P0：组织管理页面使用中文业务文案', async ({ page }) => {
+    await page.route('**/api/v1/users?*', async (route) => {
+      await route.fulfill({
+        json: {
+          code: 200,
+          message: 'ok',
+          data: {
+            items: [],
+            page: 1,
+            pageSize: 100,
+            total: 0
+          }
+        }
+      });
+    });
+    await page.route('**/api/v1/organization-directory', async (route) => {
+      await route.fulfill({
+        json: {
+          code: 200,
+          message: 'ok',
+          data: {
+            departments: [],
+            roles: [],
+            organizationTree: []
+          }
+        }
+      });
+    });
+
+    await page.goto('/admin/organizations');
+
+    await expect(page.getByRole('heading', { name: '组织管理' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '刷新组织树' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '创建组织单元' })).toBeVisible();
+    await expect(page.getByLabel('组织单元编码')).toBeVisible();
+    await expect(page.getByLabel('组织单元名称', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: '创建组织单元' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '创建岗位' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '分配用户岗位' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '批量导入岗位分配' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '组织树' })).toBeVisible();
+    await expect(page.getByText('暂无组织单元')).toBeVisible();
+
+    const visibleText = await page.locator('body').innerText();
+    expect(visibleText).not.toMatch(/Organization Management|Refresh organization tree|Create Organization Unit|Update Organization Unit|Create Organization Position|Assign User To Position|Batch Import Position Assignments|Update Position Assignment|Disable Position Assignment|Organization Tree|No organization units|Parent ID|Sort order|Active from|Active to|Primary position|Select user|Select position/);
+  });
+
   test('creates organization units and positions from the admin menu', async ({ page }) => {
     let unitPayload: Record<string, unknown> | null = null;
     let updateUnitPayload: Record<string, unknown> | null = null;
@@ -242,19 +289,18 @@ test.describe('Organization management E2E', () => {
       });
     });
 
-    await page.goto('/dashboard');
-    await page.getByRole('menuitem', { name: 'Organization management' }).click();
+    await page.goto('/admin/organizations');
 
-    await expect(page.getByRole('heading', { name: 'Organization Management' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '组织管理' })).toBeVisible();
     await expect(page.getByText('HQ / Headquarters / company')).toBeVisible();
     await expect(page.getByText('FIN / Finance Center / department')).toBeVisible();
 
-    await page.getByLabel('Organization unit code').fill('RISK');
-    await page.getByLabel('Organization unit name', { exact: true }).fill('Risk Team');
-    await page.getByLabel('Organization unit parent id', { exact: true }).fill('1');
-    await page.getByLabel('Organization unit type', { exact: true }).fill('team');
-    await page.getByLabel('Organization unit sort order', { exact: true }).fill('30');
-    await page.getByRole('button', { name: 'Create organization unit' }).click();
+    await page.getByLabel('组织单元编码').fill('RISK');
+    await page.getByLabel('组织单元名称', { exact: true }).fill('Risk Team');
+    await page.getByLabel('上级组织编号', { exact: true }).fill('1');
+    await page.getByLabel('组织类型', { exact: true }).fill('team');
+    await page.getByLabel('组织单元排序号', { exact: true }).fill('30');
+    await page.getByRole('button', { name: '创建组织单元' }).click();
 
     expect(unitPayload).toMatchObject({
       code: 'RISK',
@@ -263,15 +309,15 @@ test.describe('Organization management E2E', () => {
       unitType: 'team',
       sortOrder: 30
     });
-    await expect(page.getByText('Organization unit created: RISK')).toBeVisible();
+    await expect(page.getByText('组织单元已创建：RISK')).toBeVisible();
     await expect(page.getByText('RISK / Risk Team / team')).toBeVisible();
 
-    await page.getByLabel('Update organization unit id').fill('3');
-    await page.getByLabel('Update organization unit name').fill('Finance Risk Team');
-    await page.getByLabel('Update organization unit parent id').fill('2');
-    await page.getByLabel('Update organization unit type').fill('team');
-    await page.getByLabel('Update organization unit sort order').fill('5');
-    await page.getByRole('button', { name: 'Update organization unit' }).click();
+    await page.getByLabel('更新组织单元编号').fill('3');
+    await page.getByLabel('更新组织单元名称').fill('Finance Risk Team');
+    await page.getByLabel('更新上级组织编号').fill('2');
+    await page.getByLabel('更新组织类型').fill('team');
+    await page.getByLabel('更新组织单元排序号').fill('5');
+    await page.getByRole('button', { name: '更新组织单元' }).click();
 
     expect(updateUnitPayload).toMatchObject({
       name: 'Finance Risk Team',
@@ -279,16 +325,16 @@ test.describe('Organization management E2E', () => {
       unitType: 'team',
       sortOrder: 5
     });
-    await expect(page.getByText('Organization unit updated: RISK')).toBeVisible();
+    await expect(page.getByText('组织单元已更新：RISK')).toBeVisible();
     await expect(page.getByText('RISK / Finance Risk Team / team')).toBeVisible();
 
-    await page.getByLabel('Position organization unit id').fill('3');
-    await page.getByLabel('Position code').fill('risk_manager');
-    await page.getByLabel('Position name').fill('Risk Manager');
-    await page.getByLabel('Position roles').fill('risk_manager, finance_delegate');
-    await page.getByLabel('Position manager user id').fill('71');
-    await page.getByLabel('Position sort order').fill('10');
-    await page.getByRole('button', { name: 'Create organization position' }).click();
+    await page.getByLabel('岗位所属组织单元编号').fill('3');
+    await page.getByLabel('岗位编码').fill('risk_manager');
+    await page.getByLabel('岗位名称').fill('Risk Manager');
+    await page.getByLabel('岗位角色').fill('risk_manager, finance_delegate');
+    await page.getByLabel('岗位负责人用户编号').fill('71');
+    await page.getByLabel('岗位排序号').fill('10');
+    await page.getByRole('button', { name: '创建岗位' }).click();
 
     expect(positionPayload).toMatchObject({
       organizationUnitId: 3,
@@ -298,15 +344,15 @@ test.describe('Organization management E2E', () => {
       managerUserId: 71,
       sortOrder: 10
     });
-    await expect(page.getByText('Organization position created: risk_manager')).toBeVisible();
-    await expect(page.getByText('risk_manager / Risk Manager / roles risk_manager, finance_delegate / manager 71')).toBeVisible();
+    await expect(page.getByText('岗位已创建：risk_manager')).toBeVisible();
+    await expect(page.getByText('risk_manager / Risk Manager / 角色 risk_manager, finance_delegate / 负责人 71')).toBeVisible();
 
-    await page.getByLabel('Assignment user selector').selectOption('71');
-    await page.getByLabel('Assignment position selector').selectOption('10');
-    await page.getByLabel('Assignment active from', { exact: true }).fill('2026-01-01T08:00');
-    await page.getByLabel('Assignment active to', { exact: true }).fill('2026-12-31T18:30');
-    await page.getByLabel('Primary position assignment', { exact: true }).check();
-    await page.getByRole('button', { name: 'Assign user to position' }).click();
+    await page.getByLabel('分配用户选择').selectOption('71');
+    await page.getByLabel('分配岗位选择').selectOption('10');
+    await page.getByLabel('岗位分配生效开始', { exact: true }).fill('2026-01-01T08:00');
+    await page.getByLabel('岗位分配生效结束', { exact: true }).fill('2026-12-31T18:30');
+    await page.getByLabel('主岗位分配', { exact: true }).check();
+    await page.getByRole('button', { name: '分配用户岗位' }).click();
 
     expect(assignmentPayload).toMatchObject({
       userId: 71,
@@ -315,14 +361,14 @@ test.describe('Organization management E2E', () => {
       activeFrom: '2026-01-01T00:00:00.000Z',
       activeTo: '2026-12-31T10:30:00.000Z'
     });
-    await expect(page.getByText('Position assignment created: user 71 -> position 10')).toBeVisible();
+    await expect(page.getByText('岗位分配已创建：用户 71 -> 岗位 10')).toBeVisible();
     await expect(page.getByText('Fiona Manager / fin.manager / Risk Team / Risk Manager')).toBeVisible();
 
-    await page.getByLabel('Batch import position assignments').fill([
+    await page.getByRole('textbox', { name: '批量导入岗位分配' }).fill([
       '71,10,true,2026-03-01T08:00,2026-12-31T18:30',
       '9999,10,false,,'
     ].join('\n'));
-    await page.getByRole('button', { name: 'Batch import position assignments' }).click();
+    await page.getByRole('button', { name: '批量导入岗位分配' }).click();
 
     expect(batchAssignmentPayload).toMatchObject({
       assignments: [
@@ -340,29 +386,29 @@ test.describe('Organization management E2E', () => {
         }
       ]
     });
-    await expect(page.getByText('Position assignments imported: 1 succeeded, 1 failed')).toBeVisible();
+    await expect(page.getByText('岗位分配导入完成：成功 1 条，失败 1 条')).toBeVisible();
 
-    await page.getByLabel('Update assignment id').fill('99');
-    await page.getByLabel('Update assignment active from').fill('2026-02-01T08:00');
-    await page.getByLabel('Update assignment active to').fill('2026-11-30T18:30');
-    await page.getByLabel('Update primary position assignment').check();
-    await page.getByRole('button', { name: 'Update position assignment' }).click();
+    await page.getByLabel('更新分配编号').fill('99');
+    await page.getByLabel('更新分配生效开始').fill('2026-02-01T08:00');
+    await page.getByLabel('更新分配生效结束').fill('2026-11-30T18:30');
+    await page.getByLabel('更新为主岗位').check();
+    await page.getByRole('button', { name: '更新岗位分配' }).click();
 
     expect(updateAssignmentPayload).toMatchObject({
       primary: true,
       activeFrom: '2026-02-01T00:00:00.000Z',
       activeTo: '2026-11-30T10:30:00.000Z'
     });
-    await expect(page.getByText('Position assignment updated: 99')).toBeVisible();
+    await expect(page.getByText('岗位分配已更新：99')).toBeVisible();
 
-    await page.getByLabel('Disable assignment id').fill('99');
-    await page.getByLabel('Disable assignment reason').fill('role ended');
-    await page.getByRole('button', { name: 'Disable position assignment' }).click();
+    await page.getByLabel('停用分配编号').fill('99');
+    await page.getByLabel('停用分配原因').fill('role ended');
+    await page.getByRole('button', { name: '停用岗位分配' }).click();
 
     expect(disableAssignmentPayload).toMatchObject({
       reason: 'role ended'
     });
-    await expect(page.getByText('Position assignment disabled: 99')).toBeVisible();
+    await expect(page.getByText('岗位分配已停用：99')).toBeVisible();
     await expect(page.getByText('Fiona Manager / fin.manager / Risk Team / Risk Manager')).not.toBeVisible();
   });
 });

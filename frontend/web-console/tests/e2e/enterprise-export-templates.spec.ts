@@ -1,6 +1,32 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('Enterprise export templates E2E', () => {
+  test('P0：企业导出模板页面使用中文业务文案', async ({ page }) => {
+    await page.route('**/api/v1/enterprise-export-templates?**', async (route) => {
+      await route.fulfill({
+        json: {
+          code: 200,
+          message: 'ok',
+          data: { items: [], page: 1, pageSize: 20, total: 0 }
+        }
+      });
+    });
+
+    await page.goto('/reports/enterprise-export-templates');
+
+    await expect(page.getByRole('heading', { name: '企业导出模板' })).toBeVisible();
+    await expect(page.getByText('统一维护报告导出的企业品牌、版式和模板版本。')).toBeVisible();
+    await expect(page.getByLabel('模板编码')).toBeVisible();
+    await expect(page.getByLabel('模板名称')).toBeVisible();
+    await expect(page.getByLabel('企业名称')).toBeVisible();
+    await expect(page.getByLabel('标识对象键')).toBeVisible();
+    await expect(page.getByRole('button', { name: '创建企业导出模板' })).toBeVisible();
+    await expect(page.getByText('暂无企业导出模板')).toBeVisible();
+
+    const visibleText = await page.locator('body').innerText();
+    expect(visibleText).not.toMatch(/Enterprise Export Templates|Manage governed|Template ID|Company name|Logo object key|Logo 对象键|Header|Footer|Cover title|TOC title|Section title prefix|Existing templates|No enterprise export templates|Refresh/);
+  });
+
   test('manages centralized enterprise export templates for REQ-REPORT-004', async ({ page }) => {
     let createPayload: Record<string, unknown> | null = null;
     let updatePayload: Record<string, unknown> | null = null;
@@ -147,30 +173,29 @@ test.describe('Enterprise export templates E2E', () => {
       await route.fulfill({ json: { code: 200, message: 'ok', data: target } });
     });
 
-    await page.goto('/dashboard');
-    await page.getByRole('menuitem', { name: 'Enterprise export templates' }).click();
+    await page.goto('/reports/enterprise-export-templates');
 
-    await expect(page.getByRole('heading', { name: 'Enterprise Export Templates' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '企业导出模板' })).toBeVisible();
     await expect(page.getByText('Board standard export')).toBeVisible();
-    await expect(page.getByText('Template board-standard')).toBeVisible();
-    const boardCard = page.locator('.template-card').filter({ hasText: 'Template board-standard' });
-    await expect(boardCard.getByText('Version v1')).toBeVisible();
-    await expect(boardCard.getByText('Status active')).toBeVisible();
+    await expect(page.getByText('模板编码 board-standard')).toBeVisible();
+    const boardCard = page.locator('.template-card').filter({ hasText: '模板编码 board-standard' });
+    await expect(boardCard.getByText('版本 v1')).toBeVisible();
+    await expect(boardCard.getByText('状态 启用')).toBeVisible();
     await expect(boardCard.getByText('Acme Finance Board Pack')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Disable Board standard export' }).click();
-    await expect(page.getByText('Enterprise export template disabled: Board standard export')).toBeVisible();
-    await expect(boardCard.getByText('Status disabled')).toBeVisible();
+    await page.getByRole('button', { name: '停用 Board standard export' }).click();
+    await expect(page.getByText('企业导出模板已停用：Board standard export')).toBeVisible();
+    await expect(boardCard.getByText('状态 停用')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Enable Board standard export' }).click();
-    await expect(page.getByText('Enterprise export template enabled: Board standard export')).toBeVisible();
-    await expect(boardCard.getByText('Status active')).toBeVisible();
+    await page.getByRole('button', { name: '启用 Board standard export' }).click();
+    await expect(page.getByText('企业导出模板已启用：Board standard export')).toBeVisible();
+    await expect(boardCard.getByText('状态 启用')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Edit Board standard export' }).click();
-    await page.getByLabel('Template name').fill('Board standard export v2');
-    await page.getByLabel('Footer').fill('Board confidential');
-    await page.getByLabel('Cover title').fill('Board Strategy Pack 2026');
-    await page.getByRole('button', { name: 'Save enterprise export template changes' }).click();
+    await page.getByRole('button', { name: '编辑 Board standard export' }).click();
+    await page.getByLabel('模板名称').fill('Board standard export v2');
+    await page.getByRole('textbox', { name: '页脚', exact: true }).fill('Board confidential');
+    await page.getByLabel('封面标题').fill('Board Strategy Pack 2026');
+    await page.getByRole('button', { name: '保存企业导出模板' }).click();
 
     expect(updatePayload).toMatchObject({
       templateId: 'board-standard',
@@ -184,29 +209,29 @@ test.describe('Enterprise export templates E2E', () => {
         }
       }
     });
-    await expect(page.getByText('Enterprise export template updated to version v2: Board standard export v2')).toBeVisible();
-    const updatedBoardCard = page.locator('.template-card').filter({ hasText: 'Template board-standard' });
-    await expect(updatedBoardCard.getByText('Version v2', { exact: true })).toBeVisible();
+    await expect(page.getByText('企业导出模板已更新到版本 v2：Board standard export v2')).toBeVisible();
+    const updatedBoardCard = page.locator('.template-card').filter({ hasText: '模板编码 board-standard' });
+    await expect(updatedBoardCard.getByText('版本 v2', { exact: true })).toBeVisible();
     await expect(updatedBoardCard.getByText('Board confidential')).toBeVisible();
 
-    await page.getByRole('button', { name: 'View versions Board standard export v2' }).click();
-    await expect(page.getByText('Version history for Board standard export v2')).toBeVisible();
-    const versionPanel = page.getByLabel('Version history for Board standard export v2');
-    await expect(versionPanel.getByText('Version snapshot v2')).toBeVisible();
+    await page.getByRole('button', { name: '查看版本 Board standard export v2' }).click();
+    await expect(page.getByText('Board standard export v2 的版本历史')).toBeVisible();
+    const versionPanel = page.getByLabel('Board standard export v2 的版本历史');
+    await expect(versionPanel.getByText('版本快照 v2')).toBeVisible();
     await expect(versionPanel.getByText('Board confidential')).toBeVisible();
 
-    await page.getByLabel('Template ID').fill('finance-quarterly');
-    await page.getByLabel('Template name').fill('Finance quarterly export');
-    await page.getByLabel('Company name').fill('Finance Group');
-    await page.getByLabel('Logo object key').fill('logos/finance.svg');
-    await page.getByLabel('Header').fill('Finance Quarterly Pack');
-    await page.getByLabel('Footer').fill('Internal use only');
-    await page.getByLabel('Font family').fill('Arial');
-    await page.getByLabel('Primary color').fill('#0F766E');
-    await page.getByLabel('Cover title').fill('Quarterly Management Report');
-    await page.getByLabel('TOC title').fill('Contents');
-    await page.getByLabel('Section title prefix').fill('Part');
-    await page.getByRole('button', { name: 'Create enterprise export template' }).click();
+    await page.getByLabel('模板编码').fill('finance-quarterly');
+    await page.getByLabel('模板名称').fill('Finance quarterly export');
+    await page.getByLabel('企业名称').fill('Finance Group');
+    await page.getByLabel('标识对象键').fill('logos/finance.svg');
+    await page.getByRole('textbox', { name: '页眉', exact: true }).fill('Finance Quarterly Pack');
+    await page.getByRole('textbox', { name: '页脚', exact: true }).fill('Internal use only');
+    await page.getByLabel('字体').fill('Arial');
+    await page.getByLabel('主色').fill('#0F766E');
+    await page.getByLabel('封面标题').fill('Quarterly Management Report');
+    await page.getByLabel('目录标题').fill('Contents');
+    await page.getByLabel('章节标题前缀').fill('Part');
+    await page.getByRole('button', { name: '创建企业导出模板' }).click();
 
     expect(createPayload).toMatchObject({
       templateId: 'finance-quarterly',
@@ -226,8 +251,8 @@ test.describe('Enterprise export templates E2E', () => {
         }
       }
     });
-    await expect(page.getByText('Enterprise export template created: Finance quarterly export')).toBeVisible();
-    await expect(page.getByText('Template finance-quarterly')).toBeVisible();
+    await expect(page.getByText('企业导出模板已创建：Finance quarterly export')).toBeVisible();
+    await expect(page.getByText('模板编码 finance-quarterly')).toBeVisible();
     await expect(page.getByText('Finance Quarterly Pack')).toBeVisible();
   });
 });

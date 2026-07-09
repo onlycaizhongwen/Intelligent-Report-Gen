@@ -1,0 +1,119 @@
+.app-shell .el-main > .page,
+.app-shell .el-main > .dashboard-page {
+  min-height: 100vh;
+  height: 100vh;
+  box-sizing: border-box;
+  overflow: auto;
+  padding: 24px;
+  background: #f4f6f8;
+  color: #1f2937;
+}
+
+.app-shell .el-main > .page > .page-header,
+.app-shell .el-main > .dashboard-page > .page-header,
+.app-shell .el-main > .page > .toolbar {
+  margin: 0 0 16px;
+  padding: 20px 24px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.app-shell .el-main > .page > .page-header h2,
+.app-shell .el-main > .dashboard-page > .page-header h2,
+.app-shell .el-main > .page > .toolbar h2 {
+  margin: 0;
+  color: #111827;
+  font-size: 24px;
+  line-height: 1.25;
+  font-weight: 700;
+}
+
+.app-shell .el-main > .page > .page-header p,
+.app-shell .el-main > .dashboard-page > .page-header p,
+.app-shell .el-main > .page > .toolbar p {
+  margin: 8px 0 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.app-shell .el-main > .page > .el-alert,
+.app-shell .el-main > .dashboard-page > .el-alert {
+  margin-bottom: 16px;
+}
+
+.app-shell .el-main > .page > .el-tabs,
+.app-shell .el-main > .page > .config-form,
+.app-shell .el-main > .page > .template-form,
+.app-shell .el-main > .page > .template-list,
+.app-shell .el-main > .page > .sync-panel,
+.app-shell .el-main > .page > .import-panel,
+.app-shell .el-main > .page > .tree-panel,
+.app-shell .el-main > .page > .status-panel,
+.app-shell .el-main > .page > .confirm-panel,
+.app-shell .el-main > .page > .el-table,
+.app-shell .el-main > .dashboard-page > .panel,
+.app-shell .el-main > .dashboard-page .panel,
+.app-shell .el-main > .dashboard-page .metric-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.app-shell .el-main > .page > .el-tabs,
+.app-shell .el-main > .page > .config-form,
+.app-shell .el-main > .page > .template-form,
+.app-shell .el-main > .page > .template-list,
+.app-shell .el-main > .page > .sync-panel,
+.app-shell .el-main > .page > .import-panel,
+.app-shell .el-main > .page > .status-panel,
+.app-shell .el-main > .page > .confirm-panel,
+.app-shell .el-main > .dashboard-page > .panel,
+.app-shell .el-main > .dashboard-page .panel {
+  padding: 18px;
+}
+
+.app-shell .el-main > .page > .forms {
+  margin: 0 0 16px;
+}
+
+.app-shell .el-main > .page > .el-table,
+.app-shell .el-main > .page > .template-list,
+.app-shell .el-main > .page > .sync-panel {
+  overflow: hidden;
+}
+
+.app-shell .el-main > .page > .import-panel {
+  max-width: 560px;
+}
+
+.app-shell .el-main > .page > .config-form,
+.app-shell .el-main > .page > .template-form {
+  max-width: 960px;
+}
+
+.app-shell .el-main .el-table th.el-table__cell {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+}
+
+.app-shell .el-main .el-empty {
+  --el-empty-padding: 32px 0;
+}
+
+.app-shell .el-main select {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #303133;
+}
+
+@media (max-width: 760px) {
+  .app-shell .el-main > .page,
+  .app-shell .el-main > .dashboard-page {
+    padding: 16px;
+  }
+}

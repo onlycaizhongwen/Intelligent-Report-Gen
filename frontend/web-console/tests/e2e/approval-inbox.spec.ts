@@ -1,6 +1,47 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('Approval inbox E2E', () => {
+  test('P0：审批待办页面使用中文业务文案', async ({ page }) => {
+    await page.route('**/api/v1/rules/approval-records**', async (route) => {
+      await route.fulfill({
+        json: {
+          code: 200,
+          message: 'ok',
+          data: {
+            items: [],
+            page: 1,
+            pageSize: 20,
+            total: 0
+          }
+        }
+      });
+    });
+
+    await page.goto('/rules/approvals');
+
+    await expect(page.getByRole('heading', { name: '审批待办' })).toBeVisible();
+    await expect(page.getByText('集中处理规则运行中的审批任务、补充材料和催办。')).toBeVisible();
+    await expect(page.getByRole('button', { name: '刷新' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '待审批' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '已通过' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '已驳回' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '待补充' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '已重提' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '已关闭' })).toBeVisible();
+    await expect(page.getByText('待审批 0', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('规则编号筛选')).toBeVisible();
+    await expect(page.getByLabel('审批角色筛选')).toBeVisible();
+    await expect(page.getByLabel('审批标题筛选')).toBeVisible();
+    await expect(page.getByLabel('发起人编号筛选')).toBeVisible();
+    await expect(page.getByLabel('审批人编号筛选')).toBeVisible();
+    await expect(page.getByRole('button', { name: '应用筛选' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '重置' })).toBeVisible();
+    await expect(page.getByText('暂无待审批记录')).toBeVisible();
+
+    const visibleText = await page.locator('body').innerText();
+    expect(visibleText).not.toMatch(/Approval Inbox|Review pending|Refresh|Pending|Approved|Rejected|Supplement required|Resubmitted|Closed|Batch approve|Rule ID|Assignee role|Approval title|Created by|Approved by|Apply filters|Reset|No pending approvals/);
+  });
+
   test('shows pending approvals across rules and refreshes after approve', async ({ page }) => {
     let actionPayload: Record<string, unknown> | null = null;
     const capturedStatuses: string[] = [];
@@ -137,51 +178,51 @@ test.describe('Approval inbox E2E', () => {
 
     await page.goto('/rules/approvals');
 
-    await expect(page.getByRole('heading', { name: 'Approval Inbox' })).toBeVisible();
-    await expect(page.getByText('Pending 2')).toBeVisible();
+    await expect(page.getByRole('heading', { name: '审批待办' })).toBeVisible();
+    await expect(page.getByText('待审批 2', { exact: true })).toBeVisible();
     await expect(page.getByText('Finance approval required')).toBeVisible();
-    await expect(page.getByText('Group all 1/2 approved, 1 pending')).toBeVisible();
-    await expect(page.getByText('Group roles finance_manager, legal_manager')).toBeVisible();
-    await expect(page.getByText('Candidate approvers Finance Approver (fin.approver)')).toBeVisible();
-    await expect(page.getByText('Delegate finance_delegate')).toBeVisible();
-    await expect(page.getByText('Delegate users Finance Delegate (fin.delegate)')).toBeVisible();
-    await expect(page.getByText('Delegate window 2026-06-26 08:00:00..2026-06-26 18:00:00')).toBeVisible();
+    await expect(page.getByText('审批组 全部审批 已通过 1/2, 待审批 1')).toBeVisible();
+    await expect(page.getByText('审批组角色 finance_manager, legal_manager')).toBeVisible();
+    await expect(page.getByText('候选审批人 Finance Approver (fin.approver)')).toBeVisible();
+    await expect(page.getByText('代理角色 finance_delegate')).toBeVisible();
+    await expect(page.getByText('代理用户 Finance Delegate (fin.delegate)')).toBeVisible();
+    await expect(page.getByText('代理时段 2026-06-26 08:00:00..2026-06-26 18:00:00')).toBeVisible();
     await expect(page.getByText('Legal approval required')).toBeVisible();
 
-    await page.getByLabel('Rule ID filter').fill('12');
-    await page.getByLabel('Assignee role filter').fill('finance_manager');
-    await page.getByRole('button', { name: 'Apply filters' }).click();
+    await page.getByLabel('规则编号筛选').fill('12');
+    await page.getByLabel('审批角色筛选').fill('finance_manager');
+    await page.getByRole('button', { name: '应用筛选' }).click();
 
-    await expect(page.getByText('Pending 1')).toBeVisible();
+    await expect(page.getByText('待审批 1', { exact: true })).toBeVisible();
     await expect(page.getByText('Finance approval required')).toBeVisible();
     await expect(page.getByText('Legal approval required')).toHaveCount(0);
     expect(capturedStatuses).toContain('pending');
     expect(capturedRuleIds).toContain('12');
     expect(capturedRoles).toContain('finance_manager');
 
-    await page.locator('.approval-card').first().getByRole('button', { name: 'Approve', exact: true }).click();
+    await page.locator('.approval-card').first().getByRole('button', { name: '通过', exact: true }).click();
 
-    await expect(page.getByText('Pending 0')).toBeVisible();
+    await expect(page.getByText('待审批 0', { exact: true })).toBeVisible();
     await expect(page.getByText('Finance approval required')).toHaveCount(0);
-    await expect(page.getByText('No pending approvals')).toBeVisible();
+    await expect(page.getByText('暂无待审批记录')).toBeVisible();
     expect(actionPayload).toMatchObject({
       action: 'approve',
-      comment: 'approved from approval inbox'
+      comment: '在审批待办中通过'
     });
 
-    await page.getByRole('button', { name: 'Approved' }).click();
-    await expect(page.getByText('Approved 1')).toBeVisible();
+    await page.getByRole('button', { name: '已通过' }).click();
+    await expect(page.getByText('已通过 1', { exact: true })).toBeVisible();
     await expect(page.getByText('Finance approval required')).toBeVisible();
     await expect(page.getByText('Historical approved record')).toHaveCount(0);
-    await expect(page.getByText('Handled 2026-06-25 08:20:00')).toBeVisible();
+    await expect(page.getByText('处理时间 2026-06-25 08:20:00')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Reset' }).click();
-    await page.getByRole('button', { name: 'Closed' }).click();
-    await expect(page.getByText('Closed 1')).toBeVisible();
+    await page.getByRole('button', { name: '重置' }).click();
+    await page.getByRole('button', { name: '已关闭' }).click();
+    await expect(page.getByText('已关闭 1', { exact: true })).toBeVisible();
     await expect(page.getByText('Legal approval required')).toBeVisible();
-    await expect(page.getByText('Status closed')).toBeVisible();
-    await expect(page.getByText('Comment closed because approval group was approved by any assignee')).toBeVisible();
-    await expect(page.getByText('Group any 1/2 approved, 0 pending, 1 closed')).toBeVisible();
+    await expect(page.getByText('状态 已关闭')).toBeVisible();
+    await expect(page.getByText('审批备注 closed because approval group was approved by any assignee')).toBeVisible();
+    await expect(page.getByText('审批组 任一审批 已通过 1/2, 待审批 0, 已关闭 1')).toBeVisible();
   });
 
   test('shows reject fallback guidance and rejected history after reject', async ({ page }) => {
@@ -264,7 +305,7 @@ test.describe('Approval inbox E2E', () => {
       const rejectedRecord = {
         ...approvalRecordsByStatus.pending.find((item) => item.approvalRecordId === 703),
         status: 'rejected',
-        approvalComment: 'rejected from approval inbox',
+        approvalComment: '在审批待办中驳回',
         approvedAt: '2026-06-25T08:18:00Z'
       } as Record<string, unknown>;
       approvalRecordsByStatus.pending = [];
@@ -284,32 +325,32 @@ test.describe('Approval inbox E2E', () => {
 
     await page.goto('/rules/approvals');
 
-    await page.getByLabel('Approval title filter').fill('Finance');
-    await page.getByRole('button', { name: 'Apply filters' }).click();
+    await page.getByLabel('审批标题筛选').fill('Finance');
+    await page.getByRole('button', { name: '应用筛选' }).click();
     await expect(page.getByText('Finance approval required')).toBeVisible();
 
-    await page.locator('.approval-card').first().getByRole('button', { name: 'Reject', exact: true }).click();
+    await page.locator('.approval-card').first().getByRole('button', { name: '驳回', exact: true }).click();
 
-    await expect(page.getByText('Approval rejected. Submit updated materials before running again.')).toBeVisible();
-    await expect(page.getByText('No pending approvals')).toBeVisible();
+    await expect(page.getByText('审批已驳回，请补充材料后重新提交。')).toBeVisible();
+    await expect(page.getByText('暂无待审批记录')).toBeVisible();
     expect(actionPayload).toMatchObject({
       action: 'reject',
-      comment: 'rejected from approval inbox'
+      comment: '在审批待办中驳回'
     });
 
-    await page.getByRole('button', { name: 'Rejected' }).click();
-    await expect(page.getByText('Rejected 1')).toBeVisible();
+    await page.getByRole('button', { name: '已驳回' }).click();
+    await expect(page.getByText('已驳回 1', { exact: true })).toBeVisible();
     await expect(page.getByText('Finance approval required')).toBeVisible();
     await expect(page.getByText('Historical rejected record')).toHaveCount(0);
-    await expect(page.getByText('Comment rejected from approval inbox')).toBeVisible();
-    await expect(page.getByText('Comment historical rejected note')).toHaveCount(0);
+    await expect(page.getByText('审批备注 在审批待办中驳回')).toBeVisible();
+    await expect(page.getByText('审批备注 historical rejected note')).toHaveCount(0);
 
-    await page.getByRole('button', { name: 'Closed' }).click();
-    await expect(page.getByText('Closed 1')).toBeVisible();
+    await page.getByRole('button', { name: '已关闭' }).click();
+    await expect(page.getByText('已关闭 1', { exact: true })).toBeVisible();
     await expect(page.getByText('Finance approval sibling')).toBeVisible();
-    await expect(page.getByText('Status closed')).toBeVisible();
-    await expect(page.getByText('Comment closed because approval group was rejected')).toBeVisible();
-    await expect(page.getByText('Group all 0/2 approved, 0 pending, 1 rejected, 1 closed')).toBeVisible();
+    await expect(page.getByText('状态 已关闭')).toBeVisible();
+    await expect(page.getByText('审批备注 closed because approval group was rejected')).toBeVisible();
+    await expect(page.getByText('审批组 全部审批 已通过 0/2, 待审批 0, 已驳回 1, 已关闭 1')).toBeVisible();
   });
 
   test('submits supplement from rejected approval history and refreshes pending approval', async ({ page }) => {
@@ -431,22 +472,22 @@ test.describe('Approval inbox E2E', () => {
     });
 
     await page.goto('/rules/approvals');
-    await page.getByRole('button', { name: 'Rejected' }).click();
+    await page.getByRole('button', { name: '已驳回' }).click();
 
     const rejectedCard = page.locator('.approval-card').filter({
       has: page.getByText('Finance evidence correction')
     });
     await expect(rejectedCard).toBeVisible();
-    await rejectedCard.getByLabel('Supplement comment').fill('uploaded corrected invoice package');
-    await rejectedCard.getByLabel('Supplement attachment').setInputFiles({
+    await rejectedCard.getByLabel('补充说明').fill('uploaded corrected invoice package');
+    await rejectedCard.getByLabel('补充附件').setInputFiles({
       name: 'invoice-package.pdf',
       mimeType: 'application/pdf',
       buffer: Buffer.from('corrected invoice package')
     });
     await expect(rejectedCard.getByText('invoice-package.pdf')).toBeVisible();
-    await rejectedCard.getByRole('button', { name: 'Submit supplement' }).click();
+    await rejectedCard.getByRole('button', { name: '提交补充' }).click();
 
-    await expect(page.getByText('Supplement submitted and approval returned to pending review.')).toBeVisible();
+    await expect(page.getByText('补充材料已提交，审批已回到待处理状态。')).toBeVisible();
     expect(uploadedContentType).toContain('multipart/form-data');
     expect(uploadedBodyLength).toBeGreaterThan(0);
     expect(supplementPayload).toMatchObject({
@@ -454,14 +495,14 @@ test.describe('Approval inbox E2E', () => {
       evidenceUrl: 'minio://approval-supplements/rule-52/approval-903/invoice-package.pdf'
     });
 
-    await page.getByRole('button', { name: 'Pending' }).click();
-    await expect(page.getByText('Pending 1')).toBeVisible();
+    await page.getByRole('button', { name: '待审批' }).click();
+    await expect(page.getByText('待审批 1', { exact: true })).toBeVisible();
     await expect(page.getByText('Finance evidence correction')).toBeVisible();
-    await expect(page.getByText('Status pending')).toBeVisible();
+    await expect(page.getByText('状态 待审批')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Resubmitted' }).click();
-    await expect(page.getByText('Resubmitted 1')).toBeVisible();
-    await expect(page.getByText('Comment uploaded corrected invoice package')).toBeVisible();
+    await page.getByRole('button', { name: '已重提' }).click();
+    await expect(page.getByText('已重提 1', { exact: true })).toBeVisible();
+    await expect(page.getByText('审批备注 uploaded corrected invoice package')).toBeVisible();
   });
 
   test('shows overdue approvals and sends a reminder from the inbox', async ({ page }) => {
@@ -532,14 +573,14 @@ test.describe('Approval inbox E2E', () => {
       has: page.getByText('Finance approval overdue')
     });
     await expect(approvalCard).toBeVisible();
-    await expect(approvalCard.getByText('Overdue', { exact: true })).toBeVisible();
-    await expect(approvalCard.getByText('Reminder count 0')).toBeVisible();
+    await expect(approvalCard.getByText('已逾期', { exact: true })).toBeVisible();
+    await expect(approvalCard.getByText('催办次数 0')).toBeVisible();
 
-    await approvalCard.getByRole('button', { name: 'Remind' }).click();
+    await approvalCard.getByRole('button', { name: '催办' }).click();
 
-    await expect(page.getByText('Reminder sent for this approval.')).toBeVisible();
-    await expect(approvalCard.getByText('Reminder count 1')).toBeVisible();
-    await expect(approvalCard.getByText('Last reminder 2026-06-25 08:22:00')).toBeVisible();
+    await expect(page.getByText('已发送审批催办。')).toBeVisible();
+    await expect(approvalCard.getByText('催办次数 1')).toBeVisible();
+    await expect(approvalCard.getByText('最近催办 2026-06-25 08:22:00')).toBeVisible();
     expect(reminderCallCount).toBe(1);
   });
 
@@ -630,12 +671,12 @@ test.describe('Approval inbox E2E', () => {
 
     await page.goto('/rules/approvals');
 
-    await page.getByLabel('Created by filter').fill('1001');
-    await page.getByLabel('Created from filter').fill('2026-06-25T08:00');
-    await page.getByLabel('Created to filter').fill('2026-06-25T08:30');
-    await page.getByRole('button', { name: 'Apply filters' }).click();
+    await page.getByLabel('发起人编号筛选').fill('1001');
+    await page.getByLabel('创建开始时间筛选').fill('2026-06-25T08:00');
+    await page.getByLabel('创建结束时间筛选').fill('2026-06-25T08:30');
+    await page.getByRole('button', { name: '应用筛选' }).click();
 
-    await expect(page.getByText('Pending 1')).toBeVisible();
+    await expect(page.getByText('待审批 1', { exact: true })).toBeVisible();
     await expect(page.getByText('Quarter close approval')).toBeVisible();
     await expect(page.getByText('Ops budget approval')).toHaveCount(0);
 
@@ -646,11 +687,11 @@ test.describe('Approval inbox E2E', () => {
       createdAtTo: '2026-06-25T08:30:00Z'
     });
 
-    await page.getByRole('button', { name: 'Approved' }).click();
-    await page.getByLabel('Approved by filter').fill('66');
-    await page.getByRole('button', { name: 'Apply filters' }).click();
+    await page.getByRole('button', { name: '已通过' }).click();
+    await page.getByLabel('审批人编号筛选').fill('66');
+    await page.getByRole('button', { name: '应用筛选' }).click();
 
-    await expect(page.getByText('Approved 1')).toBeVisible();
+    await expect(page.getByText('已通过 1', { exact: true })).toBeVisible();
     await expect(page.getByText('Approved finance exception')).toBeVisible();
     await expect(page.getByText('Approved legal exception')).toHaveCount(0);
 
@@ -702,7 +743,7 @@ test.describe('Approval inbox E2E', () => {
       approvalRecordsByStatus.approved = selectedItems.map((item) => ({
         ...item,
         status: 'approved',
-        approvalComment: 'approved in batch',
+        approvalComment: '批量通过',
         approvedAt
       }));
       await route.fulfill({
@@ -747,23 +788,23 @@ test.describe('Approval inbox E2E', () => {
 
     await page.goto('/rules/approvals');
 
-    await expect(page.getByText('Pending 2')).toBeVisible();
-    await page.getByLabel('Select approval 901').check();
-    await page.getByLabel('Select approval 902').check();
-    await page.getByRole('button', { name: 'Batch approve' }).click();
+    await expect(page.getByText('待审批 2', { exact: true })).toBeVisible();
+    await page.getByLabel('选择审批记录 901').check();
+    await page.getByLabel('选择审批记录 902').check();
+    await page.getByRole('button', { name: '批量通过' }).click();
 
-    await expect(page.getByText('Batch approval completed: 2 succeeded, 0 failed.')).toBeVisible();
-    await expect(page.getByText('Pending 0')).toBeVisible();
+    await expect(page.getByText('批量审批完成：成功 2 条，失败 0 条。')).toBeVisible();
+    await expect(page.getByText('待审批 0', { exact: true })).toBeVisible();
     expect(batchActionPayload).toMatchObject({
       action: 'approve',
       approvalRecordIds: [901, 902],
-      comment: 'approved in batch'
+      comment: '批量通过'
     });
 
-    await page.getByRole('button', { name: 'Approved' }).click();
-    await expect(page.getByText('Approved 2')).toBeVisible();
+    await page.getByRole('button', { name: '已通过' }).click();
+    await expect(page.getByText('已通过 2', { exact: true })).toBeVisible();
     await expect(page.getByText('Batch approval A')).toBeVisible();
     await expect(page.getByText('Batch approval B')).toBeVisible();
-    await expect(page.getByText('Comment approved in batch')).toHaveCount(2);
+    await expect(page.getByText('审批备注 批量通过')).toHaveCount(2);
   });
 });

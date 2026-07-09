@@ -31,24 +31,24 @@ test.describe('Real backend approval inbox E2E', () => {
     }, token);
 
     await page.goto('/rules/approvals');
-    await expect(page.getByRole('heading', { name: 'Approval Inbox' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '审批待办' })).toBeVisible();
     const approvalCard = page.locator('.approval-card').filter({
       has: page.getByText(approvalTitle),
     });
     await expect(approvalCard).toBeVisible();
-    await expect(approvalCard.getByText(`Rule #${ruleId}`)).toBeVisible();
+    await expect(approvalCard.getByText(`规则 #${ruleId}`)).toBeVisible();
 
-    await approvalCard.getByRole('button', { name: 'Approve' }).click();
+    await approvalCard.getByRole('button', { name: '通过' }).click();
     await expect(approvalCard).toBeHidden();
 
-    await page.getByRole('button', { name: 'Approved' }).click();
+    await page.getByRole('button', { name: '已通过' }).click();
     const approvedCard = page.locator('.approval-card').filter({
       has: page.getByText(approvalTitle),
     });
     await expect(approvedCard).toBeVisible();
-    await expect(approvedCard.getByText(`Rule #${ruleId}`)).toBeVisible();
-    await expect(approvedCard.getByText('Status approved')).toBeVisible();
-    await expect(approvedCard.getByText('Comment approved from approval inbox')).toBeVisible();
+    await expect(approvedCard.getByText(`规则 #${ruleId}`)).toBeVisible();
+    await expect(approvedCard.getByText('状态 已通过')).toBeVisible();
+    await expect(approvedCard.getByText('审批备注 在审批待办中通过')).toBeVisible();
   });
 
   test('REQ-RULE-001: browser filters approval records by rule and role across status tabs', async ({ page }) => {
@@ -81,38 +81,38 @@ test.describe('Real backend approval inbox E2E', () => {
     }, token);
 
     await page.goto('/rules/approvals');
-    await expect(page.getByRole('heading', { name: 'Approval Inbox' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '审批待办' })).toBeVisible();
     await expect(page.getByText(targetApprovalTitle)).toBeVisible();
-    await expect(page.getByText(`Rule #${targetRuleId}`)).toBeVisible();
-    await expect(page.getByText(`Rule #${distractorRuleId}`)).toBeVisible();
+    await expect(page.getByText(`规则 #${targetRuleId}`)).toBeVisible();
+    await expect(page.getByText(`规则 #${distractorRuleId}`)).toBeVisible();
 
-    await page.getByLabel('Rule ID filter').fill(String(targetRuleId));
-    await page.getByLabel('Assignee role filter').fill('finance_manager');
-    await page.getByLabel('Approval title filter').fill('Finance approval');
-    await page.getByRole('button', { name: 'Apply filters' }).click();
+    await page.getByLabel('规则编号筛选').fill(String(targetRuleId));
+    await page.getByLabel('审批角色筛选').fill('finance_manager');
+    await page.getByLabel('审批标题筛选').fill('Finance approval');
+    await page.getByRole('button', { name: '应用筛选' }).click();
 
     const filteredPendingCard = page.locator('.approval-card').filter({
       has: page.getByText(targetApprovalTitle),
     });
     await expect(filteredPendingCard).toBeVisible();
-    await expect(filteredPendingCard.getByText(`Rule #${targetRuleId}`)).toBeVisible();
-    await expect(page.getByText(`Rule #${distractorRuleId}`)).toHaveCount(0);
-    await expect(page.getByText('Assignee legal_manager')).toHaveCount(0);
+    await expect(filteredPendingCard.getByText(`规则 #${targetRuleId}`)).toBeVisible();
+    await expect(page.getByText(`规则 #${distractorRuleId}`)).toHaveCount(0);
+    await expect(page.getByText('审批角色 legal_manager')).toHaveCount(0);
 
-    await filteredPendingCard.getByRole('button', { name: 'Approve' }).click();
+    await filteredPendingCard.getByRole('button', { name: '通过' }).click();
     await expect(filteredPendingCard).toBeHidden();
-    await expect(page.getByText('No pending approvals')).toBeVisible();
+    await expect(page.getByText('暂无待审批记录')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Approved' }).click();
+    await page.getByRole('button', { name: '已通过' }).click();
     const filteredApprovedCard = page.locator('.approval-card').filter({
       has: page.getByText(targetApprovalTitle),
     });
     await expect(filteredApprovedCard).toBeVisible();
-    await expect(filteredApprovedCard.getByText(`Rule #${targetRuleId}`)).toBeVisible();
-    await expect(filteredApprovedCard.getByText('Assignee finance_manager')).toBeVisible();
-    await expect(filteredApprovedCard.getByText('Status approved')).toBeVisible();
-    await expect(page.getByText(`Rule #${distractorRuleId}`)).toHaveCount(0);
-    await expect(page.getByText('Assignee legal_manager')).toHaveCount(0);
+    await expect(filteredApprovedCard.getByText(`规则 #${targetRuleId}`)).toBeVisible();
+    await expect(filteredApprovedCard.getByText('审批角色 finance_manager')).toBeVisible();
+    await expect(filteredApprovedCard.getByText('状态 已通过')).toBeVisible();
+    await expect(page.getByText(`规则 #${distractorRuleId}`)).toHaveCount(0);
+    await expect(page.getByText('审批角色 legal_manager')).toHaveCount(0);
   });
 
   test('REQ-RULE-001: browser applies extended approval operator filters on real backend', async ({ page }) => {
@@ -146,34 +146,34 @@ test.describe('Real backend approval inbox E2E', () => {
     }, token);
 
     await page.goto('/rules/approvals');
-    await expect(page.getByRole('heading', { name: 'Approval Inbox' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '审批待办' })).toBeVisible();
 
-    await page.getByLabel('Created by filter').fill('9205');
-    await page.getByLabel('Created from filter').fill('2026-06-25T00:00');
-    await page.getByLabel('Created to filter').fill('2099-12-31T23:59');
-    await page.getByRole('button', { name: 'Apply filters' }).click();
+    await page.getByLabel('发起人编号筛选').fill('9205');
+    await page.getByLabel('创建开始时间筛选').fill('2026-06-25T00:00');
+    await page.getByLabel('创建结束时间筛选').fill('2099-12-31T23:59');
+    await page.getByRole('button', { name: '应用筛选' }).click();
 
     const filteredPendingCard = page.locator('.approval-card').filter({
       has: page.getByText(targetApprovalTitle),
     });
     await expect(filteredPendingCard).toBeVisible();
-    await expect(filteredPendingCard.getByText(`Rule #${targetRuleId}`)).toBeVisible();
-    await expect(page.getByText(`Rule #${distractorRuleId}`)).toBeVisible();
+    await expect(filteredPendingCard.getByText(`规则 #${targetRuleId}`)).toBeVisible();
+    await expect(page.getByText(`规则 #${distractorRuleId}`)).toBeVisible();
 
-    await filteredPendingCard.getByRole('button', { name: 'Approve' }).click();
+    await filteredPendingCard.getByRole('button', { name: '通过' }).click();
     await expect(filteredPendingCard).toBeHidden();
 
-    await page.getByRole('button', { name: 'Approved' }).click();
-    await page.getByLabel('Approved by filter').fill('9205');
-    await page.getByLabel('Approval title filter').fill('Extended approval target');
-    await page.getByRole('button', { name: 'Apply filters' }).click();
+    await page.getByRole('button', { name: '已通过' }).click();
+    await page.getByLabel('审批人编号筛选').fill('9205');
+    await page.getByLabel('审批标题筛选').fill('Extended approval target');
+    await page.getByRole('button', { name: '应用筛选' }).click();
 
     const filteredApprovedCard = page.locator('.approval-card').filter({
       has: page.getByText(targetApprovalTitle),
     });
     await expect(filteredApprovedCard).toBeVisible();
-    await expect(filteredApprovedCard.getByText(`Rule #${targetRuleId}`)).toBeVisible();
-    await expect(filteredApprovedCard.getByText('Status approved')).toBeVisible();
+    await expect(filteredApprovedCard.getByText(`规则 #${targetRuleId}`)).toBeVisible();
+    await expect(filteredApprovedCard.getByText('状态 已通过')).toBeVisible();
     await expect(page.getByText(distractorApprovalTitle)).toHaveCount(0);
   });
 
@@ -208,7 +208,7 @@ test.describe('Real backend approval inbox E2E', () => {
     }, token);
 
     await page.goto('/rules/approvals');
-    await expect(page.getByRole('heading', { name: 'Approval Inbox' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '审批待办' })).toBeVisible();
 
     const firstPendingCard = page.locator('.approval-card').filter({
       has: page.getByText(firstApprovalTitle),
@@ -218,20 +218,20 @@ test.describe('Real backend approval inbox E2E', () => {
     });
     await expect(firstPendingCard).toBeVisible();
     await expect(secondPendingCard).toBeVisible();
-    await expect(firstPendingCard.getByText(`Rule #${firstRuleId}`)).toBeVisible();
-    await expect(secondPendingCard.getByText(`Rule #${secondRuleId}`)).toBeVisible();
+    await expect(firstPendingCard.getByText(`规则 #${firstRuleId}`)).toBeVisible();
+    await expect(secondPendingCard.getByText(`规则 #${secondRuleId}`)).toBeVisible();
 
-    const firstCheckbox = firstPendingCard.getByLabel(/Select approval \d+/);
-    const secondCheckbox = secondPendingCard.getByLabel(/Select approval \d+/);
+    const firstCheckbox = firstPendingCard.getByLabel(/选择审批记录 \d+/);
+    const secondCheckbox = secondPendingCard.getByLabel(/选择审批记录 \d+/);
     await firstCheckbox.check();
     await secondCheckbox.check();
-    await page.getByRole('button', { name: 'Batch approve' }).click();
+    await page.getByRole('button', { name: '批量通过' }).click();
 
-    await expect(page.getByText('Batch approval completed: 2 succeeded, 0 failed.')).toBeVisible();
+    await expect(page.getByText('批量审批完成：成功 2 条，失败 0 条。')).toBeVisible();
     await expect(firstPendingCard).toBeHidden();
     await expect(secondPendingCard).toBeHidden();
 
-    await page.getByRole('button', { name: 'Approved' }).click();
+    await page.getByRole('button', { name: '已通过' }).click();
     const firstApprovedCard = page.locator('.approval-card').filter({
       has: page.getByText(firstApprovalTitle),
     });
@@ -240,10 +240,10 @@ test.describe('Real backend approval inbox E2E', () => {
     });
     await expect(firstApprovedCard).toBeVisible();
     await expect(secondApprovedCard).toBeVisible();
-    await expect(firstApprovedCard.getByText('Status approved')).toBeVisible();
-    await expect(secondApprovedCard.getByText('Status approved')).toBeVisible();
-    await expect(firstApprovedCard.getByText('Comment approved in batch')).toBeVisible();
-    await expect(secondApprovedCard.getByText('Comment approved in batch')).toBeVisible();
+    await expect(firstApprovedCard.getByText('状态 已通过')).toBeVisible();
+    await expect(secondApprovedCard.getByText('状态 已通过')).toBeVisible();
+    await expect(firstApprovedCard.getByText('审批备注 批量通过')).toBeVisible();
+    await expect(secondApprovedCard.getByText('审批备注 批量通过')).toBeVisible();
   });
 
   test('REQ-RULE-001: approval supplement attachment upload returns MinIO evidence URL on real backend', async ({ page }) => {
@@ -283,23 +283,23 @@ test.describe('Real backend approval inbox E2E', () => {
     }, token);
 
     await page.goto('/rules/approvals');
-    await expect(page.getByRole('heading', { name: 'Approval Inbox' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '审批待办' })).toBeVisible();
     const pendingCard = page.locator('.approval-card').filter({
       has: page.getByText(approvalTitle),
     });
     await expect(pendingCard).toBeVisible();
-    await expect(pendingCard.getByText(`Rule #${ruleId}`)).toBeVisible();
+    await expect(pendingCard.getByText(`规则 #${ruleId}`)).toBeVisible();
 
-    await pendingCard.getByRole('button', { name: 'Reject' }).click();
-    await expect(page.getByText('Approval rejected. Submit updated materials before running again.')).toBeVisible();
+    await pendingCard.getByRole('button', { name: '驳回' }).click();
+    await expect(page.getByText('审批已驳回，请补充材料后重新提交。')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Rejected' }).click();
+    await page.getByRole('button', { name: '已驳回' }).click();
     const rejectedCard = page.locator('.approval-card').filter({
       has: page.getByText(approvalTitle),
     });
     await expect(rejectedCard).toBeVisible();
-    await rejectedCard.getByLabel('Supplement comment').fill('uploaded real invoice evidence');
-    await rejectedCard.getByLabel('Supplement attachment').setInputFiles({
+    await rejectedCard.getByLabel('补充说明').fill('uploaded real invoice evidence');
+    await rejectedCard.getByLabel('补充附件').setInputFiles({
       name: 'invoice-evidence.txt',
       mimeType: 'text/plain',
       buffer: Buffer.from(`invoice evidence ${uniqueSeed}`),
@@ -308,22 +308,22 @@ test.describe('Real backend approval inbox E2E', () => {
     expect(uploadEvidenceUrl).toContain(`/rule-${ruleId}/`);
     await expect(rejectedCard.getByText('invoice-evidence.txt')).toBeVisible();
 
-    await rejectedCard.getByRole('button', { name: 'Submit supplement' }).click();
-    await expect(page.getByText('Supplement submitted and approval returned to pending review.')).toBeVisible();
+    await rejectedCard.getByRole('button', { name: '提交补充' }).click();
+    await expect(page.getByText('补充材料已提交，审批已回到待处理状态。')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Pending' }).click();
+    await page.getByRole('button', { name: '待审批' }).click();
     const resubmittedPendingCard = page.locator('.approval-card').filter({
       has: page.getByText(approvalTitle),
     });
     await expect(resubmittedPendingCard).toBeVisible();
-    await expect(resubmittedPendingCard.getByText('Status pending')).toBeVisible();
+    await expect(resubmittedPendingCard.getByText('状态 待审批')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Resubmitted' }).click();
+    await page.getByRole('button', { name: '已重提' }).click();
     const resubmittedHistoryCard = page.locator('.approval-card').filter({
       has: page.getByText(approvalTitle),
     });
     await expect(resubmittedHistoryCard).toBeVisible();
-    await expect(resubmittedHistoryCard.getByText('Comment uploaded real invoice evidence')).toBeVisible();
+    await expect(resubmittedHistoryCard.getByText('审批备注 uploaded real invoice evidence')).toBeVisible();
   });
 });
 

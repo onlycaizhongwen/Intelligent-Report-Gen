@@ -75,6 +75,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private boolean isPublicPath(String method, String path) {
+        if ("POST".equalsIgnoreCase(method) && "/api/v1/auth/dev-login".equals(path)) {
+            return true;
+        }
         if (!"POST".equalsIgnoreCase(method)) {
             return false;
         }

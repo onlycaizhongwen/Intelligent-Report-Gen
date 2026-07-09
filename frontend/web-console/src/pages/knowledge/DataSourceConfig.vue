@@ -165,7 +165,7 @@
       <div>
         <strong>{{ savedDataSource.name }}</strong>
         <span>
-          {{ savedDataSource.sourceType }} / {{ savedDataSource.status }} /
+          {{ dataSourceTypeLabel(savedDataSource.sourceType) }} / {{ dataSourceStatusLabel(savedDataSource.status) }} /
           {{ savedDataSource.credentialConfigured ? '凭据已配置' : '未配置凭据' }}
           <template v-if="savedDataSource.cursorColumn"> / 游标列 {{ savedDataSource.cursorColumn }}</template>
           <template v-if="savedDataSource.scheduleEnabled"> / 每 {{ savedDataSource.scheduleIntervalSeconds }} 秒同步</template>
@@ -183,8 +183,16 @@
       <h3>同步日志</h3>
       <el-table v-if="syncRuns.length" :data="syncRuns" size="small">
         <el-table-column prop="syncRunId" label="Run ID" width="100" />
-        <el-table-column prop="mode" label="模式" width="120" />
-        <el-table-column prop="status" label="状态" width="120" />
+        <el-table-column label="模式" width="120">
+          <template #default="{ row }">
+            {{ syncModeLabel(row.mode) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="120">
+          <template #default="{ row }">
+            {{ syncStatusLabel(row.status) }}
+          </template>
+        </el-table-column>
         <el-table-column prop="processedRows" label="处理行数" width="120" />
         <el-table-column prop="lastCursor" label="游标" width="120" />
         <el-table-column prop="message" label="消息" />
@@ -395,6 +403,43 @@ function defaultFieldMapping(): DataSourceFieldMapping {
     pageSize: 100,
     maxPages: 1
   };
+}
+
+function dataSourceTypeLabel(sourceType: string) {
+  const labels: Record<string, string> = {
+    postgresql: 'PostgreSQL',
+    mysql: 'MySQL',
+    api: 'HTTP 接口'
+  };
+  return labels[sourceType] ?? sourceType;
+}
+
+function dataSourceStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    enabled: '已启用',
+    disabled: '已停用',
+    draft: '草稿'
+  };
+  return labels[status] ?? status;
+}
+
+function syncModeLabel(mode: string) {
+  const labels: Record<string, string> = {
+    manual: '手动同步',
+    manual_retry: '人工重跑',
+    scheduled: '定时同步'
+  };
+  return labels[mode] ?? mode;
+}
+
+function syncStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    succeeded: '成功',
+    failed: '失败',
+    running: '运行中',
+    pending: '待执行'
+  };
+  return labels[status] ?? status;
 }
 
 function clearMessage() {

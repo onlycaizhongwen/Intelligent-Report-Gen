@@ -23,7 +23,7 @@
           <p class="eyebrow">外部只读报告</p>
           <h1>{{ report.title }}</h1>
         </div>
-        <el-tag type="success">{{ report.status }}</el-tag>
+        <el-tag type="success">{{ reportStatusLabel(report.status) }}</el-tag>
       </header>
 
       <section v-if="report.allowDownload && report.exports.length" class="download-band">
@@ -124,6 +124,16 @@ const download = async (item: SharedExportSummary) => {
     downloadingId.value = '';
   }
 };
+
+function reportStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    completed: '已完成',
+    generating: '生成中',
+    draft: '草稿',
+    failed: '失败'
+  };
+  return labels[status] ?? status;
+}
 </script>
 
 <style scoped>

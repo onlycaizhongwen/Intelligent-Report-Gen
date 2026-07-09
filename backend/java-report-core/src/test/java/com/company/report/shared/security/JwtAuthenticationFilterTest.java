@@ -45,6 +45,11 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
+    void devLoginEndpointBypassesJwtSoLocalPreviewCanAcquireToken() throws Exception {
+        assertPublicPathContinues("POST", "/api/v1/auth/dev-login");
+    }
+
+    @Test
     void publicShareEndpointsDoNotBypassJwtForUnexpectedHttpMethods() throws Exception {
         assertMissingTokenRejected("GET", "/api/v1/share-links/share-token/access");
         assertMissingTokenRejected("GET", "/api/v1/share-links/share-token/report");

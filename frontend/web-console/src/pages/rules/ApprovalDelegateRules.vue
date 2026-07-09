@@ -2,23 +2,24 @@
   <section class="page approval-delegate-page">
     <header class="page-header">
       <div>
-        <h2>Approval Delegate Rules</h2>
-        <p>Configure temporary delegate roles for rule approval tasks.</p>
+        <h2>审批委托</h2>
+        <p>审批委托规则</p>
+        <p>配置临时代理角色，保障审批任务不断档。</p>
       </div>
     </header>
 
     <el-alert v-if="errorMessage" :title="errorMessage" type="error" show-icon :closable="false" />
     <el-alert v-if="successMessage" :title="successMessage" type="success" show-icon :closable="false" />
 
-    <section class="delegate-form" aria-label="Approval delegate rule form">
+    <section class="delegate-form" aria-label="审批委托规则表单">
       <label>
-        <span>Assignee role</span>
+        <span>原审批角色</span>
         <el-select
           v-model="form.assigneeRole"
-          aria-label="Assignee organization role"
+          aria-label="原审批组织角色"
           filterable
           class="role-directory-select"
-          placeholder="Select from organization directory"
+          placeholder="从组织目录选择"
         >
           <el-option
             v-for="option in roleDirectoryOptions"
@@ -27,17 +28,17 @@
             :value="option.role"
           />
         </el-select>
-        <el-input v-model="form.assigneeRole" aria-label="Delegate assignee role" placeholder="finance_manager" />
-        <small v-if="roleCandidatesText(form.assigneeRole)">Assignee candidates {{ roleCandidatesText(form.assigneeRole) }}</small>
+        <el-input v-model="form.assigneeRole" aria-label="原审批角色" placeholder="finance_manager" />
+        <small v-if="roleCandidatesText(form.assigneeRole)">原审批候选人 {{ roleCandidatesText(form.assigneeRole) }}</small>
       </label>
       <label>
-        <span>Delegate role</span>
+        <span>代理角色</span>
         <el-select
           v-model="form.delegateRole"
-          aria-label="Delegate organization role"
+          aria-label="代理组织角色"
           filterable
           class="role-directory-select"
-          placeholder="Select from organization directory"
+          placeholder="从组织目录选择"
         >
           <el-option
             v-for="option in roleDirectoryOptions"
@@ -46,97 +47,97 @@
             :value="option.role"
           />
         </el-select>
-        <el-input v-model="form.delegateRole" aria-label="Delegate role" placeholder="finance_delegate" />
-        <small v-if="roleCandidatesText(form.delegateRole)">Delegate candidates {{ roleCandidatesText(form.delegateRole) }}</small>
+        <el-input v-model="form.delegateRole" aria-label="代理角色" placeholder="finance_delegate" />
+        <small v-if="roleCandidatesText(form.delegateRole)">代理候选人 {{ roleCandidatesText(form.delegateRole) }}</small>
       </label>
       <label>
-        <span>Active from</span>
-        <el-input v-model="form.activeFrom" aria-label="Delegate active from" placeholder="2026-06-26T08:00:00Z" />
+        <span>生效开始</span>
+        <el-input v-model="form.activeFrom" aria-label="委托生效开始" placeholder="2026-06-26T08:00:00Z" />
       </label>
       <label>
-        <span>Active to</span>
-        <el-input v-model="form.activeTo" aria-label="Delegate active to" placeholder="2026-06-26T18:00:00Z" />
+        <span>生效结束</span>
+        <el-input v-model="form.activeTo" aria-label="委托生效结束" placeholder="2026-06-26T18:00:00Z" />
       </label>
       <label>
-        <span>Active weekdays</span>
-        <el-input v-model="form.activeWeekdays" aria-label="Delegate active weekdays" placeholder="MONDAY,WEDNESDAY" />
+        <span>生效星期</span>
+        <el-input v-model="form.activeWeekdays" aria-label="委托生效星期" placeholder="MONDAY,WEDNESDAY" />
       </label>
       <label>
-        <span>Active dates</span>
-        <el-input v-model="form.activeDates" aria-label="Delegate active dates" placeholder="2026-06-26,2026-06-28" />
+        <span>生效日期</span>
+        <el-input v-model="form.activeDates" aria-label="委托生效日期" placeholder="2026-06-26,2026-06-28" />
       </label>
       <label class="reason-field">
-        <span>Reason</span>
-        <el-input v-model="form.reason" aria-label="Delegate reason" type="textarea" :rows="3" placeholder="quarter close coverage" />
+        <span>原因</span>
+        <el-input v-model="form.reason" aria-label="委托原因" type="textarea" :rows="3" placeholder="季度结账期间代理审批" />
       </label>
       <div class="form-actions">
-        <el-button type="primary" :loading="submitting" @click="createDelegateRule">Create delegate rule</el-button>
+        <el-button type="primary" :loading="submitting" @click="createDelegateRule">创建委托规则</el-button>
       </div>
     </section>
 
-    <section v-if="createdRule" class="created-rule" aria-label="Created delegate rule">
+    <section v-if="createdRule" class="created-rule" aria-label="已创建的委托规则">
       <strong>{{ createdRule.assigneeRole }} -> {{ createdRule.delegateRole }}</strong>
-      <span>Status {{ createdRule.status }}</span>
-      <span v-if="createdRule.activeFrom || createdRule.activeTo">Window {{ formatWindow(createdRule) }}</span>
-      <span v-if="createdRule.activeWeekdays?.length">Weekdays {{ createdRule.activeWeekdays.join(', ') }}</span>
-      <span v-if="createdRule.activeDates?.length">Dates {{ createdRule.activeDates.join(', ') }}</span>
-      <span v-if="createdRule.reason">Reason {{ createdRule.reason }}</span>
+      <span>状态 {{ statusLabel(createdRule.status) }}</span>
+      <span v-if="createdRule.activeFrom || createdRule.activeTo">生效窗口 {{ formatWindow(createdRule) }}</span>
+      <span v-if="createdRule.activeWeekdays?.length">星期 {{ createdRule.activeWeekdays.join(', ') }}</span>
+      <span v-if="createdRule.activeDates?.length">日期 {{ createdRule.activeDates.join(', ') }}</span>
+      <span v-if="createdRule.reason">原因 {{ createdRule.reason }}</span>
     </section>
 
-    <section class="delegate-import" aria-label="Approval delegate batch import">
+    <section class="delegate-import" aria-label="审批委托批量导入">
       <label>
-        <span>Batch import delegate rules</span>
+        <span>批量导入委托规则</span>
         <el-input
           v-model="importText"
-          aria-label="Batch import delegate rules"
+          aria-label="批量导入委托规则"
           type="textarea"
           :rows="4"
-          placeholder="assigneeRole,delegateRole,activeFrom,activeTo,activeWeekdays,activeDates,reason"
+          placeholder="原审批角色,代理角色,生效开始,生效结束,生效星期,生效日期,原因"
         />
       </label>
       <div class="form-actions">
-        <el-button :loading="importingRules" @click="batchImportDelegateRules">Import delegate rules</el-button>
+        <el-button :loading="importingRules" @click="batchImportDelegateRules">导入委托规则</el-button>
       </div>
-      <ul v-if="importResults.length" class="import-results" aria-label="Delegate import results">
+      <ul v-if="importResults.length" class="import-results" aria-label="委托导入结果">
         <li v-for="result in importResults" :key="result.rowNumber">
-          <template v-if="result.status === 'failed'">Row {{ result.rowNumber }} failed: {{ result.reason }}</template>
-          <template v-else>Row {{ result.rowNumber }} imported: {{ result.assigneeRole }} -> {{ result.delegateRole }}</template>
+          <template v-if="result.status === 'failed'">第 {{ result.rowNumber }} 行失败：{{ result.reason }}</template>
+          <template v-else>第 {{ result.rowNumber }} 行已导入：{{ result.assigneeRole }} -> {{ result.delegateRole }}</template>
         </li>
       </ul>
     </section>
 
-    <section class="delegate-calendar" aria-label="Delegate schedule calendar">
-      <h3>Delegate schedule calendar</h3>
+    <section class="delegate-calendar" aria-label="委托日程">
+      <h3>委托日程</h3>
       <div v-if="calendarDays.length" class="calendar-grid">
         <article v-for="day in calendarDays" :key="day.date" class="calendar-day">
           <strong>{{ day.date }}</strong>
           <div v-for="rule in day.rules" :key="`${day.date}-${rule.delegateRuleId}`" class="calendar-rule">
             <span>{{ rule.assigneeRole }} -> {{ rule.delegateRole }}</span>
-            <small v-if="rule.activeWeekdays?.length">Weekdays {{ rule.activeWeekdays.join(', ') }}</small>
-            <small v-if="rule.activeFrom || rule.activeTo">Window {{ formatWindow(rule) }}</small>
+            <small v-if="rule.activeWeekdays?.length">星期 {{ rule.activeWeekdays.join(', ') }}</small>
+            <small v-if="rule.activeFrom || rule.activeTo">生效窗口 {{ formatWindow(rule) }}</small>
           </div>
         </article>
       </div>
-      <el-empty v-else description="No date-specific delegate rules" />
+      <el-empty v-else description="暂无指定日期的委托规则" />
       <div v-if="recurringRules.length" class="calendar-recurring">
-        <h4>Recurring / window based</h4>
+        <h4>重复 / 时间窗口规则</h4>
         <article v-for="rule in recurringRules" :key="`recurring-${rule.delegateRuleId}`" class="calendar-rule">
           <span>{{ rule.assigneeRole }} -> {{ rule.delegateRole }}</span>
-          <small v-if="rule.activeWeekdays?.length">Weekdays {{ rule.activeWeekdays.join(', ') }}</small>
-          <small v-if="rule.activeFrom || rule.activeTo">Window {{ formatWindow(rule) }}</small>
+          <small v-if="rule.activeWeekdays?.length">星期 {{ rule.activeWeekdays.join(', ') }}</small>
+          <small v-if="rule.activeFrom || rule.activeTo">生效窗口 {{ formatWindow(rule) }}</small>
         </article>
       </div>
     </section>
 
-    <section class="delegate-rule-list" aria-label="Approval delegate rules">
+    <section class="delegate-rule-list" aria-label="审批委托规则列表">
       <div class="list-header">
-        <h3>Existing delegate rules</h3>
+        <h3>已有委托规则</h3>
         <div class="list-actions">
-          <el-button @click="exportDelegateRules">Export delegate rules</el-button>
-          <el-button :loading="loadingRules" @click="loadDelegateRules">Refresh</el-button>
+          <el-button @click="exportDelegateRules">导出委托规则</el-button>
+          <el-button :loading="loadingRules" @click="loadDelegateRules">刷新</el-button>
         </div>
       </div>
-      <el-empty v-if="!loadingRules && delegateRules.length === 0" description="No delegate rules" />
+      <el-empty v-if="!loadingRules && delegateRules.length === 0" description="暂无委托规则" />
       <article
         v-for="rule in delegateRules"
         :key="String(rule.delegateRuleId ?? `${rule.assigneeRole}-${rule.delegateRole}`)"
@@ -144,20 +145,20 @@
       >
         <div class="rule-summary">
           <strong>{{ rule.assigneeRole }} -> {{ rule.delegateRole }}</strong>
-          <span>Status {{ rule.status }}</span>
-          <span v-if="rule.activeFrom || rule.activeTo">Window {{ formatWindow(rule) }}</span>
-          <span v-if="rule.activeWeekdays?.length">Weekdays {{ rule.activeWeekdays.join(', ') }}</span>
-          <span v-if="rule.activeDates?.length">Dates {{ rule.activeDates.join(', ') }}</span>
-          <span v-if="rule.reason">Reason {{ rule.reason }}</span>
-          <span v-if="rule.createdAt">Created {{ rule.createdAt }}</span>
+          <span>状态 {{ statusLabel(rule.status) }}</span>
+          <span v-if="rule.activeFrom || rule.activeTo">生效窗口 {{ formatWindow(rule) }}</span>
+          <span v-if="rule.activeWeekdays?.length">星期 {{ rule.activeWeekdays.join(', ') }}</span>
+          <span v-if="rule.activeDates?.length">日期 {{ rule.activeDates.join(', ') }}</span>
+          <span v-if="rule.reason">原因 {{ rule.reason }}</span>
+          <span v-if="rule.createdAt">创建时间 {{ rule.createdAt }}</span>
         </div>
         <div v-if="editingRuleId === String(rule.delegateRuleId)" class="edit-actions">
           <el-select
             v-model="editForm.assigneeRole"
-            aria-label="Edit assignee organization role"
+            aria-label="编辑原审批组织角色"
             filterable
             class="role-directory-select"
-            placeholder="Select from organization directory"
+            placeholder="从组织目录选择"
           >
             <el-option
               v-for="option in roleDirectoryOptions"
@@ -166,14 +167,14 @@
               :value="option.role"
             />
           </el-select>
-          <el-input v-model="editForm.assigneeRole" aria-label="Edit assignee role" placeholder="finance_manager" />
-          <small v-if="roleCandidatesText(editForm.assigneeRole)">Assignee candidates {{ roleCandidatesText(editForm.assigneeRole) }}</small>
+          <el-input v-model="editForm.assigneeRole" aria-label="编辑原审批角色" placeholder="finance_manager" />
+          <small v-if="roleCandidatesText(editForm.assigneeRole)">原审批候选人 {{ roleCandidatesText(editForm.assigneeRole) }}</small>
           <el-select
             v-model="editForm.delegateRole"
-            aria-label="Edit delegate organization role"
+            aria-label="编辑代理组织角色"
             filterable
             class="role-directory-select"
-            placeholder="Select from organization directory"
+            placeholder="从组织目录选择"
           >
             <el-option
               v-for="option in roleDirectoryOptions"
@@ -182,50 +183,50 @@
               :value="option.role"
             />
           </el-select>
-          <el-input v-model="editForm.delegateRole" aria-label="Edit delegate role" placeholder="finance_delegate" />
-          <small v-if="roleCandidatesText(editForm.delegateRole)">Delegate candidates {{ roleCandidatesText(editForm.delegateRole) }}</small>
-          <el-input v-model="editForm.activeFrom" aria-label="Edit active from" placeholder="2026-06-26T08:00:00Z" />
-          <el-input v-model="editForm.activeTo" aria-label="Edit active to" placeholder="2026-06-26T18:00:00Z" />
-          <el-input v-model="editForm.activeWeekdays" aria-label="Edit active weekdays" placeholder="MONDAY,WEDNESDAY" />
-          <el-input v-model="editForm.activeDates" aria-label="Edit active dates" placeholder="2026-06-26,2026-06-28" />
-          <el-input v-model="editForm.reason" aria-label="Edit reason" type="textarea" :rows="2" placeholder="director travel cover" />
+          <el-input v-model="editForm.delegateRole" aria-label="编辑代理角色" placeholder="finance_delegate" />
+          <small v-if="roleCandidatesText(editForm.delegateRole)">代理候选人 {{ roleCandidatesText(editForm.delegateRole) }}</small>
+          <el-input v-model="editForm.activeFrom" aria-label="编辑生效开始" placeholder="2026-06-26T08:00:00Z" />
+          <el-input v-model="editForm.activeTo" aria-label="编辑生效结束" placeholder="2026-06-26T18:00:00Z" />
+          <el-input v-model="editForm.activeWeekdays" aria-label="编辑生效星期" placeholder="MONDAY,WEDNESDAY" />
+          <el-input v-model="editForm.activeDates" aria-label="编辑生效日期" placeholder="2026-06-26,2026-06-28" />
+          <el-input v-model="editForm.reason" aria-label="编辑原因" type="textarea" :rows="2" placeholder="总监出差期间代理审批" />
           <div class="edit-buttons">
             <el-button
               type="primary"
               :loading="savingRuleId === String(rule.delegateRuleId)"
               @click="saveEdit(rule)"
             >
-              Save edit
+              保存编辑
             </el-button>
-            <el-button @click="cancelEdit">Cancel</el-button>
+            <el-button @click="cancelEdit">取消</el-button>
           </div>
         </div>
         <div v-else-if="rule.status === 'enabled'" class="rule-actions">
-          <el-button @click="startEdit(rule)">Edit</el-button>
+          <el-button @click="startEdit(rule)">编辑</el-button>
           <el-input
             v-model="disableReasons[String(rule.delegateRuleId)]"
-            aria-label="Disable reason"
-            placeholder="manager returned"
+            aria-label="停用原因"
+            placeholder="负责人已返回"
           />
           <el-button
             :loading="disablingRuleId === String(rule.delegateRuleId)"
             @click="disableRule(rule)"
           >
-            Disable
+            停用
           </el-button>
         </div>
         <div v-else class="rule-actions">
-          <el-button @click="startEdit(rule)">Edit</el-button>
+          <el-button @click="startEdit(rule)">编辑</el-button>
           <el-input
             v-model="enableReasons[String(rule.delegateRuleId)]"
-            aria-label="Enable reason"
-            placeholder="manager away again"
+            aria-label="启用原因"
+            placeholder="负责人再次外出"
           />
           <el-button
             :loading="enablingRuleId === String(rule.delegateRuleId)"
             @click="enableRule(rule)"
           >
-            Enable
+            启用
           </el-button>
         </div>
       </article>
@@ -236,6 +237,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { adminApi, type OrganizationDirectory } from '../../api/adminApi';
+import { isLocalPreviewUnauthorizedError } from '../../api/client';
 import { ruleApi } from '../../api/ruleApi';
 
 interface ApprovalDelegateRuleResponse {
@@ -304,7 +306,7 @@ const roleDirectoryOptions = computed(() => {
     const displayName = user?.displayName?.trim() || user?.username || role;
     options.set(role, {
       role,
-      label: `${roleItem.department || 'No department'} / ${roleItem.position || 'No position'} / ${role} / ${displayName}`
+      label: `${roleItem.department || '无部门'} / ${roleItem.position || '无岗位'} / ${role} / ${displayName}`
     });
   });
   return Array.from(options.values()).sort((left, right) => left.label.localeCompare(right.label));
@@ -359,7 +361,7 @@ async function createDelegateRule() {
   successMessage.value = '';
   createdRule.value = null;
   if (!form.assigneeRole.trim() || !form.delegateRole.trim()) {
-    errorMessage.value = 'Assignee role and delegate role are required.';
+    errorMessage.value = '请填写原审批角色和代理角色。';
     return;
   }
   submitting.value = true;
@@ -374,10 +376,10 @@ async function createDelegateRule() {
       reason: blankToUndefined(form.reason)
     }) as unknown as ApprovalDelegateRuleResponse;
     createdRule.value = result;
-    successMessage.value = `Delegate rule created: ${result.assigneeRole} -> ${result.delegateRole}`;
+    successMessage.value = `委托规则已创建：${result.assigneeRole} -> ${result.delegateRole}`;
     await loadDelegateRules();
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Failed to create delegate rule';
+    errorMessage.value = error instanceof Error ? error.message : '委托规则创建失败';
   } finally {
     submitting.value = false;
   }
@@ -392,7 +394,11 @@ async function loadDelegateRules() {
     };
     delegateRules.value = result.items ?? result.data?.items ?? [];
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Failed to load delegate rules';
+    if (isLocalPreviewUnauthorizedError(error)) {
+      delegateRules.value = [];
+      return;
+    }
+    errorMessage.value = error instanceof Error ? error.message : '委托规则加载失败';
   } finally {
     loadingRules.value = false;
   }
@@ -404,7 +410,7 @@ async function batchImportDelegateRules() {
   importResults.value = [];
   const rules = parseImportRows(importText.value);
   if (rules.length === 0) {
-    errorMessage.value = 'At least one delegate rule row is required.';
+    errorMessage.value = '至少需要填写一行委托规则。';
     return;
   }
   importingRules.value = true;
@@ -421,10 +427,10 @@ async function batchImportDelegateRules() {
       }>;
     };
     importResults.value = result.results ?? [];
-    successMessage.value = `Delegate rules imported: ${result.imported ?? 0} imported, ${result.failed ?? 0} failed`;
+    successMessage.value = `委托规则导入完成：成功 ${result.imported ?? 0} 行，失败 ${result.failed ?? 0} 行`;
     await loadDelegateRules();
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Failed to import delegate rules';
+    errorMessage.value = error instanceof Error ? error.message : '委托规则导入失败';
   } finally {
     importingRules.value = false;
   }
@@ -496,7 +502,11 @@ async function loadOrganizationDirectory() {
       departments: result.departments ?? [],
       roles: result.roles ?? []
     };
-  } catch {
+  } catch (error) {
+    if (isLocalPreviewUnauthorizedError(error)) {
+      organizationDirectory.value = { departments: [], roles: [] };
+      return;
+    }
     organizationDirectory.value = { departments: [], roles: [] };
   }
 }
@@ -504,7 +514,7 @@ async function loadOrganizationDirectory() {
 async function disableRule(rule: ApprovalDelegateRuleResponse) {
   const delegateRuleId = rule.delegateRuleId;
   if (delegateRuleId === undefined || delegateRuleId === null) {
-    errorMessage.value = 'Delegate rule id is required.';
+    errorMessage.value = '缺少委托规则 ID。';
     return;
   }
   errorMessage.value = '';
@@ -515,12 +525,12 @@ async function disableRule(rule: ApprovalDelegateRuleResponse) {
     const disabled = await ruleApi.disableApprovalDelegateRule(id, {
       reason: blankToUndefined(disableReasons[id] ?? '')
     }) as unknown as ApprovalDelegateRuleResponse;
-    successMessage.value = `Delegate rule disabled: ${disabled.assigneeRole} -> ${disabled.delegateRole}`;
+    successMessage.value = `委托规则已停用：${disabled.assigneeRole} -> ${disabled.delegateRole}`;
     delegateRules.value = delegateRules.value.map((item) => (
       String(item.delegateRuleId) === id ? disabled : item
     ));
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Failed to disable delegate rule';
+    errorMessage.value = error instanceof Error ? error.message : '委托规则停用失败';
   } finally {
     disablingRuleId.value = '';
   }
@@ -544,13 +554,13 @@ function cancelEdit() {
 async function saveEdit(rule: ApprovalDelegateRuleResponse) {
   const delegateRuleId = rule.delegateRuleId;
   if (delegateRuleId === undefined || delegateRuleId === null) {
-    errorMessage.value = 'Delegate rule id is required.';
+    errorMessage.value = '缺少委托规则 ID。';
     return;
   }
   errorMessage.value = '';
   successMessage.value = '';
   if (!editForm.assigneeRole.trim() || !editForm.delegateRole.trim()) {
-    errorMessage.value = 'Assignee role and delegate role are required.';
+    errorMessage.value = '请填写原审批角色和代理角色。';
     return;
   }
   const id = String(delegateRuleId);
@@ -565,13 +575,13 @@ async function saveEdit(rule: ApprovalDelegateRuleResponse) {
       activeDates: dates(editForm.activeDates),
       reason: blankToUndefined(editForm.reason)
     }) as unknown as ApprovalDelegateRuleResponse;
-    successMessage.value = `Delegate rule updated: ${updated.assigneeRole} -> ${updated.delegateRole}`;
+    successMessage.value = `委托规则已更新：${updated.assigneeRole} -> ${updated.delegateRole}`;
     delegateRules.value = delegateRules.value.map((item) => (
       String(item.delegateRuleId) === id ? updated : item
     ));
     editingRuleId.value = '';
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Failed to update delegate rule';
+    errorMessage.value = error instanceof Error ? error.message : '委托规则更新失败';
   } finally {
     savingRuleId.value = '';
   }
@@ -580,7 +590,7 @@ async function saveEdit(rule: ApprovalDelegateRuleResponse) {
 async function enableRule(rule: ApprovalDelegateRuleResponse) {
   const delegateRuleId = rule.delegateRuleId;
   if (delegateRuleId === undefined || delegateRuleId === null) {
-    errorMessage.value = 'Delegate rule id is required.';
+    errorMessage.value = '缺少委托规则 ID。';
     return;
   }
   errorMessage.value = '';
@@ -591,12 +601,12 @@ async function enableRule(rule: ApprovalDelegateRuleResponse) {
     const enabled = await ruleApi.enableApprovalDelegateRule(id, {
       reason: blankToUndefined(enableReasons[id] ?? '')
     }) as unknown as ApprovalDelegateRuleResponse;
-    successMessage.value = `Delegate rule enabled: ${enabled.assigneeRole} -> ${enabled.delegateRole}`;
+    successMessage.value = `委托规则已启用：${enabled.assigneeRole} -> ${enabled.delegateRole}`;
     delegateRules.value = delegateRules.value.map((item) => (
       String(item.delegateRuleId) === id ? enabled : item
     ));
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Failed to enable delegate rule';
+    errorMessage.value = error instanceof Error ? error.message : '委托规则启用失败';
   } finally {
     enablingRuleId.value = '';
   }
@@ -617,10 +627,16 @@ function roleCandidatesText(role: string) {
     .filter((roleItem) => roleItem.role === normalizedRole)
     .flatMap((roleItem) => roleItem.users.map((user) => [
       user.displayName || user.username,
-      roleItem.department || 'No department',
-      roleItem.position || 'No position'
+      roleItem.department || '无部门',
+      roleItem.position || '无岗位'
     ].join(' / ')))
     .join('; ');
+}
+
+function statusLabel(status: string) {
+  if (status === 'enabled' || status === 'active') return '启用';
+  if (status === 'disabled') return '停用';
+  return status;
 }
 </script>
 

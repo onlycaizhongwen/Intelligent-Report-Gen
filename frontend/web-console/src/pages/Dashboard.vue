@@ -67,6 +67,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { auditApi, type DashboardOverview } from '../api/auditApi';
+import { isLocalPreviewUnauthorizedError } from '../api/client';
 
 const range = ref('last7days');
 const ranges = [
@@ -108,10 +109,46 @@ async function loadOverview() {
   try {
     overview.value = await auditApi.dashboardOverview(range.value) as unknown as DashboardOverview & { scope?: string };
   } catch (error) {
+    if (isLocalPreviewUnauthorizedError(error)) {
+      overview.value = previewOverview(range.value);
+      return;
+    }
     errorMessage.value = error instanceof Error ? error.message : '工作台数据加载失败';
   } finally {
     loading.value = false;
   }
+}
+
+function previewOverview(currentRange: string): DashboardOverview & { scope?: string } {
+  return {
+    range: currentRange,
+    scope: 'personal',
+    cards: {
+      reportOutputs: 12,
+      knowledgeItems: 86,
+      activeDataSources: 5,
+      citationHitRate: 0.92,
+      activeUsers: 8
+    },
+    reportTrend: [
+      { date: '2026-06-09', completedReports: 3 },
+      { date: '2026-06-10', completedReports: 4 },
+      { date: '2026-06-11', completedReports: 5 }
+    ],
+    knowledgeRank: [
+      { knowledgeBaseId: 1, name: '财报库', references: 42 },
+      { knowledgeBaseId: 2, name: '法规库', references: 27 }
+    ],
+    ruleScheduleHealth: {
+      scheduledRules: 6,
+      failedScheduledRules: 0,
+      blockedScheduledRules: 0,
+      recentAlerts: 1
+    },
+    recentActivities: [
+      { operationLogId: 1, operationType: '生成报告', actorUserId: 1, result: '成功', createdAt: '2026-06-11 10:30' }
+    ]
+  };
 }
 
 onMounted(loadOverview);

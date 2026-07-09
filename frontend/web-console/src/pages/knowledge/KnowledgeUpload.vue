@@ -49,9 +49,18 @@ const alertType = computed(() => (currentStatus.value === 'failed' ? 'error' : '
 
 const updateStatus = (result: UploadedDocumentResult) => {
   currentStatus.value = result.parseStatus || result.status || 'pending';
-  statusText.value = `${result.filename || ''} ${currentStatus.value}`.trim();
+  statusText.value = `${result.filename || ''} ${documentStatusLabel(currentStatus.value)}`.trim();
   failureReason.value = result.parseFailureReason || '';
 };
+
+function documentStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    pending: '解析中',
+    processed: '解析完成',
+    failed: '解析失败'
+  };
+  return labels[status] ?? status;
+}
 
 const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 

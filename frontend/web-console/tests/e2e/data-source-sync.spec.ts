@@ -138,9 +138,9 @@ test.describe('数据源同步 E2E', () => {
     await page.getByLabel('内容字段').fill('body');
     await page.getByLabel('增量游标列').fill('id');
     await page.getByRole('combobox', { name: '请求方法' }).click({ force: true });
-    await page.getByRole('option', { name: 'POST', exact: true }).click();
+    await page.getByRole('option', { name: 'POST', exact: true }).evaluate((element) => (element as HTMLElement).click());
     await page.getByRole('combobox', { name: '认证方式' }).click({ force: true });
-    await page.getByRole('option', { name: 'API Key Header' }).click();
+    await page.getByRole('option', { name: 'API Key Header' }).evaluate((element) => (element as HTMLElement).click());
     await page.getByLabel('API Key Header').fill('X-API-Key');
     await page.getByLabel('自定义 Header').fill('X-Tenant: finance');
     await page.getByLabel('POST Body').fill('{"period":"2026Q1"}');
@@ -154,6 +154,7 @@ test.describe('数据源同步 E2E', () => {
     await page.getByRole('spinbutton', { name: '最大失败重试次数' }).fill('2');
 
     await page.getByRole('button', { name: '保存数据源' }).click();
+    await expect(page.getByText('HTTP 接口 / 已启用')).toBeVisible();
     await expect(page.getByText('凭据已配置')).toBeVisible();
     await expect(page.getByText('最大重试 2 次')).toBeVisible();
     expect(savedPayload).toMatchObject({
@@ -190,7 +191,9 @@ test.describe('数据源同步 E2E', () => {
     await page.getByRole('button', { name: '启动同步' }).click();
     await page.getByRole('button', { name: '人工重跑' }).click();
     expect(syncPayloads).toEqual([{ mode: 'manual' }, { mode: 'manual_retry' }]);
-    await expect(page.getByText('manual_retry')).toBeVisible();
-    await expect(page.getByText('sync completed')).toBeVisible();
+    const syncTable = page.locator('.sync-panel tbody');
+    await expect(syncTable.getByText('人工重跑')).toBeVisible();
+    await expect(syncTable.getByText('成功')).toBeVisible();
+    await expect(syncTable.getByText('sync completed')).toBeVisible();
   });
 });

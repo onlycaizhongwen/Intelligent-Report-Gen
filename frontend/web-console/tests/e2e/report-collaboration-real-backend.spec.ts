@@ -56,7 +56,7 @@ test.describe('真实后端批注协作 E2E', () => {
 
     await expect(page.getByText('已选中：回款风险')).toBeVisible();
     await page.getByLabel('批注意见').fill('请财务同事核对真实回款风险');
-    await page.getByLabel('指派用户 ID').fill(String(assignee.userId));
+    await page.getByLabel('指派用户编号').fill(String(assignee.userId));
     await page.getByRole('button', { name: '提交批注任务' }).click();
 
     await expect(page.getByText(/批注已提交，任务：/)).toBeVisible();

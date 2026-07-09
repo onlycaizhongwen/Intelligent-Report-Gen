@@ -1,183 +1,183 @@
 <template>
   <section class="page">
     <header class="toolbar">
-      <h2>Organization Management</h2>
-      <el-button type="primary" :loading="loading" @click="loadDirectory">Refresh organization tree</el-button>
+      <h2>组织管理</h2>
+      <el-button type="primary" :loading="loading" @click="loadDirectory">刷新组织树</el-button>
     </header>
 
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <el-alert v-if="message" :title="message" type="success" :closable="false" />
 
     <section class="forms">
-      <form class="form-panel" aria-label="Create organization unit form" @submit.prevent="submitUnit">
-        <h3>Create Organization Unit</h3>
+      <form class="form-panel" aria-label="创建组织单元表单" @submit.prevent="submitUnit">
+        <h3>创建组织单元</h3>
         <label>
-          Code
-          <el-input v-model="unitForm.code" aria-label="Organization unit code" />
+          编码
+          <el-input v-model="unitForm.code" aria-label="组织单元编码" />
         </label>
         <label>
-          Name
-          <el-input v-model="unitForm.name" aria-label="Organization unit name" />
+          名称
+          <el-input v-model="unitForm.name" aria-label="组织单元名称" />
         </label>
         <label>
-          Parent ID
-          <el-input v-model="unitForm.parentId" aria-label="Organization unit parent id" />
+          上级组织编号
+          <el-input v-model="unitForm.parentId" aria-label="上级组织编号" />
         </label>
         <label>
-          Unit type
-          <el-input v-model="unitForm.unitType" aria-label="Organization unit type" />
+          组织类型
+          <el-input v-model="unitForm.unitType" aria-label="组织类型" />
         </label>
         <label>
-          Sort order
-          <el-input v-model="unitForm.sortOrder" aria-label="Organization unit sort order" />
+          排序号
+          <el-input v-model="unitForm.sortOrder" aria-label="组织单元排序号" />
         </label>
-        <el-button native-type="submit" type="primary" :loading="savingUnit">Create organization unit</el-button>
+        <el-button native-type="submit" type="primary" :loading="savingUnit">创建组织单元</el-button>
       </form>
 
-      <form class="form-panel" aria-label="Update organization unit form" @submit.prevent="submitUpdateUnit">
-        <h3>Update Organization Unit</h3>
+      <form class="form-panel" aria-label="更新组织单元表单" @submit.prevent="submitUpdateUnit">
+        <h3>更新组织单元</h3>
         <label>
-          Unit ID
-          <el-input v-model="updateUnitForm.unitId" aria-label="Update organization unit id" />
+          组织单元编号
+          <el-input v-model="updateUnitForm.unitId" aria-label="更新组织单元编号" />
         </label>
         <label>
-          Name
-          <el-input v-model="updateUnitForm.name" aria-label="Update organization unit name" />
+          名称
+          <el-input v-model="updateUnitForm.name" aria-label="更新组织单元名称" />
         </label>
         <label>
-          Parent ID
-          <el-input v-model="updateUnitForm.parentId" aria-label="Update organization unit parent id" />
+          上级组织编号
+          <el-input v-model="updateUnitForm.parentId" aria-label="更新上级组织编号" />
         </label>
         <label>
-          Unit type
-          <el-input v-model="updateUnitForm.unitType" aria-label="Update organization unit type" />
+          组织类型
+          <el-input v-model="updateUnitForm.unitType" aria-label="更新组织类型" />
         </label>
         <label>
-          Sort order
-          <el-input v-model="updateUnitForm.sortOrder" aria-label="Update organization unit sort order" />
+          排序号
+          <el-input v-model="updateUnitForm.sortOrder" aria-label="更新组织单元排序号" />
         </label>
-        <el-button native-type="submit" type="primary" :loading="updatingUnit">Update organization unit</el-button>
+        <el-button native-type="submit" type="primary" :loading="updatingUnit">更新组织单元</el-button>
       </form>
 
-      <form class="form-panel" aria-label="Create organization position form" @submit.prevent="submitPosition">
-        <h3>Create Organization Position</h3>
+      <form class="form-panel" aria-label="创建岗位表单" @submit.prevent="submitPosition">
+        <h3>创建岗位</h3>
         <label>
-          Organization unit ID
-          <el-input v-model="positionForm.organizationUnitId" aria-label="Position organization unit id" />
+          所属组织单元编号
+          <el-input v-model="positionForm.organizationUnitId" aria-label="岗位所属组织单元编号" />
         </label>
         <label>
-          Code
-          <el-input v-model="positionForm.code" aria-label="Position code" />
+          岗位编码
+          <el-input v-model="positionForm.code" aria-label="岗位编码" />
         </label>
         <label>
-          Name
-          <el-input v-model="positionForm.name" aria-label="Position name" />
+          岗位名称
+          <el-input v-model="positionForm.name" aria-label="岗位名称" />
         </label>
         <label>
-          Roles
-          <el-input v-model="positionForm.roles" aria-label="Position roles" />
+          角色
+          <el-input v-model="positionForm.roles" aria-label="岗位角色" />
         </label>
         <label>
-          Manager user ID
-          <el-input v-model="positionForm.managerUserId" aria-label="Position manager user id" />
+          负责人用户编号
+          <el-input v-model="positionForm.managerUserId" aria-label="岗位负责人用户编号" />
         </label>
         <label>
-          Sort order
-          <el-input v-model="positionForm.sortOrder" aria-label="Position sort order" />
+          排序号
+          <el-input v-model="positionForm.sortOrder" aria-label="岗位排序号" />
         </label>
-        <el-button native-type="submit" type="primary" :loading="savingPosition">Create organization position</el-button>
+        <el-button native-type="submit" type="primary" :loading="savingPosition">创建岗位</el-button>
       </form>
 
-      <form class="form-panel" aria-label="Assign user to organization position form" @submit.prevent="submitAssignment">
-        <h3>Assign User To Position</h3>
+      <form class="form-panel" aria-label="分配用户岗位表单" @submit.prevent="submitAssignment">
+        <h3>分配用户岗位</h3>
         <label>
-          User
-          <select v-model="assignmentForm.userId" aria-label="Assignment user selector">
-            <option value="">Select user</option>
+          用户
+          <select v-model="assignmentForm.userId" aria-label="分配用户选择">
+            <option value="">选择用户</option>
             <option v-for="user in users" :key="user.userId" :value="String(user.userId)">
               {{ user.displayName }} / {{ user.username }} / {{ user.department || '-' }} / {{ user.position || '-' }}
             </option>
           </select>
         </label>
         <label>
-          User ID
-          <el-input v-model="assignmentForm.userId" aria-label="Assignment user id" />
+          用户编号
+          <el-input v-model="assignmentForm.userId" aria-label="分配用户编号" />
         </label>
         <label>
-          Position
-          <select v-model="assignmentForm.positionId" aria-label="Assignment position selector">
-            <option value="">Select position</option>
+          岗位
+          <select v-model="assignmentForm.positionId" aria-label="分配岗位选择">
+            <option value="">选择岗位</option>
             <option v-for="position in positionOptions" :key="position.positionId" :value="String(position.positionId)">
               {{ position.unitName }} / {{ position.code }} / {{ position.name }}
             </option>
           </select>
         </label>
         <label>
-          Position ID
-          <el-input v-model="assignmentForm.positionId" aria-label="Assignment position id" />
+          岗位编号
+          <el-input v-model="assignmentForm.positionId" aria-label="分配岗位编号" />
         </label>
         <label>
-          Active from
-          <el-input v-model="assignmentForm.activeFrom" type="datetime-local" aria-label="Assignment active from" />
+          生效开始
+          <el-input v-model="assignmentForm.activeFrom" type="datetime-local" aria-label="岗位分配生效开始" />
         </label>
         <label>
-          Active to
-          <el-input v-model="assignmentForm.activeTo" type="datetime-local" aria-label="Assignment active to" />
+          生效结束
+          <el-input v-model="assignmentForm.activeTo" type="datetime-local" aria-label="岗位分配生效结束" />
         </label>
-        <el-checkbox v-model="assignmentForm.primary" aria-label="Primary position assignment">Primary position</el-checkbox>
-        <el-button native-type="submit" type="primary" :loading="savingAssignment">Assign user to position</el-button>
+        <el-checkbox v-model="assignmentForm.primary" aria-label="主岗位分配">主岗位</el-checkbox>
+        <el-button native-type="submit" type="primary" :loading="savingAssignment">分配用户岗位</el-button>
       </form>
 
-      <form class="form-panel" aria-label="Batch import organization position assignments form" @submit.prevent="submitBatchAssignments">
-        <h3>Batch Import Position Assignments</h3>
+      <form class="form-panel" aria-label="批量导入岗位分配表单" @submit.prevent="submitBatchAssignments">
+        <h3>批量导入岗位分配</h3>
         <label>
-          Assignments
+          分配明细
           <el-input
             v-model="batchAssignmentText"
-            aria-label="Batch import position assignments"
+            aria-label="批量导入岗位分配"
             type="textarea"
             :rows="5"
             placeholder="userId,positionId,primary,activeFrom,activeTo"
           />
         </label>
-        <el-button native-type="submit" type="primary" :loading="batchImportingAssignments">Batch import position assignments</el-button>
+        <el-button native-type="submit" type="primary" :loading="batchImportingAssignments">批量导入岗位分配</el-button>
       </form>
 
-      <form class="form-panel" aria-label="Update organization position assignment form" @submit.prevent="submitUpdateAssignment">
-        <h3>Update Position Assignment</h3>
+      <form class="form-panel" aria-label="更新岗位分配表单" @submit.prevent="submitUpdateAssignment">
+        <h3>更新岗位分配</h3>
         <label>
-          Assignment ID
-          <el-input v-model="updateAssignmentForm.assignmentId" aria-label="Update assignment id" />
+          分配编号
+          <el-input v-model="updateAssignmentForm.assignmentId" aria-label="更新分配编号" />
         </label>
         <label>
-          Active from
-          <el-input v-model="updateAssignmentForm.activeFrom" type="datetime-local" aria-label="Update assignment active from" />
+          生效开始
+          <el-input v-model="updateAssignmentForm.activeFrom" type="datetime-local" aria-label="更新分配生效开始" />
         </label>
         <label>
-          Active to
-          <el-input v-model="updateAssignmentForm.activeTo" type="datetime-local" aria-label="Update assignment active to" />
+          生效结束
+          <el-input v-model="updateAssignmentForm.activeTo" type="datetime-local" aria-label="更新分配生效结束" />
         </label>
-        <el-checkbox v-model="updateAssignmentForm.primary" aria-label="Update primary position assignment">Primary position</el-checkbox>
-        <el-button native-type="submit" type="primary" :loading="updatingAssignment">Update position assignment</el-button>
+        <el-checkbox v-model="updateAssignmentForm.primary" aria-label="更新为主岗位">主岗位</el-checkbox>
+        <el-button native-type="submit" type="primary" :loading="updatingAssignment">更新岗位分配</el-button>
       </form>
 
-      <form class="form-panel" aria-label="Disable organization position assignment form" @submit.prevent="submitDisableAssignment">
-        <h3>Disable Position Assignment</h3>
+      <form class="form-panel" aria-label="停用岗位分配表单" @submit.prevent="submitDisableAssignment">
+        <h3>停用岗位分配</h3>
         <label>
-          Assignment ID
-          <el-input v-model="disableAssignmentForm.assignmentId" aria-label="Disable assignment id" />
+          分配编号
+          <el-input v-model="disableAssignmentForm.assignmentId" aria-label="停用分配编号" />
         </label>
         <label>
-          Reason
-          <el-input v-model="disableAssignmentForm.reason" aria-label="Disable assignment reason" />
+          停用原因
+          <el-input v-model="disableAssignmentForm.reason" aria-label="停用分配原因" />
         </label>
-        <el-button native-type="submit" type="danger" :loading="disablingAssignment">Disable position assignment</el-button>
+        <el-button native-type="submit" type="danger" :loading="disablingAssignment">停用岗位分配</el-button>
       </form>
     </section>
 
-    <section class="tree-panel" aria-label="Organization tree">
-      <h3>Organization Tree</h3>
-      <p v-if="organizationTree.length === 0" class="empty">No organization units yet.</p>
+    <section class="tree-panel" aria-label="组织树">
+      <h3>组织树</h3>
+      <p v-if="organizationTree.length === 0" class="empty">暂无组织单元</p>
       <ul v-else class="tree-list">
         <OrganizationNode v-for="node in organizationTree" :key="node.unitId" :node="node" />
       </ul>
@@ -194,6 +194,7 @@ import {
   type OrganizationDirectoryTreePosition,
   type OrganizationDirectoryUser
 } from '../../api/adminApi';
+import { isLocalPreviewUnauthorizedError } from '../../api/client';
 
 const OrganizationNode = defineComponent({
   name: 'OrganizationNode',
@@ -211,7 +212,7 @@ const OrganizationNode = defineComponent({
 
     const renderPosition = (position: OrganizationDirectoryTreePosition) =>
       h('li', { class: 'position-row', key: position.positionId }, [
-        h('div', `${position.code} / ${position.name} / roles ${position.roles.join(', ')} / manager ${position.managerUserId ?? '-'}`),
+        h('div', `${position.code} / ${position.name} / 角色 ${position.roles.join(', ')} / 负责人 ${position.managerUserId ?? '-'}`),
         position.users && position.users.length > 0
           ? h('ul', { class: 'assignment-list' }, position.users.map(renderUser))
           : null
@@ -307,7 +308,12 @@ async function loadDirectory() {
     organizationTree.value = directory.organizationTree ?? [];
     users.value = userPage.items.filter((user) => user.status === 'enabled');
   } catch (err) {
-    error.value = (err as Error).message || 'Failed to load organization directory';
+    if (isLocalPreviewUnauthorizedError(err)) {
+      organizationTree.value = [];
+      users.value = [];
+      return;
+    }
+    error.value = (err as Error).message || '组织目录加载失败';
   } finally {
     loading.value = false;
   }
@@ -331,7 +337,7 @@ async function submitUnit() {
   error.value = '';
   message.value = '';
   if (!unitForm.value.code.trim() || !unitForm.value.name.trim()) {
-    error.value = 'Organization unit code and name are required';
+    error.value = '组织单元编码和名称必填';
     return;
   }
   savingUnit.value = true;
@@ -344,11 +350,11 @@ async function submitUnit() {
       sortOrder: numberOrZero(unitForm.value.sortOrder)
     };
     const created = await adminApi.createOrganizationUnit(payload);
-    message.value = `Organization unit created: ${created.code}`;
+    message.value = `组织单元已创建：${created.code}`;
     unitForm.value = { code: '', name: '', parentId: '', unitType: 'department', sortOrder: '0' };
     await loadDirectory();
   } catch (err) {
-    error.value = (err as Error).message || 'Failed to create organization unit';
+    error.value = (err as Error).message || '组织单元创建失败';
   } finally {
     savingUnit.value = false;
   }
@@ -358,7 +364,7 @@ async function submitUpdateUnit() {
   error.value = '';
   message.value = '';
   if (!updateUnitForm.value.unitId.trim() || !updateUnitForm.value.name.trim()) {
-    error.value = 'Organization unit id and name are required';
+    error.value = '组织单元编号和名称必填';
     return;
   }
   updatingUnit.value = true;
@@ -370,11 +376,11 @@ async function submitUpdateUnit() {
       unitType: updateUnitForm.value.unitType.trim() || 'department',
       sortOrder: numberOrZero(updateUnitForm.value.sortOrder)
     });
-    message.value = `Organization unit updated: ${updated.code}`;
+    message.value = `组织单元已更新：${updated.code}`;
     updateUnitForm.value = { unitId: '', name: '', parentId: '', unitType: 'department', sortOrder: '0' };
     await loadDirectory();
   } catch (err) {
-    error.value = (err as Error).message || 'Failed to update organization unit';
+    error.value = (err as Error).message || '组织单元更新失败';
   } finally {
     updatingUnit.value = false;
   }
@@ -384,7 +390,7 @@ async function submitPosition() {
   error.value = '';
   message.value = '';
   if (!positionForm.value.organizationUnitId.trim() || !positionForm.value.code.trim() || !positionForm.value.name.trim()) {
-    error.value = 'Position organization unit id, code and name are required';
+    error.value = '岗位所属组织单元编号、岗位编码和岗位名称必填';
     return;
   }
   savingPosition.value = true;
@@ -400,11 +406,11 @@ async function submitPosition() {
       sortOrder: numberOrZero(positionForm.value.sortOrder)
     };
     const created = await adminApi.createOrganizationPosition(payload);
-    message.value = `Organization position created: ${created.code}`;
+    message.value = `岗位已创建：${created.code}`;
     positionForm.value = { organizationUnitId: '', code: '', name: '', roles: '', managerUserId: '', sortOrder: '0' };
     await loadDirectory();
   } catch (err) {
-    error.value = (err as Error).message || 'Failed to create organization position';
+    error.value = (err as Error).message || '岗位创建失败';
   } finally {
     savingPosition.value = false;
   }
@@ -414,7 +420,7 @@ async function submitAssignment() {
   error.value = '';
   message.value = '';
   if (!assignmentForm.value.userId.trim() || !assignmentForm.value.positionId.trim()) {
-    error.value = 'Assignment user id and position id are required';
+    error.value = '用户编号和岗位编号必填';
     return;
   }
   savingAssignment.value = true;
@@ -427,11 +433,11 @@ async function submitAssignment() {
       activeTo: optionalDateTime(assignmentForm.value.activeTo)
     };
     const created = await adminApi.assignUserToOrganizationPosition(payload);
-    message.value = `Position assignment created: user ${created.userId} -> position ${created.positionId}`;
+    message.value = `岗位分配已创建：用户 ${created.userId} -> 岗位 ${created.positionId}`;
     assignmentForm.value = { userId: '', positionId: '', activeFrom: '', activeTo: '', primary: false };
     await loadDirectory();
   } catch (err) {
-    error.value = (err as Error).message || 'Failed to assign user to position';
+    error.value = (err as Error).message || '用户岗位分配失败';
   } finally {
     savingAssignment.value = false;
   }
@@ -442,17 +448,17 @@ async function submitBatchAssignments() {
   message.value = '';
   const payload = parseBatchAssignments(batchAssignmentText.value);
   if (payload.assignments.length === 0) {
-    error.value = 'At least one position assignment row is required';
+    error.value = '至少需要一行岗位分配数据';
     return;
   }
   batchImportingAssignments.value = true;
   try {
     const result = await adminApi.batchImportOrganizationPositionAssignments(payload);
-    message.value = `Position assignments imported: ${result.imported} succeeded, ${result.failed} failed`;
+    message.value = `岗位分配导入完成：成功 ${result.imported} 条，失败 ${result.failed} 条`;
     batchAssignmentText.value = '';
     await loadDirectory();
   } catch (err) {
-    error.value = (err as Error).message || 'Failed to batch import position assignments';
+    error.value = (err as Error).message || '岗位分配批量导入失败';
   } finally {
     batchImportingAssignments.value = false;
   }
@@ -462,7 +468,7 @@ async function submitUpdateAssignment() {
   error.value = '';
   message.value = '';
   if (!updateAssignmentForm.value.assignmentId.trim()) {
-    error.value = 'Assignment id is required';
+    error.value = '分配编号必填';
     return;
   }
   updatingAssignment.value = true;
@@ -473,11 +479,11 @@ async function submitUpdateAssignment() {
       activeFrom: optionalDateTime(updateAssignmentForm.value.activeFrom),
       activeTo: optionalDateTime(updateAssignmentForm.value.activeTo)
     });
-    message.value = `Position assignment updated: ${updated.assignmentId}`;
+    message.value = `岗位分配已更新：${updated.assignmentId}`;
     updateAssignmentForm.value = { assignmentId: '', activeFrom: '', activeTo: '', primary: false };
     await loadDirectory();
   } catch (err) {
-    error.value = (err as Error).message || 'Failed to update position assignment';
+    error.value = (err as Error).message || '岗位分配更新失败';
   } finally {
     updatingAssignment.value = false;
   }
@@ -487,7 +493,7 @@ async function submitDisableAssignment() {
   error.value = '';
   message.value = '';
   if (!disableAssignmentForm.value.assignmentId.trim()) {
-    error.value = 'Assignment id is required';
+    error.value = '分配编号必填';
     return;
   }
   disablingAssignment.value = true;
@@ -496,11 +502,11 @@ async function submitDisableAssignment() {
     const disabled = await adminApi.disableOrganizationPositionAssignment(assignmentId, {
       reason: disableAssignmentForm.value.reason.trim() || undefined
     });
-    message.value = `Position assignment disabled: ${disabled.assignmentId}`;
+    message.value = `岗位分配已停用：${disabled.assignmentId}`;
     disableAssignmentForm.value = { assignmentId: '', reason: '' };
     await loadDirectory();
   } catch (err) {
-    error.value = (err as Error).message || 'Failed to disable position assignment';
+    error.value = (err as Error).message || '岗位分配停用失败';
   } finally {
     disablingAssignment.value = false;
   }

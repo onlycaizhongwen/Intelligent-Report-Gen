@@ -1,6 +1,141 @@
 ﻿import { expect, test } from '@playwright/test';
 
 test.describe('智能报告生成 E2E', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route('**/api/v1/enterprise-export-templates?**', async (route) => {
+      await route.fulfill({
+        json: {
+          code: 200,
+          message: 'ok',
+          data: { items: [], page: 1, pageSize: 20, total: 0 }
+        }
+      });
+    });
+  });
+
+  test('P0：全局导航按原型分组且不出现英文菜单项', async ({ page }) => {
+    await page.route('**/api/v1/report-templates', async (route) => {
+      await route.fulfill({ json: { code: 200, message: 'ok', data: [] } });
+    });
+
+    await page.goto('/reports/create');
+
+    await expect(page.getByText('报告中心')).toBeVisible();
+    await expect(page.getByText('管理中心')).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: '智能生成' })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: '模板填报' })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: '企业导出模板' })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: '审批委托' })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: '审批模板' })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: '组织管理' })).toBeVisible();
+    await expect(page.getByText('Enterprise export templates')).toHaveCount(0);
+    await expect(page.getByText('Approval delegates')).toHaveCount(0);
+    await expect(page.getByText('Approval templates')).toHaveCount(0);
+    await expect(page.getByText('Organization management')).toHaveCount(0);
+  });
+
+  test('P0：登录页使用独立认证布局且不展示业务侧边栏', async ({ page }) => {
+    await page.goto('/login');
+
+    await expect(page).toHaveURL(/\/login$/);
+    await expect(page.getByRole('heading', { name: '智能报告生成系统' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '进入统一登录' })).toBeVisible();
+    await expect(page.getByText('报告中心')).toHaveCount(0);
+    await expect(page.getByRole('menuitem', { name: '智能生成' })).toHaveCount(0);
+    await expect(page.getByRole('menuitem', { name: '组织管理' })).toHaveCount(0);
+  });
+
+  test('P0：本地预览点击统一登录进入系统而不是打开后端 JSON', async ({ page }) => {
+    let devLoginCalled = false;
+    await page.route('**/api/v1/auth/dev-login', async (route) => {
+      devLoginCalled = true;
+      await route.fulfill({
+        json: {
+          code: 200,
+          message: 'ok',
+          data: {
+            accessToken: 'dev-jwt-token',
+            userId: 1,
+            displayName: '本地开发管理员',
+            roles: ['system_admin'],
+            permissions: ['report:create']
+          }
+        }
+      });
+    });
+    await page.route('**/api/v1/report-templates', async (route) => {
+      await route.fulfill({ json: { code: 200, message: 'ok', data: [] } });
+    });
+    await page.goto('/login');
+
+    await page.getByRole('button', { name: '进入统一登录' }).click();
+
+    await expect(page).toHaveURL(/\/reports\/create/);
+    await expect.poll(() => devLoginCalled).toBe(true);
+    await expect.poll(() => page.evaluate(() => window.localStorage.getItem('accessToken'))).toBe('dev-jwt-token');
+    await expect(page.getByText('"code":401')).toHaveCount(0);
+    await expect(page.getByText('请登录后继续操作')).toHaveCount(0);
+  });
+
+  test('P0：本地预览降级登录后业务接口 401 不闪回登录页', async ({ page }) => {
+    const pageErrors: string[] = [];
+    page.on('pageerror', (error) => pageErrors.push(error.message));
+
+    await page.route('**/api/v1/auth/dev-login', async (route) => {
+      await route.fulfill({
+        status: 401,
+        json: { code: 401, message: '请登录后继续操作', data: null }
+      });
+    });
+    await page.route('**/api/v1/report-templates', async (route) => {
+      await route.fulfill({
+        status: 401,
+        json: { code: 401, message: '请登录后继续操作', data: null }
+      });
+    });
+
+    await page.goto('/login');
+    await page.getByRole('button', { name: '进入统一登录' }).click();
+
+    await expect(page).toHaveURL(/\/reports\/create/);
+    await page.waitForTimeout(500);
+    await expect(page).toHaveURL(/\/reports\/create/);
+    await expect.poll(() => page.evaluate(() => window.localStorage.getItem('authMode'))).toBe('local-preview');
+    await expect(page.getByText('请登录后继续操作')).toHaveCount(0);
+    expect(pageErrors).toEqual([]);
+  });
+
+  test('P0：报告生成页对齐原型三栏主流程并可完成演示生成闭环', async ({ page }) => {
+    await page.route('**/api/v1/report-templates', async (route) => {
+      await route.fulfill({ json: { code: 200, message: 'ok', data: [] } });
+    });
+    await page.route('**/api/v1/reports/generation-tasks', async (route) => {
+      await route.fulfill({ json: { code: 200, message: 'ok', data: { taskId: 'task-prototype-001', status: 'outline_generated' } } });
+    });
+
+    await page.goto('/reports/create');
+
+    await expect(page.getByText('AI 对话输入')).toBeVisible();
+    await expect(page.getByText('报告预览')).toBeVisible();
+    await expect(page.getByText('来源引用')).toBeVisible();
+    await expect(page.getByText('导出报告')).toBeVisible();
+    await expect(page.getByText('版本历史')).toBeVisible();
+
+    await page.getByPlaceholder('描述你的报告需求...').fill('生成 2026Q1 集团经营分析报告，关注收入、成本和回款风险');
+    await page.getByRole('button', { name: '发送生成需求' }).click();
+
+    await expect(page.getByText('任务 task-prototype-001 已生成大纲（大纲已生成）')).toBeVisible();
+    await expect(page.getByText('报告大纲预览')).toBeVisible();
+    await page.getByRole('button', { name: '确认，开始生成' }).click();
+
+    await expect(page.getByText('检索知识库')).toBeVisible();
+    await expect(page.getByText('分析数据')).toBeVisible();
+    await expect(page.getByText('生成报告', { exact: true })).toBeVisible();
+    await expect(page.getByText('报告生成完成')).toBeVisible();
+    await expect(page.getByRole('heading', { name: '2026Q1 集团经营分析报告' })).toBeVisible();
+    await expect(page.getByText('2026Q1 经营数据汇总表')).toBeVisible();
+  });
+
   test('REQ-REPORT-001：自然语言创建报告任务并进入大纲确认', async ({ page }) => {
     await page.route('**/api/v1/report-templates', async (route) => {
       await route.fulfill({ json: { code: 200, message: 'ok', data: [] } });
@@ -13,7 +148,7 @@ test.describe('智能报告生成 E2E', () => {
     await page.getByLabel(/报告主题|主题/).fill('生成本季度经营分析报告');
     await page.getByRole('button', { name: /生成|创建/ }).click();
 
-    await expect(page.getByText('task-001 outline_generated')).toBeVisible();
+    await expect(page.getByText('task-001 大纲已生成')).toBeVisible();
   });
 
   test('UC-02：模板填报按后端字段 schema 创建报告任务', async ({ page }) => {
@@ -54,7 +189,7 @@ test.describe('智能报告生成 E2E', () => {
     await page.getByRole('option', { name: '经营分析' }).click();
     await page.getByRole('button', { name: '按模板生成大纲' }).click();
 
-    await expect(page.getByText('template-task-001 outline_ready')).toBeVisible();
+    await expect(page.getByText('template-task-001 大纲待确认')).toBeVisible();
     expect(templatePayload).toMatchObject({
       templateId: 'enterprise-quarterly',
       payload: {
@@ -186,11 +321,11 @@ test.describe('智能报告生成 E2E', () => {
       format: 'pdf',
       templateId: 'enterprise-board',
       brand: {
-        companyName: 'Contoso Analytics',
+        companyName: '示例集团',
         logoObjectKey: 'branding/contoso-logo.png',
-        header: 'Confidential Board Report',
-        footer: 'Generated by Intelligent Report System',
-        fontFamily: 'Aptos',
+        header: '集团经营分析报告',
+        footer: '由智能报告生成系统生成',
+        fontFamily: 'Microsoft YaHei',
         primaryColor: '#1F4E79',
         layout: {
           coverTitle: 'Board Strategy Pack',
@@ -203,6 +338,48 @@ test.describe('智能报告生成 E2E', () => {
         }
       }
     });
+  });
+
+  test('P0：报告详情默认导出配置使用中文业务文案', async ({ page }) => {
+    await page.route('**/api/v1/reports/88', async (route) => {
+      await route.fulfill({
+        json: {
+          code: 200,
+          message: 'ok',
+          data: {
+            reportId: '88',
+            title: '季度经营分析报告',
+            status: 'completed',
+            currentVersionId: '21',
+            sections: [{ sectionId: 's1', heading: '经营概览', content: '收入保持增长。' }]
+          }
+        }
+      });
+    });
+    await page.route('**/api/v1/reports/88/versions', async (route) => {
+      await route.fulfill({ json: { code: 200, message: 'ok', data: [] } });
+    });
+    await page.route('**/api/v1/enterprise-export-templates?**', async (route) => {
+      await route.fulfill({
+        json: {
+          code: 200,
+          message: 'ok',
+          data: { items: [], page: 1, pageSize: 20, total: 0 }
+        }
+      });
+    });
+
+    await page.goto('/reports/88');
+
+    await expect(page.getByLabel('模板编码')).toBeVisible();
+    await expect(page.getByLabel('标识对象键')).toBeVisible();
+    await expect(page.getByLabel('指派用户编号')).toBeVisible();
+    await expect(page.getByRole('textbox', { name: '页眉', exact: true })).toHaveValue('集团经营分析报告');
+    await expect(page.getByRole('textbox', { name: '页脚', exact: true })).toHaveValue('由智能报告生成系统生成');
+    await expect(page.getByLabel('目录标题')).toHaveValue('目录');
+    await expect(page.getByText('暂无版本数据')).toBeVisible();
+    const visibleText = await page.locator('body').innerText();
+    expect(visibleText).not.toMatch(/Confidential Board Report|Generated by Intelligent Report System|Table of Contents|Version |No Data|Logo 对象键|模板 ID|指派用户 ID/);
   });
 
   test('REQ-REPORT-004：报告详情可选择已治理企业导出模板并复用后端品牌快照', async ({ page }) => {
@@ -299,7 +476,7 @@ test.describe('智能报告生成 E2E', () => {
     await page.goto('/reports/88');
     await page.locator('select[aria-label="已治理企业模板"]').selectOption('managed-board');
     await expect(page.getByText('Managed Board Pack')).toBeVisible();
-    await expect(page.getByText('Version v3')).toBeVisible();
+    await expect(page.getByText('版本 v3')).toBeVisible();
     await page.getByRole('button', { name: /PDF/ }).click();
     await page.getByRole('button', { name: '导出文件' }).click();
 
@@ -593,7 +770,7 @@ test.describe('智能报告生成 E2E', () => {
 
     await expect(page.getByText('已选中：回款风险')).toBeVisible();
     await page.getByLabel('批注意见').fill('请财务同事核对回款风险');
-    await page.getByLabel('指派用户 ID').fill('user-finance');
+    await page.getByLabel('指派用户编号').fill('user-finance');
     await page.getByRole('button', { name: '提交批注任务' }).click();
 
     await expect(page.getByText('批注已提交，任务：task-collab-001')).toBeVisible();
@@ -681,7 +858,7 @@ test.describe('智能报告生成 E2E', () => {
     await page.getByRole('button', { name: '创建分享链接' }).click();
 
     await expect(page.getByText('/share/share-token-501')).toBeVisible();
-    await expect(page.getByText('状态：active')).toBeVisible();
+    await expect(page.getByText('状态：生效中')).toBeVisible();
     expect(sharePayload).toMatchObject({
       password: 'ExternalPass#1',
       allowDownload: true,
@@ -700,7 +877,7 @@ test.describe('智能报告生成 E2E', () => {
     await page.getByRole('button', { name: '撤销分享链接' }).click();
 
     await expect.poll(() => revokeCalled).toBe(true);
-    await expect(page.getByText('状态：revoked')).toBeVisible();
+    await expect(page.getByText('状态：已撤销')).toBeVisible();
     await expect(page.getByText('分享链接已撤销')).toBeVisible();
   });
 });
